@@ -1,0 +1,12 @@
+{% if chat %}
+<h4 style="margin-bottom:.25rem">{{ chat.p.nombres }} {{ chat.p.apellidos }}
+  {% if not chat.p.acepta_mensajes %}<small>· dado de baja</small>{% endif %}</h4>
+<div class="chat" hx-get="/simulador/burbujas/{{ chat.p.id }}" hx-trigger="every 4s" hx-swap="innerHTML">
+{% include "_burbujas.html" %}
+</div>
+<form method="post" action="/simulador/texto" style="display:flex;gap:.5rem;margin-top:.5rem">
+  <input type="hidden" name="paciente" value="{{ chat.p.id }}">
+  <input name="texto" placeholder="Escribe un mensaje de texto libre (prueba BAJA)…" style="margin:0" required>
+  <button style="width:auto;margin:0">Enviar</button>
+</form>
+{% endif %}

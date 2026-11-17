@@ -1,0 +1,18 @@
+{% for m in chat.msgs %}
+    <div class="burbuja {{ m.direccion }}">
+      {{ m.texto|linkify }}
+      {% if m.direccion == 'saliente' and m.botones %}
+        <div class="botones">
+          {% for b in m.botones %}
+            <form method="post" action="/simulador/boton" style="margin:0">
+              <input type="hidden" name="paciente" value="{{ chat.p.id }}">
+              <button name="boton" value="{{ b.id }}" {% if m.respuesta %}disabled{% endif %}>{% if m.tipo == 'lista' %}◦ {% endif %}{{ b.title }}</button>
+            </form>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <small>{{ m.momento|local|hora }}</small>
+    </div>
+  {% else %}
+    <p style="text-align:center;color:#667781">Aún no hay mensajes.</p>
+  {% endfor %}

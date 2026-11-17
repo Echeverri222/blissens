@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulador de WhatsApp · Estud-IA</title>
+  <link rel="stylesheet" href="/static/pico.min.css">
+  <script src="/static/htmx.min.js"></script>
+  <style>
+    :root { --pico-primary: #0e8a7d; --pico-primary-background: #0e8a7d; }
+    body { background: #efeae2; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; padding: 1rem; max-width: 1100px; margin: auto; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+    .lista a { display: block; padding: .5rem .75rem; border-radius: .5rem; text-decoration: none; color: inherit; }
+    .lista a.sel { background: #d9fdd3; }
+    .chat { background: #efeae2; min-height: 60vh; max-height: 65vh; overflow-y: auto; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
+    .burbuja { max-width: 80%; padding: .5rem .75rem; border-radius: .6rem; box-shadow: 0 1px 1px rgba(0,0,0,.12); white-space: pre-wrap; }
+    .saliente { background: #fff; align-self: flex-start; }
+    .entrante { background: #d9fdd3; align-self: flex-end; }
+    .burbuja small { display: block; color: #667781; font-size: .7rem; margin-top: .25rem; }
+    .botones { display: flex; flex-direction: column; gap: .25rem; margin-top: .5rem; }
+    .botones button { margin: 0; padding: .35rem .6rem; background: #fff; color: #0e8a7d; border: 1px solid #0e8a7d; font-size: .9rem; }
+    .reloj { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+    .reloj button { width: auto; margin: 0; padding: .3rem .7rem; font-size: .85rem; }
+    header.top { background: #fff; padding: .75rem 1rem; border-radius: .5rem; margin: 1rem; max-width: 1100px; margin-inline: auto; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <strong>Simulador de WhatsApp</strong> · Hora del sistema:
+    <strong>{{ ahora|fecha_hora }}</strong> {% if demo %}<small>(modo demo)</small>{% endif %}
+    <form method="post" action="/simulador/reloj" class="reloj" style="margin-top:.5rem">
+      <input type="hidden" name="paciente" value="{{ sel or '' }}">
+      <button name="accion" value="1h">+1 hora</button>
+      <button name="accion" value="1d">+1 día</button>
+      <button name="accion" value="3d">+3 días</button>
+      <button name="accion" value="real" class="secondary">Hora real</button>
+      {% if chat and chat.citas %}
+        <select name="cita" style="width:auto;margin:0;padding:.3rem 1.8rem .3rem .5rem">
+          {% for c in chat.citas %}<option value="{{ c.id }}">Cita {{ c.rango.lower|local|fecha }} {{ c.rango.lower|local|hora }}</option>{% endfor %}
+        </select>
+        <button name="accion" value="48h">Saltar a 48 h antes</button>
+        <button name="accion" value="24h">Saltar a 24 h antes</button>
+      {% endif %}
+    </form>
+  </header>
+  <div class="layout">
+    <aside>
+      <form method="get" action="/simulador"><input name="q" placeholder="Buscar paciente…" value="{{ q }}"></form>
+      <nav class="lista">
+        {% for p in pacientes %}
+          <a href="/simulador?paciente={{ p.id }}&q={{ q }}" class="{{ 'sel' if p.id == sel else '' }}">
+            {{ p.nombres }} {{ p.apellidos }} <small>{% if p.n %}· {{ p.n }} msj{% endif %}</small></a>
+        {% endfor %}
+      </nav>
+    </aside>
+    <section id="conversacion">
+      {% include "_chat.html" %}
+    </section>
+  </div>
+</body>
+</html>

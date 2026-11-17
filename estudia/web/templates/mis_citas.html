@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Hola, {{ p.nombres.split()[0]|title }}</h1>
+{% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
+<h2>Mis próximas citas</h2>
+{% for c in citas %}
+  <article class="cita">
+    <strong>{{ c.rango.lower|local|fecha if c.rango else c.dia|fecha }}{% if c.rango %} · {{ c.rango.lower|local|hora }}{% endif %}</strong><br>
+    {{ c.profesional }} · {{ c.servicio }}<br>
+    <small class="muted">Estado: {{ c.estado.replace('_', ' ') }}</small>
+    <div class="acciones" style="margin-top:.75rem">
+      <a role="button" class="outline" href="/p/{{ token }}/cambiar/{{ c.id }}">Cambiar fecha</a>
+      <a role="button" class="outline secondary" href="/p/{{ token }}/cancelar/{{ c.id }}">Cancelar</a>
+    </div>
+  </article>
+{% else %}
+  <p>No tienes citas próximas.</p>
+{% endfor %}
+<a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>
+{% endblock %}

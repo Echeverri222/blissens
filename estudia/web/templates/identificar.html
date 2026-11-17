@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Agenda tu cita</h1>
+<p>Sin cuentas ni instalaciones. Solo necesitamos tu documento y tu celular.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/agendar/identificar">
+  <label>Documento de identidad
+    <input name="documento" inputmode="numeric" required value="{{ values.documento or '' }}" {% if nuevo %}readonly{% endif %}>
+  </label>
+  <label>Celular
+    <input name="celular" inputmode="tel" placeholder="3001234567" required value="{{ values.celular or '' }}" {% if nuevo %}readonly{% endif %}>
+  </label>
+  {% if nuevo %}
+    <p><strong>Parece que es tu primera vez.</strong> Cuéntanos tu nombre para registrarte.</p>
+    <label>Nombres <input name="nombres" required value="{{ values.nombres or '' }}"></label>
+    <label>Apellidos <input name="apellidos" value="{{ values.apellidos or '' }}"></label>
+    <label><input type="checkbox" name="consentimiento" value="1">
+      Autorizo a Blissens Odontología a tratar mis datos personales para gestionar mis citas y enviarme mensajes
+      sobre ellas (Ley 1581 de 2012). Puedo pedir la baja respondiendo BAJA.</label>
+  {% endif %}
+  <button type="submit">{% if nuevo %}Registrarme y continuar{% else %}Continuar{% endif %}</button>
+</form>
+{% endblock %}

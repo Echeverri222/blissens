@@ -1,0 +1,19 @@
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if not slots %}<p>No hay espacios disponibles por ahora para esa combinación. Prueba con otro profesional.</p>{% endif %}
+{% for day, times in slots.items() %}
+  {% if loop.index <= 14 %}
+  <p class="slot-day">{{ day|fecha|capitalize }}</p>
+  <div class="slots">
+    {% for t in times %}
+      <form hx-post="{% if modo == 'cambiar' %}/p/{{ token }}/cambiar/{{ cita }}{% else %}/p/{{ token }}/agendar{% endif %}"
+            hx-target="#espacios" style="margin:0">
+        <input type="hidden" name="servicio" value="{{ sid }}">
+        <input type="hidden" name="profesional" value="{{ pid }}">
+        <input type="hidden" name="inicio" value="{{ t.isoformat() }}">
+        <button type="submit" class="outline">{{ t|hora }}</button>
+      </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endfor %}
+{% if slots|length > 14 %}<p><small class="muted">Mostrando las próximas dos semanas.</small></p>{% endif %}

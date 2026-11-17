@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Blissens · Agenda tu cita{% endblock %}</title>
+  <link rel="stylesheet" href="/static/pico.min.css">
+  <script src="/static/htmx.min.js"></script>
+  <style>
+    :root { --pico-primary: #0e8a7d; --pico-primary-background: #0e8a7d; --pico-primary-hover-background: #0b6f65; }
+    main.container { max-width: 640px; padding-top: 1.5rem; }
+    .brand { font-weight: 700; color: var(--pico-primary); letter-spacing: .02em; }
+    .slot-day { margin: 1rem 0 .25rem; font-weight: 600; }
+    .slots { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .slots button { width: auto; margin: 0; padding: .45rem .9rem; }
+    .aviso { background: #e6f6f3; color: #0b6f65; padding: .75rem 1rem; border-radius: .5rem; }
+    .error { background: #fdecec; color: #a12727; padding: .75rem 1rem; border-radius: .5rem; }
+    .cita { border: 1px solid var(--pico-muted-border-color); border-radius: .75rem; padding: 1rem; margin-bottom: 1rem; }
+    .acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .acciones a[role=button] { width: auto; margin: 0; }
+    small.muted { color: var(--pico-muted-color); }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <p class="brand">Blissens Odontología</p>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

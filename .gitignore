@@ -1,1 +1,10 @@
 .DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.logs/
+# Datos reales de pacientes: nunca se versionan
+datos_reales/*
+!datos_reales/.gitkeep
