@@ -18,10 +18,18 @@ def _minutes_available(conn, pro_id: int, day: date) -> int:
                           (pro_id, day.weekday())).fetchall():
         a, b = _local(day, w["desde"]), _local(day, w["hasta"])
         minutes = (b - a).total_seconds() / 60
-        for bl in blocks:
-            lo, hi = max(a, bl.lower), min(b, bl.upper)
-            if hi > lo:
-                minutes -= (hi - lo).total_seconds() / 60
+        # Unión de bloqueos: el tiempo compartido por dos bloqueos solapados se resta una sola vez.
+        spans = sorted((max(a, bl.lower), min(b, bl.upper)) for bl in blocks if min(b, bl.upper) > max(a, bl.lower))
+        cur_lo = cur_hi = None
+        for lo, hi in spans:
+            if cur_hi is None or lo > cur_hi:
+                if cur_hi is not None:
+                    minutes -= (cur_hi - cur_lo).total_seconds() / 60
+                cur_lo, cur_hi = lo, hi
+            else:
+                cur_hi = max(cur_hi, hi)
+        if cur_hi is not None:
+            minutes -= (cur_hi - cur_lo).total_seconds() / 60
         total += max(0, minutes)
     return int(total)
 
@@ -84,6 +92,16 @@ def close_day(conn, day: date) -> None:
             "cupos_ocupados_oferta, cupos_ocupados_agendamiento, cupos_vacios) values (%s,%s,%s,%s,%s,%s,%s)",
             (day, p["id"], _minutes_available(conn, p["id"], day), slot["lib"], slot["oferta"], slot["agend"],
              slot["vacios"]))
+
+
+def close_all(conn) -> dict:
+    """Cierre de todo el historial hasta hoy (idempotente). Es lo que ejecutan `make cierre` y la API."""
+    first = conn.execute("select min(dia) as d from cita").fetchone()["d"]
+    today = clock.now(conn).date()
+    n = close_range(conn, first, today) if first else 0
+    if first:
+        config.set_(conn, "ultimo_diario", today.isoformat())
+    return {"dias": n, "desde": first, "hasta": today if first else None}
 
 
 def close_range(conn, desde: date, hasta: date) -> int:
@@ -165,6 +183,17 @@ def trend(conn, filters: dict) -> list[dict]:
              "inasistencia": _ratio(r["no_asistio"], r["atendidas"] + r["no_asistio"])} for r in rows]
 
 
+def weekly_trend(conn, filters: dict) -> list[dict]:
+    """Tendencia agrupada por semana (lunes) con la inasistencia recalculada sobre la suma semanal."""
+    out: dict[date, dict] = {}
+    for r in trend(conn, filters):
+        monday = r["fecha"] - timedelta(days=r["fecha"].weekday())
+        w = out.setdefault(monday, {"fecha": monday, "citas": 0, "atendidas": 0, "no_asistio": 0})
+        for k in ("citas", "atendidas", "no_asistio"):
+            w[k] += r[k]
+    return [{**w, "inasistencia": _ratio(w["no_asistio"], w["atendidas"] + w["no_asistio"])} for w in out.values()]
+
+
 def reasons(conn, filters: dict) -> list[dict]:
     w, p = _where(filters)
     total: Counter = Counter()
@@ -211,11 +240,8 @@ def time_between_patient(conn, filters: dict) -> float | None:
 if __name__ == "__main__":
     # `make cierre`: consolida todo el historial hasta hoy (idempotente).
     with db.connect() as conn:
-        first = conn.execute("select min(dia) as d from cita").fetchone()["d"]
-        today = clock.now(conn).date()
-        if first:
-            n = close_range(conn, first, today)
-            config.set_(conn, "ultimo_diario", today.isoformat())
-            print(f"Cierre ejecutado: {n} días consolidados ({first} a {today}).")
+        r = close_all(conn)
+        if r["desde"]:
+            print(f"Cierre ejecutado: {r['dias']} días consolidados ({r['desde']} a {r['hasta']}).")
         else:
             print("No hay citas que consolidar.")

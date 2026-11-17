@@ -7,10 +7,11 @@ from datetime import date, datetime, time, timedelta
 import psycopg
 from faker import Faker
 
-from . import agenda, catalog, clock, config, db, followup, indicators, lifecycle, messaging, settings, tasks
+from . import (agenda, catalog, clock, config, db, followup, indicators, lifecycle, messaging, settings, tasks,
+               usuarios)
 from .agenda import rng
 
-TABLES = ["hecho_diario_profesional", "hecho_diario", "solicitud_contacto", "tarea_programada", "mensaje",
+TABLES = ["sesion", "usuario", "hecho_diario_profesional", "hecho_diario", "solicitud_contacto", "tarea_programada", "mensaje",
           "oferta_adelanto", "cupo_liberado", "intento", "caso_seguimiento", "cancelacion", "historial_estado",
           "cita", "tratamiento", "bloqueo", "horario_atencion", "paciente", "profesional", "servicio",
           "motivo_cancelacion", "plantilla", "configuracion"]
@@ -224,6 +225,7 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
     config.set_(conn, "ultimo_diario", today.isoformat())
     indicators.close_range(conn, today - timedelta(days=118), today - timedelta(days=1))
     n = {t: conn.execute(f"select count(*) as n from {t}").fetchone()["n"] for t in ("paciente", "cita", "mensaje")}
+    n["usuarios"] = usuarios.crear_demo(conn)
     return n
 
 
@@ -415,12 +417,19 @@ def importar(conn, folder=None) -> dict:
     return stats
 
 
+def _print_users(users: list[dict]) -> None:
+    print("\nUsuarios de demostración (solo con datos ficticios):")
+    for u in users:
+        print(f"  {u['usuario']:<16} {u['rol']:<13} contraseña: {u['clave']}")
+
+
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "seed"
     if cmd == "seed":
         with db.connect() as conn:
             n = seed(conn)
         print(f"Datos ficticios cargados: {n['paciente']} pacientes, {n['cita']} citas, {n['mensaje']} mensajes.")
+        _print_users(n["usuarios"])
     elif cmd == "reset":
         from . import migrate
         with db.connect() as conn:
@@ -429,6 +438,7 @@ def main() -> None:
         with db.connect() as conn:
             n = seed(conn)
         print(f"Base reconstruida desde cero: {n['paciente']} pacientes, {n['cita']} citas.")
+        _print_users(n["usuarios"])
     elif cmd == "importar":
         with db.connect() as conn:
             s = importar(conn)

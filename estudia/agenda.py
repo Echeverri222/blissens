@@ -16,6 +16,10 @@ class CannotRevert(Exception):
     pass
 
 
+class OutcomeTooEarly(Exception):
+    """El desenlace solo se registra desde la hora de inicio de la cita."""
+
+
 def rng(start: datetime, minutes: int) -> Range:
     return Range(start, start + timedelta(minutes=minutes), "[)")
 
@@ -78,7 +82,7 @@ def _schedule_reminders(conn, cita_id: int, start: datetime, now: datetime) -> N
 
 def book(conn, patient_id: int, professional_id: int, service_id: int, start: datetime, origin: str,
          actor: str, treatment_id: int | None = None, previous_id: int | None = None,
-         notify: bool = True) -> int:
+         notify: bool = True, user_id: int | None = None) -> int:
     """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces)."""
     from . import followup, messaging
 
@@ -100,7 +104,7 @@ def book(conn, patient_id: int, professional_id: int, service_id: int, start: da
         raise SlotTaken("Ese espacio ya no está disponible") from None
     cid = row["id"]
     lifecycle.record_birth(conn, cid, estado, actor,
-                           "Agendar con menos de 24 h equivale a confirmar" if born_confirmed else "")
+                           "Agendar con menos de 24 h equivale a confirmar" if born_confirmed else "", user_id)
     _schedule_reminders(conn, cid, start, now)
     followup.resolve_on_booking(conn, patient_id, cid)
     if notify:
@@ -125,14 +129,14 @@ def hours_ahead(conn, cita) -> float:
 
 
 def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None = None, text: str | None = None,
-           defer_first_attempt: bool = False) -> int:
+           defer_first_attempt: bool = False, user_id: int | None = None) -> int:
     """Cancela una cita: registro de cancelación, cupo liberado y caso de seguimiento."""
     from . import followup, slots
 
     c = conn.execute("select * from cita where id=%s for update", (cita_id,)).fetchone()
     now = clock.now(conn)
     ahead = hours_ahead(conn, c) if c["rango"] else 0
-    lifecycle.transition(conn, cita_id, "cancelada", actor, f"Cancelación por {channel}")
+    lifecycle.transition(conn, cita_id, "cancelada", actor, f"Cancelación por {channel}", user_id=user_id)
     row = conn.execute(
         "insert into cancelacion(cita_id, motivo_id, texto_libre, canal, antelacion_horas, tardia, momento) "
         "values (%s,%s,%s,%s,%s,%s,%s) returning id",
@@ -152,7 +156,8 @@ def set_reason(conn, cancelacion_id: int, reason_id: int | None, text: str | Non
     conn.execute("update cancelacion set motivo_id=%s, texto_libre=%s where id=%s", (reason_id, text, cancelacion_id))
 
 
-def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str = "paciente") -> int:
+def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str = "paciente",
+               user_id: int | None = None) -> int:
     """Cambiar la fecha no edita la cita: la cierra como reprogramada y crea una nueva enlazada."""
     from . import slots
 
@@ -165,7 +170,7 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
     # El cupo propio no cuenta como ocupado al elegir un horario que se cruza con él.
     try:
         with conn.transaction():
-            lifecycle.transition(conn, cita_id, "reprogramada", actor, "Cambio de fecha")
+            lifecycle.transition(conn, cita_id, "reprogramada", actor, "Cambio de fecha", user_id=user_id)
             if new_start not in day_slots(conn, c["profesional_id"], c["servicio_id"], new_start.date(), now):
                 raise SlotTaken("Ese espacio ya no está disponible")
             conn.execute("update oferta_adelanto set estado='anulada', respondida_en=%s where cita_id=%s and estado='pendiente'",
@@ -178,7 +183,7 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
                  rng(new_start, dur), estado, origin, cita_id, now)).fetchone()["id"]
     except psycopg.errors.ExclusionViolation:
         raise SlotTaken("Ese espacio ya no está disponible") from None
-    lifecycle.record_birth(conn, new, estado, actor, f"Reemplaza la cita {cita_id}")
+    lifecycle.record_birth(conn, new, estado, actor, f"Reemplaza la cita {cita_id}", user_id)
     _schedule_reminders(conn, new, new_start, now)
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cambio_fecha")
@@ -187,17 +192,20 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
     return new
 
 
-def mark_outcome(conn, cita_id: int, outcome: str, actor: str = "auxiliar") -> None:
+def mark_outcome(conn, cita_id: int, outcome: str, actor: str = "auxiliar", user_id: int | None = None) -> None:
+    """Registra atendida / no asistió. Solo procede desde la hora de inicio de la cita."""
     from . import followup
 
     assert outcome in ("atendida", "no_asistio")
-    c = conn.execute("select paciente_id from cita where id=%s", (cita_id,)).fetchone()
-    lifecycle.transition(conn, cita_id, outcome, actor, "Desenlace registrado")
+    c = conn.execute("select paciente_id, rango from cita where id=%s", (cita_id,)).fetchone()
+    if c is not None and c["rango"] is not None and clock.now(conn) < c["rango"].lower:
+        raise OutcomeTooEarly("Solo se puede registrar el desenlace desde la hora de inicio de la cita")
+    lifecycle.transition(conn, cita_id, outcome, actor, "Desenlace registrado", user_id=user_id)
     if outcome == "no_asistio":
         followup.open_case(conn, "inasistencia", c["paciente_id"], cita_id=cita_id)
 
 
-def revert(conn, historial_id: int, actor: str = "auxiliar") -> int:
+def revert(conn, historial_id: int, actor: str = "auxiliar", user_id: int | None = None) -> int:
     """Revertir es un evento nuevo que compensa al anterior; nunca borra historial (RNF-07)."""
     h = conn.execute("select * from historial_estado where id=%s", (historial_id,)).fetchone()
     if h is None or h["estado_anterior"] is None:
@@ -205,9 +213,14 @@ def revert(conn, historial_id: int, actor: str = "auxiliar") -> int:
     if conn.execute("select 1 from historial_estado where revierte_id=%s", (historial_id,)).fetchone():
         raise CannotRevert("Ese cambio ya fue revertido")
     cita_id, now = h["cita_id"], clock.now(conn)
-    current = conn.execute("select estado from cita where id=%s", (cita_id,)).fetchone()["estado"]
+    cita = conn.execute("select estado, profesional_id, rango from cita where id=%s", (cita_id,)).fetchone()
+    current = cita["estado"]
     if current != h["estado_nuevo"]:
         raise CannotRevert("La cita cambió después de ese movimiento; revierte primero el más reciente")
+    if h["estado_anterior"] in ALIVE and cita["rango"] is not None and conn.execute(
+            "select 1 from bloqueo where profesional_id=%s and rango && %s",
+            (cita["profesional_id"], cita["rango"])).fetchone():
+        raise CannotRevert("El rango original quedó bloqueado. Agenda al paciente en otro espacio.")
     try:
         with conn.transaction():
             if h["estado_nuevo"] == "reprogramada":
@@ -217,7 +230,7 @@ def revert(conn, historial_id: int, actor: str = "auxiliar") -> int:
                 if nueva is None:
                     raise CannotRevert("La cita que la reemplazó ya no está viva")
                 lifecycle.transition(conn, nueva["id"], "cancelada", actor, f"Reversión del movimiento {historial_id}",
-                                     revierte_id=None, force=True)
+                                     revierte_id=None, force=True, user_id=user_id)
                 conn.execute("update cupo_liberado set estado='anulado' where cita_origen_id=%s and estado in "
                              "('abierto','en_oferta')", (cita_id,))
                 conn.execute("update oferta_adelanto o set estado='anulada', respondida_en=%s from cupo_liberado c "
@@ -233,6 +246,42 @@ def revert(conn, historial_id: int, actor: str = "auxiliar") -> int:
                 conn.execute("update caso_seguimiento set estado='anulado', cerrado_en=%s where cita_id=%s and estado='abierto'",
                              (now, cita_id))
             return lifecycle.transition(conn, cita_id, h["estado_anterior"], actor,
-                                        f"Reversión del movimiento {historial_id}", revierte_id=historial_id, force=True)
+                                        f"Reversión del movimiento {historial_id}", revierte_id=historial_id, force=True,
+                                        user_id=user_id)
     except psycopg.errors.ExclusionViolation:
         raise CannotRevert("El rango original ya no está libre. Agenda al paciente en otro espacio.") from None
+
+
+def range_agenda(conn, desde: date, hasta: date, professional_id: int | None = None) -> dict:
+    """Agenda por rango de fechas (inclusive): citas, bloqueos, franjas del horario y cupos liberados abiertos."""
+    d0 = _local(desde, datetime.min.time())
+    d1 = _local(hasta, datetime.min.time()) + timedelta(days=1)
+    pro = (professional_id,) * 2
+    citas = conn.execute(
+        "select c.id, c.estado, c.dia, c.rango, c.profesional_id, pr.nombre as profesional, c.servicio_id, "
+        "s.nombre as servicio, c.paciente_id, p.nombres || ' ' || p.apellidos as paciente, p.celular "
+        "from cita c join profesional pr on pr.id=c.profesional_id join servicio s on s.id=c.servicio_id "
+        "join paciente p on p.id=c.paciente_id where c.dia between %s and %s and c.estado <> 'reprogramada' "
+        "and (%s::bigint is null or c.profesional_id=%s) order by c.dia, lower(c.rango), c.id",
+        (desde, hasta, *pro)).fetchall()
+    bloqueos = conn.execute(
+        "select b.id, b.profesional_id, b.rango, b.motivo, u.nombre as creado_por_nombre from bloqueo b "
+        "left join usuario u on u.id=b.creado_por where b.rango && tstzrange(%s,%s) "
+        "and (%s::bigint is null or b.profesional_id=%s) order by lower(b.rango), b.id", (d0, d1, *pro)).fetchall()
+    cupos = conn.execute(
+        "select id, profesional_id, rango, estado, causa from cupo_liberado where estado in ('abierto','en_oferta') "
+        "and rango && tstzrange(%s,%s) and (%s::bigint is null or profesional_id=%s) order by lower(rango)",
+        (d0, d1, *pro)).fetchall()
+    horarios = conn.execute(
+        "select profesional_id, dia_semana, desde, hasta from horario_atencion "
+        "where (%s::bigint is null or profesional_id=%s) order by profesional_id, dia_semana, desde", pro).fetchall()
+    franjas = []
+    day = desde
+    while day <= hasta:
+        for h in horarios:
+            if h["dia_semana"] == day.weekday():
+                franjas.append({"profesional_id": h["profesional_id"], "fecha": day,
+                                "inicio": _local(day, h["desde"]), "fin": _local(day, h["hasta"])})
+        day += timedelta(days=1)
+    return {"citas": [c for c in citas if c["rango"] is not None], "citas_sin_hora": [c for c in citas if c["rango"] is None],
+            "bloqueos": bloqueos, "cupos": cupos, "franjas": franjas}

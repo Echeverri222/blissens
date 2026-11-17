@@ -80,6 +80,21 @@ def tareas_fallidas(conn):
                         "order by ejecutar_en desc limit 50").fetchall()
 
 
+def mark_message_managed(conn, message_id: int) -> bool:
+    """Marca como gestionado un mensaje entrante. False si no existe."""
+    return conn.execute("update mensaje set gestionado=true where id=%s and direccion='entrante' returning id",
+                        (message_id,)).fetchone() is not None
+
+
+def mark_contact_managed(conn, request_id: int) -> bool:
+    return conn.execute("update solicitud_contacto set gestionada=true where id=%s returning id",
+                        (request_id,)).fetchone() is not None
+
+
+def pending_tasks(conn) -> int:
+    return conn.execute("select count(*) as n from tarea_programada where estado='pendiente'").fetchone()["n"]
+
+
 def find_patients(conn, q: str):
     like = f"%{q.strip()}%"
     return conn.execute(
@@ -96,8 +111,9 @@ def patient_record(conn, patient_id: int) -> dict:
             "where c.paciente_id=%s order by c.dia desc, lower(c.rango) desc", (patient_id,)).fetchall(),
         "historial": conn.execute(
             "select h.id, h.cita_id, h.estado_anterior, h.estado_nuevo, h.actor, h.detalle, h.momento, h.revierte_id, "
-            "exists(select 1 from historial_estado r where r.revierte_id=h.id) as revertido "
-            "from historial_estado h join cita c on c.id=h.cita_id where c.paciente_id=%s order by h.momento desc, h.id desc",
+            "u.nombre as usuario, exists(select 1 from historial_estado r where r.revierte_id=h.id) as revertido "
+            "from historial_estado h join cita c on c.id=h.cita_id left join usuario u on u.id=h.usuario_id "
+            "where c.paciente_id=%s order by h.momento desc, h.id desc",
             (patient_id,)).fetchall(),
         "casos": conn.execute(
             "select cs.*, (select json_agg(json_build_object('numero', i.numero, 'canal', i.canal, 'resultado', i.resultado, "

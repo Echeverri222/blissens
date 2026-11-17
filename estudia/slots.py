@@ -8,9 +8,13 @@ from . import clock, config, lifecycle, messaging, tasks
 from .lifecycle import ALIVE
 
 
-def register_slot(conn, professional_id: int, rango: Range, origin_cita_id: int | None, cause: str) -> int:
-    """Todo rango que queda libre se registra (para medirlo). Solo ofrece si falta más que la antelación mínima."""
+def register_slot(conn, professional_id: int, rango: Range, origin_cita_id: int | None, cause: str) -> int | None:
+    """Todo rango que queda libre se registra (para medirlo). Solo ofrece si falta más que la antelación mínima.
+
+    Un rango bloqueado no es un cupo: no se registra (devuelve None)."""
     now = clock.now(conn)
+    if conn.execute("select 1 from bloqueo where profesional_id=%s and rango && %s", (professional_id, rango)).fetchone():
+        return None
     cupo = conn.execute(
         "insert into cupo_liberado(profesional_id, rango, cita_origen_id, causa, creado_en) values (%s,%s,%s,%s,%s) "
         "returning id", (professional_id, rango, origin_cita_id, cause, now)).fetchone()["id"]

@@ -10,7 +10,7 @@ import plotly.express as px  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from estudia import (agenda, bandejas, clock, config, db, fmt, followup, indicators,  # noqa: E402
-                     messaging, tasks)
+                     pacientes)
 
 st.set_page_config(page_title="Estud-IA · Panel", page_icon="🦷", layout="wide")
 
@@ -28,10 +28,11 @@ def run(fn, *a, ok=None, **k):
     try:
         with db.connect() as c:
             fn(c, *a, **k)
-        if ok:
-            st.toast(ok)
     except Exception as e:  # el panel muestra el motivo en vez de caerse
         st.error(str(e))
+        return
+    if ok:
+        st.toast(ok)
     st.rerun()
 
 
@@ -121,7 +122,7 @@ elif page == "Bandejas":
             cols[1].write(f"“{r['texto']}”")
             cols[2].write(fh(r["momento"]))
             if cols[3].button("Resuelto", key=f"m{r['id']}"):
-                run(lambda c, i: c.execute("update mensaje set gestionado=true where id=%s", (i,)), r["id"])
+                run(bandejas.mark_message_managed, r["id"])
     with tabs[6]:
         st.subheader("Solicitudes de contacto")
         st.caption("Alguien intentó agendar con un documento ya registrado pero otro celular. Llámalo para validar.")
@@ -131,7 +132,7 @@ elif page == "Bandejas":
             cols[1].write(r["celular"])
             cols[2].write(r["nota"])
             if cols[3].button("Gestionada", key=f"c{r['id']}"):
-                run(lambda c, i: c.execute("update solicitud_contacto set gestionada=true where id=%s", (i,)), r["id"])
+                run(bandejas.mark_contact_managed, r["id"])
         st.subheader("Citas de pacientes dados de baja")
         st.caption("No reciben mensajes automáticos: gestiona estas citas a mano.")
         st.dataframe(pd.DataFrame([{"Cita": fh(r["inicio"]), "Paciente": r["paciente"], "Celular": r["celular"]}
@@ -153,14 +154,12 @@ elif page == "Agendar":
             doc, cel = d.text_input("Documento"), c.text_input("Celular")
             consent = st.checkbox("El paciente autoriza el tratamiento de sus datos")
             if st.form_submit_button("Crear paciente"):
-                from estudia.data import normalize_phone
-                if not (nombres and doc and consent):
-                    st.error("Faltan nombres, documento o el consentimiento.")
-                else:
+                try:
                     with db.connect() as cx:
-                        cx.execute("insert into paciente(nombres, apellidos, documento, celular, consentimiento_en) "
-                                   "values (%s,%s,%s,%s,%s)", (nombres, apellidos, doc, normalize_phone(cel), clock.now(cx)))
+                        pacientes.create(cx, nombres, apellidos, doc, cel, consent)
                     st.success("Paciente creado. Búscalo arriba para agendar.")
+                except (pacientes.DatosInvalidos, pacientes.DocumentoExistente) as e:
+                    st.error(str(e))
     s1, s2 = st.columns(2)
     sid = s1.selectbox("Servicio", list(services), format_func=lambda i: f"{services[i]['nombre']} ({services[i]['duracion_min']} min)")
     pid = s2.selectbox("Profesional", list(pros), format_func=lambda i: pros[i])
@@ -229,9 +228,7 @@ elif page == "Indicadores":
     st.caption(f"Último cierre diario: {last or 'nunca'}")
     if st.button("Ejecutar cierre ahora"):
         with db.connect() as cx:
-            first = cx.execute("select min(dia) as d from cita").fetchone()["d"]
-            if first:
-                indicators.close_range(cx, first, clock.now(cx).date())
+            indicators.close_all(cx)
         st.toast("Cierre ejecutado")
         st.rerun()
     c1, c2, c3 = st.columns(3)
@@ -256,10 +253,7 @@ elif page == "Indicadores":
                 f"{s['cupos_ocupados_agendamiento']} por agendamiento · {s['cupos_vacios']} vacíos", delta_color="off")
     tr = indicators.trend(conn, f)
     if tr:
-        df = pd.DataFrame(tr)
-        df["fecha"] = pd.to_datetime(df["fecha"])
-        wk = df.set_index("fecha").resample("W").sum(numeric_only=True).reset_index()
-        wk["inasistencia"] = wk["no_asistio"] / (wk["atendidas"] + wk["no_asistio"]).where(lambda x: x > 0)
+        wk = pd.DataFrame(indicators.weekly_trend(conn, f))
         st.plotly_chart(px.line(wk, x="fecha", y="inasistencia", markers=True, title="Inasistencia por semana"),
                         width="stretch")
     a, b = st.columns(2)

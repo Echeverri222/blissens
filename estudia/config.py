@@ -22,6 +22,9 @@ DEFAULTS = {
     "demo_mode": True,
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
+    "sesion_horas": 12,
+    "max_intentos_login": 5,
+    "bloqueo_login_min": 15,
 }
 
 

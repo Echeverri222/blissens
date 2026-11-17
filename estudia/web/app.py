@@ -11,10 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .. import agenda, clock, config, db, fmt, links, messaging, tasks
+from ..api import registrar_errores, router as api_router
 from ..lifecycle import ALIVE
 
 HERE = Path(__file__).parent
 app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas · Blissens Odontología")
+registrar_errores(app)
+app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 templates = Jinja2Templates(directory=HERE / "templates")
 templates.env.filters["fecha"] = fmt.fecha
@@ -32,16 +35,7 @@ def linkify(text: str):
 templates.env.filters["linkify"] = linkify
 
 
-def get_conn():
-    conn = db.connect()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+get_conn = db.request_conn
 
 
 def patient_from_token(conn, token: str) -> dict:

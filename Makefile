@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: setup dev test seed reset importar cierre db-up stop
+.PHONY: setup dev test seed reset importar cierre db-up stop usuario api-esquema
 
 db-up:
 	docker compose up -d --wait db
@@ -18,7 +18,7 @@ setup:
 
 dev: db-up
 	@mkdir -p .logs
-	@echo "Aplicación: http://localhost:8000/agendar | Simulador: http://localhost:8000/simulador | Panel: http://127.0.0.1:8501"
+	@echo "Aplicación: http://localhost:8000/agendar | Simulador: http://localhost:8000/simulador | Panel: http://127.0.0.1:8501 | API: http://localhost:8000/docs"
 	@trap 'kill 0' INT TERM EXIT; \
 	uv run uvicorn estudia.web.app:app --port 8000 --reload & \
 	uv run python -m estudia.worker & \
@@ -40,6 +40,12 @@ importar: db-up
 
 cierre: db-up
 	uv run python -m estudia.indicators
+
+usuario: db-up
+	@uv run python -m estudia.usuarios $(ARGS)
+
+api-esquema:
+	uv run python -m estudia.api.esquema
 
 stop:
 	docker compose stop db
