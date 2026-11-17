@@ -13,7 +13,7 @@ import secrets
 import sys
 from datetime import datetime, timedelta, timezone
 
-from . import config, db, settings
+from . import config, db, permisos, settings
 
 ROLES = ("auxiliar", "especialista")
 MIN_CLAVE = 8
@@ -198,6 +198,35 @@ def restablecer_clave(conn, nombre_usuario: str, clave: str, temporal: bool = Fa
     conn.execute("update usuario set clave_hash=%s, intentos_fallidos=0, bloqueado_hasta=null, debe_cambiar_clave=%s "
                  "where id=%s", (hash_clave(clave), temporal, a["usuario_id"]))
     _cerrar_sesiones_de(conn, a["usuario_id"])
+
+
+def clave_temporal() -> str:
+    """Contraseña temporal legible; quien la recibe debe cambiarla al primer ingreso."""
+    alfabeto = "abcdefghjkmnpqrstuvwxyz23456789"
+    return "-".join("".join(secrets.choice(alfabeto) for _ in range(4)) for _ in range(3))
+
+
+def nombre_de_acceso(conn, acceso_id: int) -> str:
+    r = conn.execute("select u.nombre_usuario from acceso a join usuario u on u.id=a.usuario_id where a.id=%s",
+                     (acceso_id,)).fetchone()
+    if r is None:
+        raise permisos.NoExiste("No existe ese usuario en este negocio")
+    return r["nombre_usuario"]
+
+
+def actualizar_acceso(conn, acceso_id: int, rol: str, profesional_id: int | None, administrador: bool) -> None:
+    a = conn.execute("select * from acceso where id=%s", (acceso_id,)).fetchone()
+    if a is None:
+        raise permisos.NoExiste("No existe ese usuario en este negocio")
+    _validar_acceso(conn, rol, profesional_id, acceso_id)
+    if a["administrador"] and a["activo"] and not administrador and _administradores_restantes(conn, acceso_id) == 0:
+        raise UltimoAdministrador("No se puede quitar el rol al último administrador")
+    conn.execute("update acceso set rol=%s, profesional_id=%s, administrador=%s where id=%s",
+                 (rol, profesional_id, administrador, acceso_id))
+
+
+def marcar_clave_temporal(conn, usuario_id: int) -> None:
+    conn.execute("update usuario set debe_cambiar_clave=true where id=%s", (usuario_id,))
 
 
 def _cerrar_sesiones_de(conn, usuario_id: int, excepto_huella: str = "") -> None:

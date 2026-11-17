@@ -265,3 +265,46 @@ describe("agenda", () => {
     await waitFor(() => expect(pedidos.at(-1)).toBe("?desde=2026-11-23&hasta=2026-11-29&profesional_id=1"));
   });
 });
+
+
+describe("negocios, clave temporal y administración", () => {
+  const OTRO = { id: 2, nombre_corto: "otra", nombre: "Otra Clínica", zona_horaria: "America/Bogota" };
+
+  it("con varios negocios y ninguno elegido, pide elegir y entra con el elegido", async () => {
+    const sin = { ...AUX, rol: null, negocio: null, negocios: [AUX.negocio!, OTRO] } as typeof AUX;
+    montar("/agenda", sin);
+    servidor.use(http.post(`${API}/sesion/negocio`, async ({ request }) => {
+      await registrar(request);
+      servidor.use(http.get(`${API}/sesion`, () => HttpResponse.json(AUX)));
+      return HttpResponse.json(AUX);
+    }));
+    await userEvent.click(await screen.findByRole("button", { name: "Blissens Odontología" }));
+    expect(await screen.findByRole("heading", { name: /Agenda/ })).toBeInTheDocument();
+    expect(enviadas.some((e) => e.ruta.endsWith("/sesion/negocio"))).toBe(true);
+  });
+
+  it("con contraseña temporal no deja usar nada hasta cambiarla", async () => {
+    montar("/pacientes", { ...AUX, debe_cambiar_clave: true });
+    expect(await screen.findByRole("heading", { name: "Elige tu contraseña" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pacientes" })).not.toBeInTheDocument();
+  });
+
+  it("solo los administradores ven Administración", async () => {
+    montar("/administracion", AUX);
+    expect(await screen.findByRole("heading", { name: /Agenda/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Administración/ })).not.toBeInTheDocument();
+  });
+
+  it("un administrador crea un usuario y ve la contraseña temporal una sola vez", async () => {
+    const usuario = { acceso_id: 9, id: 9, nombre_usuario: "nueva", nombre: "Nueva", rol: "auxiliar", activo: true, administrador: false, profesional_id: null, ultimo_acceso: null, bloqueado: false };
+    servidor.use(
+      http.get(`${API}/admin/usuarios`, () => HttpResponse.json([])),
+      http.post(`${API}/admin/usuarios`, async ({ request }) => { await registrar(request); return HttpResponse.json({ usuario, clave_temporal: "abcd-efgh-jkmn" }, { status: 201 }); }),
+    );
+    montar("/administracion", { ...AUX, administrador: true });
+    await userEvent.type(await screen.findByLabelText("Usuario"), "nueva");
+    await userEvent.type(screen.getByLabelText("Nombre visible"), "Nueva");
+    await userEvent.click(screen.getByRole("button", { name: "Crear con contraseña temporal" }));
+    expect(await screen.findByLabelText("Contraseña temporal")).toHaveTextContent("abcd-efgh-jkmn");
+  });
+});

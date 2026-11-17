@@ -3,8 +3,10 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { Agenda, CitaAgenda, CitaDetalle, Sesion } from "@/api/tipos";
 
-export const AUX: Sesion = { usuario: "recepcion", nombre: "Recepción", rol: "auxiliar", profesional_id: null, profesional: null, hora_sistema: "2026-11-16T10:30:00-05:00", modo_demo: true };
-export const ESP: Sesion = { usuario: "esp1", nombre: "Dra. Uno", rol: "especialista", profesional_id: 1, profesional: "Dra. Uno", hora_sistema: "2026-11-16T10:30:00-05:00", modo_demo: false };
+const BLISSENS = { id: 1, nombre_corto: "blissens", nombre: "Blissens Odontología", zona_horaria: "America/Bogota" };
+const NEG = { negocio: BLISSENS, negocios: [BLISSENS] };
+export const AUX: Sesion = { usuario: "recepcion", nombre: "Recepción", rol: "auxiliar", profesional_id: null, profesional: null, hora_sistema: "2026-11-16T10:30:00-05:00", modo_demo: true, ...NEG, administrador: false, debe_cambiar_clave: false, simulador: true };
+export const ESP: Sesion = { usuario: "esp1", nombre: "Dra. Uno", rol: "especialista", profesional_id: 1, profesional: "Dra. Uno", hora_sistema: "2026-11-16T10:30:00-05:00", modo_demo: false, ...NEG, administrador: false, debe_cambiar_clave: false, simulador: true };
 
 export const cita = (o: Partial<CitaAgenda> = {}): CitaAgenda => ({
   id: 10, estado: "programada", dia: "2026-11-16", inicio: "2026-11-16T09:00:00-05:00", fin: "2026-11-16T10:00:00-05:00", profesional_id: 1, profesional: "Dra. Uno",

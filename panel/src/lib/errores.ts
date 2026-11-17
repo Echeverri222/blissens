@@ -25,6 +25,10 @@ const TABLA: Record<string, Comportamiento> = {
   bloqueo_invalido: "mensaje_formulario",
   clave_invalida: "mensaje_formulario",
   documento_existente: "mensaje_formulario",
+  usuario_invalido: "mensaje_formulario",
+  ultimo_administrador: "recargar_dato",
+  clave_de_otro_negocio: "recargar_dato",
+  negocio_desconocido: "recargar_dato",
 };
 
 export const comportamientoDe = (codigo: string): Comportamiento => TABLA[codigo] ?? "generico";

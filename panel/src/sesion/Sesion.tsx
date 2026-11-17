@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, alNoAutenticado } from "@/api/cliente";
 import type { Rol, Sesion } from "@/api/tipos";
-import { ahoraSistema, fechaDe } from "@/lib/tiempo";
+import { ahoraSistema, fechaDe, usarZona } from "@/lib/tiempo";
 import { Cargando, ErrorVista } from "@/ui/vistas";
 
 const REFRESCO_MS = 60_000;
@@ -47,6 +47,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   useEffect(() => { const t = setInterval(() => setReloj(Date.now()), 30_000); return () => clearInterval(t); }, []);
 
   const sesion = q.data ?? null;
+  usarZona(sesion?.negocio?.zona_horaria ?? "America/Bogota"); // antes de pintar: toda hora se muestra en la zona del negocio
   const leidaEn = q.dataUpdatedAt;
   const ahora = useMemo(() => (sesion ? ahoraSistema(sesion.hora_sistema, leidaEn, Math.max(reloj, leidaEn)) : new Date(reloj)),
     [sesion, leidaEn, reloj]);
@@ -87,15 +88,34 @@ export const useEstadoSesion = () => useContext(Estado)!;
 
 export const inicioDelRol = (_rol: Rol) => "/agenda";
 
-/** Guarda de rutas por rol: sin sesión lleva a iniciar sesión y recuerda el origen; con otro rol, al inicio del rol. */
-export function RutaProtegida({ roles, children }: { roles?: Rol[]; children: ReactNode }) {
+/** El rol del acceso activo; solo existe dentro de rutas que ya exigieron un negocio elegido. */
+export function rolDe(s: Sesion): Rol {
+  if (!s.rol) throw new Error("La sesión no tiene un negocio activo");
+  return s.rol;
+}
+
+/** Guarda de rutas: sin sesión lleva a iniciar sesión; con clave temporal, a cambiarla; sin negocio elegido, a elegirlo;
+ *  con otro rol (o sin ser administrador), al inicio del rol. */
+export function RutaProtegida({ roles, administrador, children }: { roles?: Rol[]; administrador?: boolean; children: ReactNode }) {
   const e = useEstadoSesion();
   const v = useContext(Ctx);
   const loc = useLocation();
   if (e.cargando) return <Cargando pantalla />;
   if (e.error && !v) return <ErrorVista error={e.error} reintentar={e.reintentar} pantalla />;
   if (!v) return <Navigate to={`/ingresar?de=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  if (v.sesion.debe_cambiar_clave) return <Navigate to="/cambiar-clave" replace />;
+  if (!v.sesion.rol) return <Navigate to="/negocio" replace />;
   if (roles && !roles.includes(v.sesion.rol)) return <Navigate to={inicioDelRol(v.sesion.rol)} replace />;
+  if (administrador && !v.sesion.administrador) return <Navigate to={inicioDelRol(v.sesion.rol)} replace />;
+  return <>{children}</>;
+}
+
+/** Rutas que piden sesión pero no un negocio elegido (elegirlo, cambiar la clave temporal). */
+export function RutaSesion({ children }: { children: ReactNode }) {
+  const e = useEstadoSesion();
+  const v = useContext(Ctx);
+  if (e.cargando) return <Cargando pantalla />;
+  if (!v) return <Navigate to="/ingresar" replace />;
   return <>{children}</>;
 }
 

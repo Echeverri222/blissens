@@ -1,10 +1,17 @@
-// Todo se muestra y calcula en hora de Bogotá (UTC-5, sin horario de verano), sin importar la zona del navegador.
-const TZ = "America/Bogota";
-const DESFASE = "-05:00";
+// Todo se muestra y calcula en la zona horaria del negocio activo (Bogotá por defecto), sin importar la del navegador.
+let TZ = "America/Bogota";
 
-const partes = new Intl.DateTimeFormat("en-CA", {
-  timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+const formato = (zona: string) => new Intl.DateTimeFormat("en-CA", {
+  timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
 });
+let partes = formato(TZ);
+
+/** La sesión fija la zona del negocio activo. */
+export function usarZona(zona: string) {
+  if (zona === TZ) return;
+  TZ = zona;
+  partes = formato(zona);
+}
 
 function p(d: Date | string) {
   const o: Record<string, string> = {};
@@ -12,14 +19,28 @@ function p(d: Date | string) {
   return o;
 }
 
-/** "2026-11-16" en Bogotá. */
+/** Desfase de la zona en un instante, en minutos (positivo al este de UTC). */
+function desfaseMin(ms: number): number {
+  const t = new Intl.DateTimeFormat("en", { timeZone: TZ, timeZoneName: "longOffset" }).formatToParts(new Date(ms))
+    .find((x) => x.type === "timeZoneName")?.value ?? "GMT";
+  const m = /GMT([+-])(\d{2}):?(\d{2})?/.exec(t);
+  return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)) : 0;
+}
+
+/** "2026-11-16" en la zona del negocio. */
 export const fechaDe = (d: Date | string): string => { const o = p(d); return `${o.year}-${o.month}-${o.day}`; };
-/** "08:00" en Bogotá. */
+/** "08:00" en la zona del negocio. */
 export const horaDe = (d: Date | string): string => { const o = p(d); return `${o.hour}:${o.minute}`; };
 export const minutosDelDia = (d: Date | string): number => { const o = p(d); return Number(o.hour) * 60 + Number(o.minute); };
 
-/** Instante absoluto de una fecha y hora de Bogotá. */
-export const aIso = (fecha: string, hhmm: string): string => `${fecha}T${hhmm}:00${DESFASE}`;
+/** Instante absoluto (ISO con desfase) de una fecha y hora de la zona del negocio. */
+export const aIso = (fecha: string, hhmm: string): string => {
+  const ref = Date.parse(`${fecha}T${hhmm}:00Z`);
+  const d = desfaseMin(ref - desfaseMin(ref) * 60_000);
+  const signo = d < 0 ? "-" : "+";
+  const a = Math.abs(d);
+  return `${fecha}T${hhmm}:00${signo}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+};
 export const inicioDelDia = (fecha: string): number => Date.parse(aIso(fecha, "00:00"));
 
 const mediodia = (f: string) => new Date(`${f}T12:00:00Z`);

@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Activity, CalendarDays, ClipboardList, ExternalLink, KeyRound, LogOut, Menu, Settings, ShieldBan, Users, X } from "lucide-react";
+import { Activity, ArrowLeftRight, CalendarDays, ClipboardList, ExternalLink, KeyRound, LogOut, Menu, Settings, ShieldBan, UserCog, Users, X } from "lucide-react";
 import { api } from "@/api/cliente";
 import { useAccion, useConteoBandejas } from "@/api/consultas";
 import type { Rol } from "@/api/tipos";
 import { cn } from "@/lib/utils";
 import { fechaHora } from "@/lib/tiempo";
-import { useSesion } from "@/sesion/Sesion";
+import { rolDe, useSesion } from "@/sesion/Sesion";
 import { Aviso } from "@/ui/vistas";
 import { Boton, Entrada } from "@/ui/controles";
 import { ApiError } from "@/api/cliente";
@@ -29,12 +29,14 @@ export const SECCIONES: Record<Rol, Seccion[]> = {
   ],
 };
 
-function Enlaces({ rol, alNavegar, vertical }: { rol: Rol; alNavegar?: () => void; vertical?: boolean }) {
+const ADMINISTRACION: Seccion = { a: "/administracion", texto: "Administración", icono: UserCog };
+
+function Enlaces({ rol, administrador, alNavegar, vertical }: { rol: Rol; administrador?: boolean; alNavegar?: () => void; vertical?: boolean }) {
   const q = useConteoBandejas(rol === "auxiliar");
   const total = q.data ? Object.values(q.data).reduce((a, b) => a + b, 0) : 0;
   return (
     <>
-      {SECCIONES[rol].map(({ a, texto, icono: Icono, conteo }) => (
+      {[...SECCIONES[rol], ...(administrador ? [ADMINISTRACION] : [])].map(({ a, texto, icono: Icono, conteo }) => (
         <NavLink key={a} to={a} onClick={alNavegar}
           className={({ isActive }) => cn("relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
             vertical ? "flex-col gap-0.5 text-xs" : "", isActive ? "bg-white/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-white")}>
@@ -93,6 +95,10 @@ function MenuCuenta() {
       {abierto && (
         <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-56 rounded-xl border border-linea bg-papel p-1 shadow-lg">
           <div className="border-b border-linea px-3 py-2 text-sm sm:hidden"><b>{sesion.nombre}</b><br /><span className="text-tinta-suave">{sesion.rol === "auxiliar" ? "Recepción" : "Especialista"}</span></div>
+          {sesion.negocios.length > 1 && (
+            <Link role="menuitem" to="/negocio" onClick={() => setAbierto(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100">
+              <ArrowLeftRight className="size-4" aria-hidden /> Cambiar de negocio</Link>
+          )}
           <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100" onClick={() => { setAbierto(false); setClave(true); }}>
             <KeyRound className="size-4" aria-hidden /> Cambiar contraseña</button>
           <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100" onClick={() => void salir()}>
@@ -108,13 +114,15 @@ export function Layout(): ReactNode {
   const { sesion, ahora } = useSesion();
   const [menu, setMenu] = useState(false);
   const movil = useMediaQuery("(max-width: 767px)");
-  const esp = sesion.rol === "especialista";
+  const rol = rolDe(sesion);
+  const esp = rol === "especialista";
+  const marca = sesion.negocio?.nombre ?? "Estud-IA";
   return (
     <div className="flex min-h-dvh">
       <aside className="hidden w-60 shrink-0 flex-col bg-marca p-3 text-white md:flex">
-        <div className="px-3 py-4"><Distintivo /></div>
-        <nav aria-label="Secciones" className="mt-4 flex flex-col gap-1"><Enlaces rol={sesion.rol} /></nav>
-        {sesion.modo_demo && sesion.rol === "auxiliar" && (
+        <div className="px-3 py-4"><Distintivo nombre={marca} /></div>
+        <nav aria-label="Secciones" className="mt-4 flex flex-col gap-1"><Enlaces rol={rol} administrador={sesion.administrador} /></nav>
+        {sesion.simulador && rol === "auxiliar" && (
           <a href="/simulador" target="_blank" rel="noopener" className="mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-white">
             <ExternalLink className="size-4" aria-hidden /> Simulador de WhatsApp</a>
         )}
@@ -122,7 +130,7 @@ export function Layout(): ReactNode {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-linea bg-papel/95 px-4 py-2 backdrop-blur">
           {!esp && movil && <button aria-label="Abrir menú" onClick={() => setMenu(true)} className="rounded-md p-1.5 hover:bg-zinc-100 md:hidden"><Menu className="size-5" /></button>}
-          <div className="md:hidden"><Distintivo /></div>
+          <div className="md:hidden"><Distintivo nombre={marca} /></div>
           <div className="ml-auto flex items-center gap-3">
             <p className="text-right text-xs text-tinta-suave" aria-label="Hora del sistema">
               <span className="block">Hora del sistema</span><b className="text-sm text-tinta">{fechaHora(ahora)}</b></p>
@@ -133,7 +141,7 @@ export function Layout(): ReactNode {
         <main className={cn("flex-1 p-4 md:p-6", esp && "pb-24 md:pb-6")}><Outlet /></main>
       </div>
       {esp && (
-        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-30 flex justify-around bg-marca px-2 py-1.5 md:hidden"><Enlaces rol="especialista" vertical /></nav>
+        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-30 flex justify-around bg-marca px-2 py-1.5 md:hidden"><Enlaces rol="especialista" administrador={sesion.administrador} vertical /></nav>
       )}
       {!esp && (
         <Dialog.Root open={menu && movil} onOpenChange={setMenu}>
@@ -142,9 +150,9 @@ export function Layout(): ReactNode {
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-marca p-3 text-white">
               <Dialog.Title className="sr-only">Menú</Dialog.Title>
               <Dialog.Description className="sr-only">Secciones del panel</Dialog.Description>
-              <div className="flex items-center justify-between px-3 py-3"><Distintivo /><Dialog.Close aria-label="Cerrar menú"><X className="size-5" /></Dialog.Close></div>
-              <nav aria-label="Secciones" className="mt-2 flex flex-col gap-1"><Enlaces rol="auxiliar" alNavegar={() => setMenu(false)} /></nav>
-              {sesion.modo_demo && <a href="/simulador" target="_blank" rel="noopener" className="mt-auto flex items-center gap-2 px-3 py-2 text-sm text-zinc-300"><ExternalLink className="size-4" aria-hidden /> Simulador de WhatsApp</a>}
+              <div className="flex items-center justify-between px-3 py-3"><Distintivo nombre={marca} /><Dialog.Close aria-label="Cerrar menú"><X className="size-5" /></Dialog.Close></div>
+              <nav aria-label="Secciones" className="mt-2 flex flex-col gap-1"><Enlaces rol="auxiliar" administrador={sesion.administrador} alNavegar={() => setMenu(false)} /></nav>
+              {sesion.simulador && <a href="/simulador" target="_blank" rel="noopener" className="mt-auto flex items-center gap-2 px-3 py-2 text-sm text-zinc-300"><ExternalLink className="size-4" aria-hidden /> Simulador de WhatsApp</a>}
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

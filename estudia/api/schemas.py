@@ -511,3 +511,37 @@ class SistemaOut(Salida):
 
 
 Error.model_rebuild()
+
+
+# ----------------------------------------------------------------- administración
+
+class UsuarioAdmin(Salida):
+    acceso_id: int
+    id: int
+    nombre_usuario: str
+    nombre: str
+    rol: Literal["auxiliar", "especialista"]
+    activo: bool
+    administrador: bool
+    profesional_id: int | None
+    ultimo_acceso: Momento | None
+    bloqueado: bool
+
+
+class NuevoUsuario(Entrada):
+    usuario: str = Field(min_length=1, max_length=60)
+    nombre: str = Field(min_length=1, max_length=120)
+    rol: Literal["auxiliar", "especialista"]
+    profesional_id: int | None = None
+    administrador: bool = False
+
+
+class CambioAcceso(Entrada):
+    rol: Literal["auxiliar", "especialista"]
+    profesional_id: int | None = None
+    administrador: bool = False
+
+
+class UsuarioConClave(Salida):
+    usuario: UsuarioAdmin
+    clave_temporal: str | None = Field(description="Se muestra una sola vez; la persona debe cambiarla al ingresar")

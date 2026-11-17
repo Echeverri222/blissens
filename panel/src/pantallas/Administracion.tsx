@@ -1,0 +1,112 @@
+import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import * as Dialog from "@radix-ui/react-dialog";
+import { api, ApiError } from "@/api/cliente";
+import { useAccion, useProfesionales } from "@/api/consultas";
+import type { UsuarioAdmin } from "@/api/tipos";
+import { fechaHora } from "@/lib/tiempo";
+import { useSesion } from "@/sesion/Sesion";
+import { Boton, Casilla, Confirmar, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
+import { Aviso, Consulta } from "@/ui/vistas";
+
+/** Contraseña temporal: se muestra una sola vez, para entregársela a la persona. */
+function ClaveEmitida({ usuario, clave, alCerrar }: { usuario: string; clave: string | null; alCerrar: () => void }) {
+  return (
+    <Dialog.Root open onOpenChange={(o) => !o && alCerrar()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
+          <Dialog.Title className="text-base font-semibold">Contraseña temporal de {usuario}</Dialog.Title>
+          <Dialog.Description className="mt-1 text-sm text-tinta-suave">Anótala ahora: no se vuelve a mostrar. Deberá cambiarla al ingresar.</Dialog.Description>
+          <p className="my-4 select-all rounded-lg bg-zinc-100 px-3 py-2 text-center font-mono text-lg" aria-label="Contraseña temporal">{clave}</p>
+          <div className="flex justify-end"><Boton pequeno onClick={alCerrar}>Listo</Boton></div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function NuevoUsuarioForm({ alEmitir }: { alEmitir: (usuario: string, clave: string | null) => void }) {
+  const pros = useProfesionales();
+  const [usuario, setUsuario] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [rol, setRol] = useState<"auxiliar" | "especialista">("auxiliar");
+  const [profesional, setProfesional] = useState("");
+  const [administrador, setAdministrador] = useState(false);
+  const m = useAccion(api.admin.crearUsuario, {
+    ok: "Usuario creado",
+    alExito: (d) => { alEmitir(d.usuario.nombre_usuario, d.clave_temporal ?? null); setUsuario(""); setNombre(""); setProfesional(""); setAdministrador(false); },
+  });
+  function enviar(e: FormEvent) {
+    e.preventDefault();
+    m.mutate({ usuario: usuario.trim(), nombre: nombre.trim(), rol, administrador, profesional_id: rol === "especialista" && profesional ? Number(profesional) : null });
+  }
+  return (
+    <Tarjeta className="p-4">
+      <form onSubmit={enviar} aria-label="Nuevo usuario" className="grid gap-3 sm:grid-cols-2">
+        <h2 className="text-sm font-semibold sm:col-span-2">Nuevo usuario</h2>
+        {m.error instanceof ApiError && <div className="sm:col-span-2"><Aviso>{m.error.mensaje}</Aviso></div>}
+        <Entrada etiqueta="Usuario" autoCapitalize="none" value={usuario} onChange={(e) => setUsuario(e.target.value)} required />
+        <Entrada etiqueta="Nombre visible" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+        <Seleccion etiqueta="Rol" value={rol} onChange={(e) => setRol(e.target.value as "auxiliar" | "especialista")}>
+          <option value="auxiliar">Recepción</option><option value="especialista">Especialista</option>
+        </Seleccion>
+        {rol === "especialista" && (
+          <Seleccion etiqueta="Profesional" value={profesional} onChange={(e) => setProfesional(e.target.value)} required>
+            <option value="">Elige…</option>
+            {pros.data?.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </Seleccion>
+        )}
+        <div className="sm:col-span-2"><Casilla etiqueta="Administra el negocio" checked={administrador} onChange={(e) => setAdministrador(e.target.checked)} /></div>
+        <div className="sm:col-span-2"><Boton type="submit" disabled={m.isPending}>Crear con contraseña temporal</Boton></div>
+      </form>
+    </Tarjeta>
+  );
+}
+
+function Fila({ u, yo, alEmitir }: { u: UsuarioAdmin; yo: string; alEmitir: (usuario: string, clave: string | null) => void }) {
+  const desactivar = useAccion(() => api.admin.desactivar(u.acceso_id), { ok: "Acceso quitado" });
+  const activar = useAccion(() => api.admin.activar(u.acceso_id), { ok: "Acceso devuelto" });
+  const clave = useAccion(() => api.admin.claveTemporal(u.acceso_id), { alExito: (d) => alEmitir(u.nombre_usuario, d.clave_temporal ?? null) });
+  const admin = useAccion(() => api.admin.cambiarAcceso(u.acceso_id, { rol: u.rol, profesional_id: u.profesional_id, administrador: !u.administrador }),
+    { ok: u.administrador ? "Ya no administra" : "Ahora administra" });
+  const esYo = u.nombre_usuario === yo;
+  return (
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-sm">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{u.nombre} <span className="font-normal text-tinta-suave">({u.nombre_usuario})</span></p>
+        <p className="text-xs text-tinta-suave">
+          {u.rol === "auxiliar" ? "Recepción" : "Especialista"}{u.administrador ? " · Administra" : ""}{!u.activo ? " · Sin acceso" : ""}{u.bloqueado ? " · Bloqueado" : ""}
+          {" · "}{u.ultimo_acceso ? `Último ingreso ${fechaHora(u.ultimo_acceso)}` : "Nunca ha ingresado"}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {u.activo && <Confirmar pequeno etiqueta="Contraseña temporal" pregunta={`Se cerrarán las sesiones de ${u.nombre} y se generará una contraseña temporal.`} alConfirmar={() => clave.mutate(undefined)} />}
+        {u.activo && !esYo && <Confirmar pequeno etiqueta={u.administrador ? "Quitar administración" : "Hacer administrador"} pregunta={`¿Cambiar los permisos de ${u.nombre}?`} alConfirmar={() => admin.mutate(undefined)} />}
+        {u.activo
+          ? !esYo && <Confirmar pequeno variante="peligro" etiqueta="Quitar acceso" pregunta={`${u.nombre} perderá el acceso a este negocio de inmediato.`} alConfirmar={() => desactivar.mutate(undefined)} />
+          : <Boton pequeno variante="secundario" onClick={() => activar.mutate(undefined)}>Devolver acceso</Boton>}
+      </div>
+    </li>
+  );
+}
+
+export function Administracion() {
+  const { sesion } = useSesion();
+  const q = useQuery({ queryKey: ["admin", "usuarios"], queryFn: api.admin.usuarios });
+  const [emitida, setEmitida] = useState<{ usuario: string; clave: string | null } | null>(null);
+  const emitir = (usuario: string, clave: string | null) => setEmitida({ usuario, clave });
+  return (
+    <div className="mx-auto max-w-4xl space-y-5">
+      <h1 className="text-xl font-semibold">Administración</h1>
+      <p className="text-sm text-tinta-suave">Personas con acceso a {sesion.negocio?.nombre}. Solo ves y gestionas las de este negocio.</p>
+      <NuevoUsuarioForm alEmitir={emitir} />
+      <Consulta q={q}>
+        {(us) => (
+          <Tarjeta><ul aria-label="Usuarios" className="divide-y divide-linea">{us.map((u) => <Fila key={u.acceso_id} u={u} yo={sesion.usuario} alEmitir={emitir} />)}</ul></Tarjeta>
+        )}
+      </Consulta>
+      {emitida && <ClaveEmitida usuario={emitida.usuario} clave={emitida.clave} alCerrar={() => setEmitida(null)} />}
+    </div>
+  );
+}

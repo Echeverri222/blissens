@@ -3,7 +3,11 @@ import type { components } from "./tipos.gen";
 
 type S = components["schemas"];
 export type Sesion = S["SesionOut"];
-export type Rol = Sesion["rol"];
+export type Rol = NonNullable<Sesion["rol"]>;
+export type Negocio = S["NegocioOut"];
+export type UsuarioAdmin = S["UsuarioAdmin"];
+export type UsuarioConClave = S["UsuarioConClave"];
+export type NuevoUsuario = S["NuevoUsuario"];
 export type Profesional = S["ProfesionalOut"];
 export type Servicio = S["ServicioOut"];
 export type Motivo = S["MotivoOut"];

@@ -1,7 +1,7 @@
 """API JSON v1: sesión con roles, agenda del especialista y la operación de la auxiliar."""
 from fastapi import APIRouter
 
-from . import gestion, operacion, schemas
+from . import admin, gestion, operacion, schemas
 from .comun import PREFIJO, registrar_errores
 
 router = APIRouter(prefix=PREFIJO, responses={
@@ -14,5 +14,6 @@ router = APIRouter(prefix=PREFIJO, responses={
 })
 router.include_router(operacion.router)
 router.include_router(gestion.router)
+router.include_router(admin.router)
 
 __all__ = ["router", "registrar_errores"]

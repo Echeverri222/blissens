@@ -5,7 +5,7 @@ import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
-  SinInterpretar, Sistema, TiempoEntreCitas, CupoLibre,
+  SinInterpretar, Sistema, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -54,6 +54,17 @@ export const api = {
     entrar: (usuario: string, clave: string) => pedir<Sesion>("POST", "/sesion", { cuerpo: { usuario, clave }, esSesion: true }),
     salir: () => pedir<{ ok: boolean }>("DELETE", "/sesion", { esSesion: true }),
     cambiarClave: (actual: string, nueva: string) => post<{ ok: boolean }>("/sesion/clave", { actual, nueva }),
+    elegirNegocio: (negocio_id: number) => pedir<Sesion>("POST", "/sesion/negocio", { cuerpo: { negocio_id }, esSesion: true }),
+  },
+  marca: () => get<{ nombre: string }>("/marca"),
+  admin: {
+    usuarios: () => get<UsuarioAdmin[]>("/admin/usuarios"),
+    crearUsuario: (d: NuevoUsuario) => post<UsuarioConClave>("/admin/usuarios", d),
+    cambiarAcceso: (id: number, d: { rol: Rol; profesional_id: number | null; administrador: boolean }) =>
+      pedir<UsuarioAdmin>("PUT", `/admin/usuarios/${id}`, { cuerpo: d }),
+    desactivar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/desactivar`),
+    activar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/activar`),
+    claveTemporal: (id: number) => post<UsuarioConClave>(`/admin/usuarios/${id}/clave-temporal`),
   },
   catalogos: {
     profesionales: () => get<Profesional[]>("/profesionales"),

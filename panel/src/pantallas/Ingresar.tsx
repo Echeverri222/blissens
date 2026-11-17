@@ -5,7 +5,7 @@ import { Boton, Entrada } from "@/ui/controles";
 import { Aviso } from "@/ui/vistas";
 import { Distintivo } from "./Marca";
 import { origenSeguro, useEstadoSesion, useSesionOpcional } from "@/sesion/Sesion";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CLAVE_SESION } from "@/sesion/Sesion";
 
 export function Ingresar() {
@@ -14,6 +14,7 @@ export function Ingresar() {
   const qc = useQueryClient();
   const e = useEstadoSesion();
   const ya = useSesionOpcional();
+  const marca = useQuery({ queryKey: ["marca"], queryFn: api.marca, retry: false });
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function Ingresar() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-marca px-4 text-white">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2"><Distintivo grande /><p className="text-sm text-zinc-400">Panel de gestión de citas</p></div>
+        <div className="mb-8 flex flex-col items-center gap-2"><Distintivo nombre={marca.data?.nombre ?? "Estud-IA"} grande /><p className="text-sm text-zinc-400">Panel de gestión de citas</p></div>
         <form onSubmit={enviar} className="space-y-4 rounded-2xl bg-papel p-6 text-tinta shadow-xl" aria-label="Iniciar sesión">
           <h1 className="text-lg font-semibold">Iniciar sesión</h1>
           {e.error && !e.hay && <Aviso tipo="aviso">No se pudo comprobar la sesión: {e.error.message}</Aviso>}
