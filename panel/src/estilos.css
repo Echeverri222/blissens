@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Identidad (PRD #3 §6.8). Valores aproximados a partir de una captura: se ajustan aquí, en un único lugar. */
+@theme {
+  --font-sans: "Outfit Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-marca: #0a0a0a;
+  --color-marca-suave: #1c1c1e;
+  --color-agua: #3fbfb0;
+  --color-azul: #3b9fe0;
+  --color-lila: #b07cf0;
+  --color-durazno: #f2a08a;
+  --color-menta: #9be8a0;
+  --color-papel: #ffffff;
+  --color-fondo: #f6f6f7;
+  --color-linea: #e4e4e7;
+  --color-tinta: #18181b;
+  --color-tinta-suave: #52525b;
+  --radius-tarjeta: 0.875rem;
+  --radius-control: 0.625rem;
+}
+
+:root { --degradado: linear-gradient(135deg, var(--color-agua), var(--color-azul) 55%, var(--color-lila)); }
+
+html, body, #raiz { height: 100%; }
+body { background: var(--color-fondo); color: var(--color-tinta); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+/* Foco visible en todo el panel: trazo del degradado, nunca solo cambio de color. */
+:focus-visible { outline: 2px solid var(--color-azul); outline-offset: 2px; border-radius: 6px; }
+
+.aro { background: var(--degradado); padding: 2px; border-radius: 9999px; display: inline-flex; }
+.aro > span { background: var(--color-marca); color: white; border-radius: 9999px; }
+.acento-activo { background: var(--degradado); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

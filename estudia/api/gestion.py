@@ -31,8 +31,10 @@ def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     if not conn.execute("select 1 from paciente where id=%s", (paciente_id,)).fetchone():
         raise permisos.NoExiste("No existe ese paciente")
     r = bandejas.patient_record(conn, paciente_id)
+    estados = {c["id"]: c["estado"] for c in r["citas"]}
     return sc.FichaCompleta(
-        paciente=r["paciente"], citas=[{**c, "inicio": inicio(c)} for c in r["citas"]], historial=r["historial"],
+        paciente=r["paciente"], citas=[{**c, "inicio": inicio(c)} for c in r["citas"]],
+        historial=[{**h, "reversible": permisos.puede_revertir(u, h, estados[h["cita_id"]])} for h in r["historial"]],
         casos=[{**c, "intentos": c["intentos"] or []} for c in r["casos"]], mensajes=r["mensajes"])
 
 

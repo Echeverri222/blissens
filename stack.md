@@ -24,7 +24,7 @@
 | **Página del paciente** (tipo Calendly) | **FastAPI + plantillas Jinja2 + HTMX** y un CSS ligero (Pico o Tailwind) | Páginas generadas en el servidor, pensadas para celular y sin app que instalar (RNF-02). El enlace lleva un token firmado (`itsdangerous`), así que el paciente no necesita cuenta (RF-04) |
 | **WhatsApp** | **WhatsApp Cloud API de Meta con número de prueba** | Gratis y oficial. Permite botones interactivos (hasta 3: *Sí / No / Reprogramar*), justo lo que piden RF-09 y RF-19. Limitación: solo envía a 5 números verificados, que para una demo sobra |
 | **Temporizadores** | **`pg_cron` de Supabase** llamando un endpoint `/tick` cada pocos minutos | Las tareas pendientes se guardan como filas en la base y no en memoria. Si el servidor se reinicia o se duerme, nada se pierde (RNF-06) |
-| **Panel de la auxiliar e indicadores** | **Streamlit + Plotly** | Con poco código Python salen la vista de citas no confirmadas, cancelaciones y pacientes en riesgo (RF-41) y los indicadores RF-30 a RF-34. Se publica gratis en Streamlit Community Cloud con acceso restringido |
+| **Panel de la auxiliar y de los especialistas** | **React + TypeScript + Vite**, Tailwind, TanStack Query y Recharts | Aplicación de navegador servida por FastAPI en `/panel`; solo consume la API `/api/v1`. Cubre la agenda, las bandejas y pacientes en riesgo (RF-41) y los indicadores RF-30 a RF-34. Sustituye a Streamlit |
 | **Cargar los Excel** | **pandas + openpyxl** | Un script lee los Excel, limpia y normaliza los estados y los inserta en Postgres. Ese mismo script sirve para el cierre periódico (RF-37) |
 | **Datos de demo** | **Faker** (configurado para Colombia, `es_CO`) | Crea pacientes ficticios con la misma estructura que los reales. Los datos reales solo se usan en local y nunca se suben a GitHub ni se muestran en demos |
 | **Despliegue** | **Render** (plan gratis) para FastAPI | Ojo: el servidor gratis se duerme tras 15 min sin uso. Meta reintenta los mensajes que no llegan, pero antes de una demo conviene "despertarlo" |
@@ -36,7 +36,7 @@
 Paciente ──WhatsApp──► Meta Cloud API ──webhook──► FastAPI ◄──► Supabase (Postgres)
    └──── enlace ─────► página de agendamiento (FastAPI+HTMX)        ▲      │
                                                                     │   pg_cron → /tick
-Auxiliar / gerencia ──► Streamlit (panel + indicadores) ────────────┘
+Auxiliar / especialistas ─► Panel React (/panel) ─► API ────────────┘
 ```
 
 ## 4. Cómo resolver lo difícil con estas herramientas

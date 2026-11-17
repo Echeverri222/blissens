@@ -8,16 +8,18 @@ Especificación: [issue #1 (PRD)](https://github.com/Echeverri222/blissens/issue
 
 ## Requisitos
 
-Docker (PostgreSQL), Python 3.12+ y [`uv`](https://docs.astral.sh/uv/). Nada más. Tras instalar dependencias el
-sistema funciona sin conexión a internet (CSS y scripts se sirven desde `estudia/web/static`).
+Docker (PostgreSQL), Python 3.12+, [`uv`](https://docs.astral.sh/uv/) y Node 20+ (para el panel). Nada más. Tras instalar
+dependencias el sistema funciona sin conexión a internet: el panel no hace ninguna petición a terceros (la tipografía va empaquetada).
 
 ## Comandos
 
 | Comando | Qué hace |
 |---|---|
-| `make setup` | Instala dependencias, crea `.env`, levanta PostgreSQL, aplica migraciones y carga datos ficticios |
-| `make dev` | Arranca aplicación web, trabajador de tareas y panel |
-| `make test` | Corre la suite contra una base de datos de prueba (`estudia_test`) |
+| `make setup` | Instala dependencias (Python y panel), construye el panel, crea `.env`, levanta PostgreSQL, aplica migraciones y carga datos ficticios |
+| `make dev` | Arranca la aplicación web (con el panel en `/panel`), el trabajador de tareas y la reconstrucción del panel al guardar |
+| `make panel` | Genera los tipos desde `docs/openapi.json` y construye el panel (`panel/dist`) |
+| `make test` | Suite de Python contra una base de prueba (`estudia_test`) y, del panel, tipos, lint y pruebas |
+| `make e2e` | Recorridos reales en el navegador (Playwright) contra una base propia (`estudia_e2e`) |
 | `make seed` | Recarga los datos ficticios (misma semilla, mismos datos) y crea los usuarios de demostración |
 | `make usuario ARGS="..."` | Gestiona usuarios: `crear <usuario> --nombre N --rol auxiliar\|especialista [--profesional ID]`, `listar`, `desactivar <usuario>`, `activar <usuario>`, `clave <usuario>` |
 | `make api-esquema` | Regenera `docs/openapi.json` (una prueba falla si la API cambia sin regenerarlo) |
@@ -34,12 +36,13 @@ Un clon recién hecho funciona con `make setup && make dev`.
 | http://localhost:8000/agendar | Entrada pública de agendamiento (paciente) |
 | http://localhost:8000/p/&lt;token&gt; | "Mis citas" (enlace personal firmado; llega por el simulador) |
 | http://localhost:8000/simulador | Simulador de WhatsApp y control del reloj |
-| http://127.0.0.1:8501 | Panel de la auxiliar e indicadores |
+| http://localhost:8000/panel | Panel de la auxiliar y de los especialistas (inicio de sesión con usuario y contraseña) |
 | http://localhost:8000/docs | Documentación interactiva de la API. Inicia sesión desde `POST /api/v1/sesion`: la cookie queda puesta y el resto de endpoints funcionan |
 | http://localhost:8000/api/v1/... | API JSON con inicio de sesión y roles (PRD #2) |
 
 Usuarios de demostración (solo existen con datos ficticios; `make seed` los imprime): `auxiliar`,
-`especialista1` y `especialista2`, todos con la contraseña `demo-blissens`.
+`especialista1` y `especialista2`, todos con la contraseña `demo-blissens`. El panel muestra a cada rol solo lo suyo:
+el especialista, *Mi agenda* y *Mi horario*; la auxiliar, *Agenda*, *Bandejas*, *Pacientes*, *Indicadores* y *Sistema*.
 
 ### Probar la API con `curl`
 
@@ -60,22 +63,22 @@ El PRD §3.4 describe diez pasos. Resumen:
 5. Mira el simulador de otros pacientes con cita posterior: reciben la oferta de adelanto. Avanza el reloj para
    dejarla vencer, o acéptala: el espacio que deja dispara una oferta en cadena.
 6. **+3 días**: primer seguimiento de reasignación. Agenda desde el enlace y el caso se cierra.
-7. En el panel (*Hoy*) marca citas como atendida / no asistió.
-8. *Bandejas → Pacientes en riesgo*: tratamientos activos sin cita futura.
+7. En el panel, como especialista (*Mi agenda*), abre una cita ya iniciada y márcala atendida / no asistió.
+8. Como auxiliar, *Bandejas → En riesgo*: tratamientos activos sin cita futura.
 9. *Indicadores → Ejecutar cierre ahora*.
-10. *Paciente*: bitácora e historial; **Revertir** un cambio.
+10. *Pacientes*: bitácora e historial; **Revertir** un cambio.
 
 Escribe `BAJA` en el simulador para probar la baja de mensajes automáticos.
 
 ## Arquitectura
 
-Un solo paquete Python (`estudia/`) compartido por tres procesos y una base PostgreSQL:
+Un solo paquete Python (`estudia/`) compartido por dos procesos y una base PostgreSQL; el panel (`panel/`, React + TypeScript) es una aplicación de navegador que FastAPI sirve en `/panel` y que solo habla con la API:
 
 ```
 Paciente ──► /agendar y /p/<token> ─┐
 Simulador de WhatsApp ◄─► canal ────┤
                                     ├─► dominio ◄──► PostgreSQL
-Panel (Streamlit) ──────────────────┤                  ▲
+Panel (/panel, React) ─► API /api/v1 ─┤                  ▲
 Trabajador (ciclo de tareas) ───────┘──────────────────┘
 ```
 
@@ -106,8 +109,9 @@ Decisiones clave:
 - **Sesiones en la base** (solo se guarda la huella del identificador) y con **hora real**: es la única excepción
   al reloj único, para que adelantar el reloj de la demo no cierre la sesión de nadie.
 - **Un bloqueo nunca cancela citas**: si el rango tiene citas vivas se rechaza (409) y se listan para que recepción las mueva.
-- Zona horaria `America/Bogota`. La API exige sesión; el panel de Streamlit, el simulador y `/tick` siguen sin
-  autenticación (brecha conocida y temporal, el panel solo escucha en `127.0.0.1`): deben cerrarse antes de cualquier despliegue.
+- Zona horaria `America/Bogota`. La API y el panel exigen sesión; el simulador y `/tick` siguen sin
+  autenticación (brecha conocida y temporal): deben cerrarse antes de cualquier despliegue.
+- **El panel no calcula nada de negocio**: qué botones muestra cada cita lo decide la API (`acciones`), la hora "de ahora" es la del sistema y no la del navegador, y los mensajes de error son los de la API.
 
 ## Privacidad y datos reales
 
@@ -118,5 +122,5 @@ Los mensajes contienen lo mínimo (nombre de pila, fecha, hora, profesional y di
 
 ## Fuera de alcance
 
-WhatsApp real, despliegue en la nube, front nuevo (siguiente PRD), pantalla de administración de usuarios, integración con el software de la clínica,
+WhatsApp real, despliegue en la nube, pantalla de administración de usuarios, integración con el software de la clínica,
 requerimientos *Should/Could* y multisede (ver PRD §8).

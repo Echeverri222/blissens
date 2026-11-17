@@ -5608,6 +5608,11 @@
             "type": "boolean",
             "title": "Revertido"
           },
+          "reversible": {
+            "type": "boolean",
+            "title": "Reversible",
+            "description": "Si el usuario que consulta puede intentar revertir este movimiento"
+          },
           "cita_id": {
             "type": "integer",
             "title": "Cita Id"
@@ -5623,6 +5628,7 @@
           "momento",
           "revierte_id",
           "revertido",
+          "reversible",
           "cita_id"
         ],
         "title": "CambioFicha"
@@ -5710,6 +5716,11 @@
           "revertido": {
             "type": "boolean",
             "title": "Revertido"
+          },
+          "reversible": {
+            "type": "boolean",
+            "title": "Reversible",
+            "description": "Si el usuario que consulta puede intentar revertir este movimiento"
           }
         },
         "type": "object",
@@ -5721,7 +5732,8 @@
           "detalle",
           "momento",
           "revierte_id",
-          "revertido"
+          "revertido",
+          "reversible"
         ],
         "title": "CambioHistorial"
       },
@@ -5934,6 +5946,19 @@
               }
             ],
             "title": "Celular"
+          },
+          "acciones": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "desenlace",
+                "cancelar",
+                "cambiar_fecha"
+              ]
+            },
+            "type": "array",
+            "title": "Acciones",
+            "description": "Lo que el usuario que consulta puede hacer con la cita ahora"
           }
         },
         "type": "object",
@@ -5949,7 +5974,8 @@
           "servicio",
           "paciente_id",
           "paciente",
-          "celular"
+          "celular",
+          "acciones"
         ],
         "title": "CitaAgenda"
       },
@@ -6031,6 +6057,19 @@
           "paciente": {
             "$ref": "#/components/schemas/PacienteMinimo"
           },
+          "acciones": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "desenlace",
+                "cancelar",
+                "cambiar_fecha"
+              ]
+            },
+            "type": "array",
+            "title": "Acciones",
+            "description": "Lo que el usuario que consulta puede hacer con la cita ahora"
+          },
           "historial": {
             "items": {
               "$ref": "#/components/schemas/CambioHistorial"
@@ -6051,6 +6090,7 @@
           "servicio_id",
           "servicio",
           "paciente",
+          "acciones",
           "historial"
         ],
         "title": "CitaDetalle"

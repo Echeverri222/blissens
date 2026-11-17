@@ -83,8 +83,8 @@ def _existe_profesional(conn, profesional_id: int) -> None:
         raise permisos.NoExiste("No existe ese profesional")
 
 
-def _cita_agenda(r: dict) -> dict:
-    return {**r, "inicio": inicio(r), "fin": fin(r)}
+def _cita_agenda(r: dict, u: dict, ahora) -> dict:
+    return {**r, "inicio": inicio(r), "fin": fin(r), "acciones": permisos.acciones_cita(u, r["estado"], inicio(r), ahora)}
 
 
 def _bloqueo(r: dict) -> dict:
@@ -102,9 +102,11 @@ def agenda_rango(desde: date, hasta: date | None = None, profesional_id: int | N
     if pro is not None:
         _existe_profesional(conn, pro)
     r = agenda.range_agenda(conn, desde, hasta, pro)
+    ahora = clock.now(conn)
     return sc.AgendaOut(
         desde=desde, hasta=hasta, profesional_id=pro,
-        citas=[_cita_agenda(c) for c in r["citas"]], citas_sin_hora=[_cita_agenda(c) for c in r["citas_sin_hora"]],
+        citas=[_cita_agenda(c, u, ahora) for c in r["citas"]],
+        citas_sin_hora=[_cita_agenda(c, u, ahora) for c in r["citas_sin_hora"]],
         bloqueos=[_bloqueo(b) for b in r["bloqueos"]], franjas=r["franjas"],
         cupos_liberados=[{**c, "inicio": c["rango"].lower, "fin": c["rango"].upper} for c in r["cupos"]])
 
@@ -134,7 +136,8 @@ def detalle_cita(cita_id: int, conn=Depends(get_conn), u=Depends(usuario_actual)
     return sc.CitaDetalle(
         **{k: c[k] for k in ("id", "estado", "dia", "profesional_id", "profesional", "servicio_id", "servicio")},
         inicio=inicio(c), fin=fin(c), paciente={"id": c["pid"], "nombre": c["pnombre"], "celular": c["celular"]},
-        historial=hist)
+        acciones=permisos.acciones_cita(u, c["estado"], inicio(c), clock.now(conn)),
+        historial=[{**h, "reversible": permisos.puede_revertir(u, h, c["estado"])} for h in hist])
 
 
 @router.post("/citas", tags=["Citas"], summary="Agendar una cita (auxiliar)", response_model=sc.CitaCreada, status_code=201)

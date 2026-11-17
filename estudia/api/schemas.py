@@ -15,6 +15,7 @@ def _iso(d: datetime) -> str:
 Momento = Annotated[datetime, PlainSerializer(_iso, return_type=str, when_used="json")]
 Estado = Literal["programada", "confirmada", "no_confirmada", "cancelada", "reprogramada", "atendida", "no_asistio"]
 Actor = Literal["paciente", "auxiliar", "especialista", "sistema"]
+Accion = Literal["desenlace", "cancelar", "cambiar_fecha"]
 
 
 class Entrada(BaseModel):
@@ -94,6 +95,7 @@ class CitaAgenda(Salida):
     paciente_id: int
     paciente: str
     celular: str | None
+    acciones: list[Accion] = Field(description="Lo que el usuario que consulta puede hacer con la cita ahora")
 
 
 class BloqueoOut(Salida):
@@ -161,6 +163,7 @@ class CambioHistorial(Salida):
     momento: Momento
     revierte_id: int | None
     revertido: bool
+    reversible: bool = Field(description="Si el usuario que consulta puede intentar revertir este movimiento")
 
 
 class CitaDetalle(Salida):
@@ -174,6 +177,7 @@ class CitaDetalle(Salida):
     servicio_id: int
     servicio: str
     paciente: PacienteMinimo
+    acciones: list[Accion] = Field(description="Lo que el usuario que consulta puede hacer con la cita ahora")
     historial: list[CambioHistorial]
 
 
