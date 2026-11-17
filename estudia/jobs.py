@@ -1,7 +1,7 @@
 """Tareas del ciclo: handlers de tareas programadas, vencimientos y procesos diarios."""
 from datetime import datetime, timedelta
 
-from . import clock, config, confirmations, followup, indicators, recovery, slots, tasks
+from . import config, confirmations, followup, indicators, recovery, slots, tasks
 
 
 @tasks.handler("recordatorio")

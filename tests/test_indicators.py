@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from estudia import indicators
 from estudia.agenda import rng
+
 from .conftest import NOW, at, make_patient, make_pro, svc
 
 DAY = date(2026, 11, 10)  # martes
@@ -9,6 +10,7 @@ DAY = date(2026, 11, 10)  # martes
 
 def raw(conn, pat, pro, hhmm, estado, day=DAY, service="Valoración o revisión", confirmed=False, reminded=False):
     from datetime import datetime
+
     from estudia import clock
     h, m = hhmm.split(":")
     start = datetime(day.year, day.month, day.day, int(h), int(m), tzinfo=clock.TZ)

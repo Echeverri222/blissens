@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
+.PHONY: negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
 
 db-up:
 	docker compose up -d --wait db
@@ -59,6 +59,16 @@ usuario: db-up
 
 api-esquema:
 	uv run python -m estudia.api.esquema
+
+negocio: db-up
+	@uv run python -m estudia.negocios $(ARGS)
+
+migrar: db-up
+	@uv run python -m estudia.migrate $(ARGS)
+
+lint:
+	uv run ruff check .
+	cd panel && npm run lint
 
 stop:
 	docker compose stop db

@@ -1,6 +1,7 @@
 import pytest
 
 from estudia import agenda, lifecycle
+
 from .conftest import at, book, make_patient, make_pro, status
 
 

@@ -7,18 +7,19 @@ from datetime import date, datetime, time, timedelta
 import psycopg
 from faker import Faker
 
-from . import (agenda, catalog, clock, config, db, followup, indicators, lifecycle, messaging, settings, tasks,
-               usuarios)
+from . import agenda, catalog, clock, config, db, followup, indicators, lifecycle, settings, usuarios
 from .agenda import rng
 
-TABLES = ["sesion", "usuario", "hecho_diario_profesional", "hecho_diario", "solicitud_contacto", "tarea_programada", "mensaje",
+TABLES = ["acceso", "hecho_diario_profesional", "hecho_diario", "solicitud_contacto", "tarea_programada", "mensaje",
           "oferta_adelanto", "cupo_liberado", "intento", "caso_seguimiento", "cancelacion", "historial_estado",
           "cita", "tratamiento", "bloqueo", "horario_atencion", "paciente", "profesional", "servicio",
           "motivo_cancelacion", "plantilla", "configuracion"]
 
 
 def wipe(conn) -> None:
-    conn.execute("truncate " + ", ".join(TABLES) + " restart identity cascade")
+    """Vacía SOLO el negocio activo (nunca los demás), sin tocar usuarios ni el negocio mismo."""
+    for t in TABLES:
+        conn.execute(f"delete from {t} where negocio_id = negocio_activo()")
 
 
 def _at(day: date, hhmm: time) -> datetime:
@@ -321,7 +322,7 @@ def importar(conn, folder=None) -> dict:
     if "Otro" not in services:
         services["Otro"] = conn.execute(
             "insert into servicio(nombre, duracion_min, autoagendable, admite_adelanto) values ('Otro',30,false,false) "
-            "on conflict (nombre) do update set nombre='Otro' returning id").fetchone()["id"]
+            "on conflict (negocio_id, nombre) do update set nombre='Otro' returning id").fetchone()["id"]
 
     pros: dict[str, int] = {}
     stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0}
@@ -337,7 +338,7 @@ def importar(conn, folder=None) -> dict:
         if pname not in pros:
             row = conn.execute(
                 "insert into profesional(nombre, especialidad, external_id) values (%s,%s,%s) "
-                "on conflict (external_id) do update set nombre=excluded.nombre returning id",
+                "on conflict (negocio_id, external_id) do update set nombre=excluded.nombre returning id",
                 (pname, _s(r.get(col(est, "Especialidad"))) or "", f"prof:{pname}")).fetchone()
             pros[pname] = row["id"]
             if not conn.execute("select 1 from horario_atencion where profesional_id=%s", (row["id"],)).fetchone():
@@ -357,7 +358,7 @@ def importar(conn, folder=None) -> dict:
             phone = normalize_phone(a[col(ag, "Celular")]) if a is not None else None
             cur = conn.execute(
                 "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, "
-                "consentimiento_en) values (%s,%s,%s,%s,%s,%s,%s,null) on conflict (external_id) do nothing returning id",
+                "consentimiento_en) values (%s,%s,%s,%s,%s,%s,%s,null) on conflict (negocio_id, external_id) do nothing returning id",
                 (pext, _s(r[col(est, "Nombre Paciente")]) or "", _s(r[col(est, "Apellidos Paciente")]) or "",
                  doc, phone, _s(a[col(ag, "E-Mail")]) if a is not None else None, birth))
             if cur.fetchone():
@@ -375,7 +376,7 @@ def importar(conn, folder=None) -> dict:
             tipo = "diagnostico" if "diagn" in (_s(r.get(col(est, "Tratamiento o"))) or "").lower() else "tratamiento"
             tid = conn.execute(
                 "insert into tratamiento(paciente_id, profesional_id, tipo, external_id) values (%s,%s,%s,%s) "
-                "on conflict (external_id) do update set tipo=excluded.tipo returning id",
+                "on conflict (negocio_id, external_id) do update set tipo=excluded.tipo returning id",
                 (pat, pro, tipo, f"trat:{text_}")).fetchone()["id"]
         # Cita
         estado_o = (_s(r[col(est, "Estado actual")]) or "").lower()
@@ -403,7 +404,7 @@ def importar(conn, folder=None) -> dict:
                     row = conn.execute(
                         "insert into cita(paciente_id, profesional_id, servicio_id, tratamiento_id, dia, rango, estado, origen, "
                         "datos_origen, external_id) values (%s,%s,%s,%s,%s,%s,%s,'importacion',%s,%s) "
-                        "on conflict (external_id) do update set estado=excluded.estado, datos_origen=excluded.datos_origen "
+                        "on conflict (negocio_id, external_id) do update set estado=excluded.estado, datos_origen=excluded.datos_origen "
                         "returning id, (xmax = 0) as nueva",
                         (params[0], params[1], params[2], params[3], params[4], attempt_range, params[5], params[6],
                          params[7])).fetchone()
@@ -423,24 +424,33 @@ def _print_users(users: list[dict]) -> None:
         print(f"  {u['usuario']:<16} {u['rol']:<13} contraseña: {u['clave']}")
 
 
+def _negocio() -> str:
+    import os
+    return os.environ.get("NEGOCIO") or settings.NEGOCIO_POR_DEFECTO
+
+
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "seed"
+    if cmd in ("seed", "reset") and settings.ENTORNO == "produccion":
+        raise SystemExit(f"'{cmd}' no existe en producción: borraría datos de los negocios.")
+    if cmd == "importar" and settings.ENTORNO == "demo":
+        raise SystemExit("En el entorno demo solo se admiten datos ficticios: 'importar' se niega.")
     if cmd == "seed":
-        with db.connect() as conn:
+        with db.connect(negocio=_negocio()) as conn:  # solo el negocio indicado
             n = seed(conn)
-        print(f"Datos ficticios cargados: {n['paciente']} pacientes, {n['cita']} citas, {n['mensaje']} mensajes.")
+        print(f"Datos ficticios cargados en '{_negocio()}': {n['paciente']} pacientes, {n['cita']} citas, {n['mensaje']} mensajes.")
         _print_users(n["usuarios"])
     elif cmd == "reset":
         from . import migrate
-        with db.connect() as conn:
+        with db.connect_admin() as conn:
             conn.execute("drop schema public cascade; create schema public;")
         migrate.run()
-        with db.connect() as conn:
+        with db.connect(negocio=_negocio()) as conn:
             n = seed(conn)
         print(f"Base reconstruida desde cero: {n['paciente']} pacientes, {n['cita']} citas.")
         _print_users(n["usuarios"])
     elif cmd == "importar":
-        with db.connect() as conn:
+        with db.connect(negocio=_negocio()) as conn:
             s = importar(conn)
         print("Importación terminada:", s)
     else:

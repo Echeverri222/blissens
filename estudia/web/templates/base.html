@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Blissens · Agenda tu cita{% endblock %}</title>
+  <title>{% block title %}{{ negocio.nombre.split()[0] }} · Agenda tu cita{% endblock %}</title>
   <link rel="stylesheet" href="/static/pico.min.css">
   <script src="/static/htmx.min.js"></script>
   <style>
@@ -23,7 +23,7 @@
 </head>
 <body>
   <main class="container">
-    <p class="brand">Blissens Odontología</p>
+    <p class="brand">{{ negocio.nombre }}</p>
     {% block content %}{% endblock %}
   </main>
 </body>

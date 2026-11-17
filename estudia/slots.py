@@ -44,7 +44,7 @@ def candidates(conn, cupo) -> list[dict]:
           and not exists (select 1 from oferta_adelanto o join cita c2 on c2.id = o.cita_id
                           where c2.paciente_id = c.paciente_id and o.estado = 'pendiente')
           and not exists (select 1 from cita c3 where c3.paciente_id = c.paciente_id and c3.id <> c.id
-                          and c3.estado = any(%(alive)s) and c3.dia = (lower(%(rango)s) at time zone 'America/Bogota')::date)
+                          and c3.estado = any(%(alive)s) and c3.dia = (lower(%(rango)s) at time zone current_setting('TimeZone'))::date)
           and not exists (select 1 from oferta_adelanto o2 where o2.cupo_id = %(cupo)s and o2.cita_id = c.id)
           and (select count(*) from oferta_adelanto o3 join cita c4 on c4.id = o3.cita_id
                where c4.paciente_id = c.paciente_id and o3.enviada_en > %(now)s - interval '7 days') < %(week_max)s
@@ -148,7 +148,6 @@ def accept(conn, oferta_id: int) -> bool:
     agenda._schedule_reminders(conn, new, start.astimezone(clock.TZ), now)
     # El rango que deja el paciente queda libre y reinicia el proceso (cadena, RF-20).
     register_slot(conn, cita["profesional_id"], cita["rango"], cita["id"], "adelanto")
-    from . import fmt
     info = agenda._info(conn, new)
     messaging.send(conn, cita["paciente_id"], "adelanto_confirmado", info, direct=True, entity=("cita", new))
     return True

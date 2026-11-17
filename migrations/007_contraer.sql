@@ -1,0 +1,40 @@
+-- irreversible
+-- Multi-negocio, paso 7 (contraer): retira lo global. Exige una copia verificada antes de aplicarse.
+alter table horario_atencion drop constraint horario_atencion_profesional_id_fkey;
+alter table bloqueo drop constraint bloqueo_profesional_id_fkey;
+alter table tratamiento drop constraint tratamiento_paciente_id_fkey;
+alter table tratamiento drop constraint tratamiento_profesional_id_fkey;
+alter table cita drop constraint cita_paciente_id_fkey;
+alter table cita drop constraint cita_profesional_id_fkey;
+alter table cita drop constraint cita_servicio_id_fkey;
+alter table cita drop constraint cita_tratamiento_id_fkey;
+alter table cita drop constraint cita_cita_anterior_id_fkey;
+alter table historial_estado drop constraint historial_estado_cita_id_fkey;
+alter table historial_estado drop constraint historial_estado_revierte_id_fkey;
+alter table cancelacion drop constraint cancelacion_cita_id_fkey;
+alter table cancelacion drop constraint cancelacion_motivo_id_fkey;
+alter table caso_seguimiento drop constraint caso_seguimiento_paciente_id_fkey;
+alter table caso_seguimiento drop constraint caso_seguimiento_cita_id_fkey;
+alter table caso_seguimiento drop constraint caso_seguimiento_tratamiento_id_fkey;
+alter table caso_seguimiento drop constraint caso_seguimiento_cita_resultante_id_fkey;
+alter table intento drop constraint intento_caso_id_fkey;
+alter table cupo_liberado drop constraint cupo_liberado_profesional_id_fkey;
+alter table cupo_liberado drop constraint cupo_liberado_cita_origen_id_fkey;
+alter table oferta_adelanto drop constraint oferta_adelanto_cupo_id_fkey;
+alter table oferta_adelanto drop constraint oferta_adelanto_cita_id_fkey;
+alter table mensaje drop constraint mensaje_paciente_id_fkey;
+alter table hecho_diario drop constraint hecho_diario_profesional_id_fkey;
+alter table hecho_diario drop constraint hecho_diario_servicio_id_fkey;
+alter table hecho_diario_profesional drop constraint hecho_diario_profesional_profesional_id_fkey;
+alter table paciente drop constraint paciente_documento_key, drop constraint paciente_external_id_key;
+alter table profesional drop constraint profesional_external_id_key;
+alter table tratamiento drop constraint tratamiento_external_id_key;
+alter table cita drop constraint cita_external_id_key, drop constraint cita_sin_cruce;
+alter table servicio drop constraint servicio_nombre_key;
+alter table motivo_cancelacion drop constraint motivo_cancelacion_etiqueta_key;
+drop index caso_abierto_cita, caso_abierto_tratamiento, oferta_unica_pendiente;
+drop index cita_dia_idx, cita_paciente_idx, cita_estado_idx, mensaje_paciente_idx, tarea_pendiente_idx;
+alter table plantilla drop constraint plantilla_pkey, add constraint plantilla_pkey primary key using index plantilla_clave_neg;
+alter table configuracion drop constraint configuracion_pkey,
+    add constraint configuracion_pkey primary key using index configuracion_clave_neg;
+alter table usuario drop column rol, drop column profesional_id;

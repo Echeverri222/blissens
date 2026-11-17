@@ -5,6 +5,7 @@ import pytest
 from psycopg.types.range import Range
 
 from estudia import agenda, config, lifecycle
+
 from .conftest import NOW, at, book, make_patient, make_pro, status, svc
 
 

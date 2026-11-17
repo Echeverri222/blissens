@@ -61,17 +61,18 @@ PLANTILLAS = {
 
 
 def load(conn) -> None:
+    """Copia el catálogo del producto al negocio activo. Solo añade lo que falta: nunca pisa lo que el negocio editó."""
     for nombre, dur, auto, adel in SERVICIOS:
         conn.execute(
             "insert into servicio(nombre, duracion_min, autoagendable, admite_adelanto) values (%s,%s,%s,%s) "
-            "on conflict (nombre) do nothing", (nombre, dur, auto, adel))
+            "on conflict (negocio_id, nombre) do nothing", (nombre, dur, auto, adel))
     for i, m in enumerate(MOTIVOS, start=1):
-        conn.execute("insert into motivo_cancelacion(etiqueta, orden) values (%s,%s) on conflict (etiqueta) do nothing",
+        conn.execute("insert into motivo_cancelacion(etiqueta, orden) values (%s,%s) on conflict (negocio_id, etiqueta) do nothing",
                      (m, i))
     for clave, (texto, tipo, botones) in PLANTILLAS.items():
         conn.execute(
             "insert into plantilla(clave, texto, tipo, botones) values (%s,%s,%s,%s) "
-            "on conflict (clave) do update set texto=excluded.texto, tipo=excluded.tipo, botones=excluded.botones",
+            "on conflict (negocio_id, clave) do nothing",
             (clave, texto, tipo, json.dumps(botones)))
 
 

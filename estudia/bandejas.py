@@ -1,5 +1,5 @@
 """Bandejas de la auxiliar: listas de trabajo derivadas con consultas (no hay tabla de alertas)."""
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from . import clock, recovery
 from .lifecycle import ALIVE

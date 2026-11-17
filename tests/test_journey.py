@@ -1,11 +1,12 @@
 """Recorrido de aceptación (PRD §3.4) con reloj falso y canal simulado."""
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
-from estudia import agenda, clock, indicators, messaging, recovery, tasks
+from estudia import agenda, clock, indicators, recovery, tasks
 from estudia.web.app import app
+
 from .conftest import NOW, at, book, button, make_patient, make_pro, outbox, press, status, svc
 
 

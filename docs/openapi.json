@@ -2,10 +2,92 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Estud-IA",
-    "description": "Gestión inteligente de citas · Blissens Odontología",
+    "description": "Gestión inteligente de citas",
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/marca": {
+      "get": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Nombre que muestra la pantalla de ingreso",
+        "description": "No pide sesión: es el nombre del negocio por defecto si existe; si no, el del producto.",
+        "operationId": "marca_api_v1_marca_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarcaOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sesion": {
       "get": {
         "tags": [
@@ -91,7 +173,7 @@
           "Sesión"
         ],
         "summary": "Iniciar sesión",
-        "description": "Deja la cookie de sesión puesta. Con 5 fallos seguidos el usuario queda bloqueado 15 minutos (429).",
+        "description": "Deja la cookie de sesión puesta. Con 5 fallos seguidos el usuario queda bloqueado 15 minutos (429). Con acceso a varios negocios la sesión nace sin negocio activo: se elige con `POST /sesion/negocio`.",
         "operationId": "iniciar_api_v1_sesion_post",
         "requestBody": {
           "content": {
@@ -189,6 +271,98 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sesion/negocio": {
+      "post": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Cambiar el negocio activo",
+        "description": "Exige un acceso vigente a ese negocio; si no, 404. No hay que volver a ingresar.",
+        "operationId": "elegir_negocio_api_v1_sesion_negocio_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ElegirNegocio"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SesionOut"
                 }
               }
             }
@@ -4241,11 +4415,27 @@
         }
       }
     },
-    "/agendar": {
+    "/n/{nombre}/agendar": {
       "get": {
         "summary": "Agendar",
-        "operationId": "agendar_agendar_get",
+        "operationId": "agendar_n__nombre__agendar_get",
         "parameters": [
+          {
+            "name": "nombre",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nombre"
+            }
+          },
           {
             "name": "caso",
             "in": "query",
@@ -4287,19 +4477,155 @@
         }
       }
     },
+    "/agendar": {
+      "get": {
+        "summary": "Agendar",
+        "operationId": "agendar_agendar_get",
+        "parameters": [
+          {
+            "name": "nombre",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nombre"
+            }
+          },
+          {
+            "name": "caso",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Caso"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/n/{nombre}/agendar/identificar": {
+      "post": {
+        "summary": "Identificar",
+        "operationId": "identificar_n__nombre__agendar_identificar_post",
+        "parameters": [
+          {
+            "name": "nombre",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nombre"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_identificar_n__nombre__agendar_identificar_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agendar/identificar": {
       "post": {
         "summary": "Identificar",
         "operationId": "identificar_agendar_identificar_post",
+        "parameters": [
+          {
+            "name": "nombre",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nombre"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/x-www-form-urlencoded": {
               "schema": {
                 "$ref": "#/components/schemas/Body_identificar_agendar_identificar_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5143,11 +5469,10 @@
         }
       }
     },
-    "/tick": {
-      "post": {
-        "summary": "Tick",
-        "description": "Ejecuta el mismo ciclo que el trabajador; para que más adelante lo invoque un programador externo.",
-        "operationId": "tick_tick_post",
+    "/salud": {
+      "get": {
+        "summary": "Salud",
+        "operationId": "salud_salud_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5160,16 +5485,39 @@
         }
       }
     },
-    "/salud": {
-      "get": {
-        "summary": "Salud",
-        "operationId": "salud_salud_get",
+    "/tick": {
+      "post": {
+        "summary": "Tick",
+        "description": "Ejecuta el mismo ciclo que el trabajador (para un programador externo, como `pg_cron`).",
+        "operationId": "tick_tick_post",
+        "parameters": [
+          {
+            "name": "x-tick-secreto",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tick-Secreto"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -5436,6 +5784,39 @@
           "celular"
         ],
         "title": "Body_identificar_agendar_identificar_post"
+      },
+      "Body_identificar_n__nombre__agendar_identificar_post": {
+        "properties": {
+          "documento": {
+            "type": "string",
+            "title": "Documento"
+          },
+          "celular": {
+            "type": "string",
+            "title": "Celular"
+          },
+          "nombres": {
+            "type": "string",
+            "title": "Nombres",
+            "default": ""
+          },
+          "apellidos": {
+            "type": "string",
+            "title": "Apellidos",
+            "default": ""
+          },
+          "consentimiento": {
+            "type": "string",
+            "title": "Consentimiento",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "documento",
+          "celular"
+        ],
+        "title": "Body_identificar_n__nombre__agendar_identificar_post"
       },
       "Body_reloj_simulador_reloj_post": {
         "properties": {
@@ -6422,6 +6803,20 @@
         ],
         "title": "Desenlace"
       },
+      "ElegirNegocio": {
+        "properties": {
+          "negocio_id": {
+            "type": "integer",
+            "title": "Negocio Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "negocio_id"
+        ],
+        "title": "ElegirNegocio"
+      },
       "EnRiesgoOut": {
         "properties": {
           "tratamiento_id": {
@@ -6847,6 +7242,19 @@
         ],
         "title": "IntentoOut"
       },
+      "MarcaOut": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre"
+        ],
+        "title": "MarcaOut"
+      },
       "MensajeOut": {
         "properties": {
           "id": {
@@ -6925,6 +7333,34 @@
           "etiqueta"
         ],
         "title": "MotivoOut"
+      },
+      "NegocioOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "nombre_corto": {
+            "type": "string",
+            "title": "Nombre Corto"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "zona_horaria": {
+            "type": "string",
+            "title": "Zona Horaria"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre_corto",
+          "nombre",
+          "zona_horaria"
+        ],
+        "title": "NegocioOut"
       },
       "NoConfirmadaOut": {
         "properties": {
@@ -7490,10 +7926,17 @@
             "title": "Nombre"
           },
           "rol": {
-            "type": "string",
-            "enum": [
-              "auxiliar",
-              "especialista"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auxiliar",
+                  "especialista"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Rol"
           },
@@ -7526,6 +7969,35 @@
           "modo_demo": {
             "type": "boolean",
             "title": "Modo Demo"
+          },
+          "negocio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NegocioOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "negocios": {
+            "items": {
+              "$ref": "#/components/schemas/NegocioOut"
+            },
+            "type": "array",
+            "title": "Negocios"
+          },
+          "administrador": {
+            "type": "boolean",
+            "title": "Administrador"
+          },
+          "debe_cambiar_clave": {
+            "type": "boolean",
+            "title": "Debe Cambiar Clave"
+          },
+          "simulador": {
+            "type": "boolean",
+            "title": "Simulador"
           }
         },
         "type": "object",
@@ -7536,7 +8008,12 @@
           "profesional_id",
           "profesional",
           "hora_sistema",
-          "modo_demo"
+          "modo_demo",
+          "negocio",
+          "negocios",
+          "administrador",
+          "debe_cambiar_clave",
+          "simulador"
         ],
         "title": "SesionOut"
       },

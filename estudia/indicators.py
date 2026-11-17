@@ -1,6 +1,5 @@
 """Indicadores: hechos diarios (cierre) y consultas del tablero (PRD §6.8)."""
 import json
-import sys
 from collections import Counter
 from datetime import date, datetime, timedelta
 
@@ -84,7 +83,7 @@ def close_day(conn, day: date) -> None:
                    count(*) filter (where estado='ocupado' and ocupado_por='oferta') as oferta,
                    count(*) filter (where estado='ocupado' and ocupado_por='agendamiento') as agend,
                    count(*) filter (where estado='vacio') as vacios
-            from cupo_liberado where profesional_id=%s and (lower(rango) at time zone 'America/Bogota')::date=%s
+            from cupo_liberado where profesional_id=%s and (lower(rango) at time zone current_setting('TimeZone'))::date=%s
               and estado <> 'anulado'
             """, (p["id"], day)).fetchone()
         conn.execute(

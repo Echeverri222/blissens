@@ -1,5 +1,5 @@
 """Recuperación: detección diaria de tratamientos a medias (RF-25)."""
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from . import clock, config, followup
 from .lifecycle import ALIVE

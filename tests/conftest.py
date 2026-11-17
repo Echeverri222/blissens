@@ -2,27 +2,45 @@ import itertools
 import os
 from datetime import datetime, timedelta
 
-# Las pruebas usan una base separada; se fija antes de importar el paquete.
+# Las pruebas usan una base separada; se fija antes de importar el paquete. La suite corre con el ROL DE APLICACIÓN
+# (sujeto a RLS); el rol de administración solo migra y vacía la base entre pruebas.
+os.environ["ENTORNO"] = "local"
 os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://estudia:estudia@localhost:5433/estudia_test")
+    "TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@localhost:5433/estudia_test")
+os.environ["DATABASE_URL_ADMIN"] = os.environ.get(
+    "TEST_DATABASE_URL_ADMIN", "postgresql://estudia:estudia@localhost:5433/estudia_test")
 
 import pytest  # noqa: E402
 
-from estudia import agenda, catalog, clock, config, data, db, messaging, migrate  # noqa: E402
+from estudia import agenda, catalog, clock, db, messaging, migrate  # noqa: E402
 
 URL = os.environ["DATABASE_URL"]
+ADMIN = os.environ["DATABASE_URL_ADMIN"]
 NOW = datetime(2026, 11, 16, 8, 0, tzinfo=clock.TZ)  # lunes 8:00
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _schema():
-    migrate.run(URL)
+    migrate.run(ADMIN)
+
+
+def vaciar():
+    """Deja la base vacía (solo el negocio Blissens, tal como lo crea la migración)."""
+    a = db.connect_admin(ADMIN)
+    tablas = [r["table_name"] for r in a.execute(
+        "select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE' "
+        "and table_name not in ('negocio','migracion')")]
+    a.execute("truncate " + ", ".join(tablas) + " restart identity cascade")
+    a.execute("delete from negocio where id <> 1")
+    a.execute("update negocio set nombre='Blissens Odontología', zona_horaria='America/Bogota', activo=true where id=1")
+    a.commit()
+    a.close()
 
 
 @pytest.fixture
 def conn():
+    vaciar()
     c = db.connect(URL)
-    data.wipe(c)
     catalog.load(c)
     c.commit()
     clock.freeze(NOW)

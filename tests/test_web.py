@@ -1,12 +1,12 @@
 import re
-from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
-from estudia import clock, links
+from estudia import links
 from estudia.web.app import app
-from .conftest import NOW, at, book, make_patient, make_pro, outbox, status, svc
+
+from .conftest import at, book, make_patient, make_pro, outbox, status, svc
 
 
 @pytest.fixture

@@ -109,8 +109,8 @@ Decisiones clave:
 - **Sesiones en la base** (solo se guarda la huella del identificador) y con **hora real**: es la única excepción
   al reloj único, para que adelantar el reloj de la demo no cierre la sesión de nadie.
 - **Un bloqueo nunca cancela citas**: si el rango tiene citas vivas se rechaza (409) y se listan para que recepción las mueva.
-- Zona horaria `America/Bogota`. La API y el panel exigen sesión; el simulador y `/tick` siguen sin
-  autenticación (brecha conocida y temporal): deben cerrarse antes de cualquier despliegue.
+- Zona horaria `America/Bogota`. La API y el panel exigen sesión; el simulador y `/tick` solo existen en `local`/`demo` (`/tick` exige `X-Tick-Secreto` fuera de local).
+- **Un negocio hoy, N mañana (PRD #4)**: todas las tablas llevan `negocio_id` con RLS forzada; el código de dominio no lo menciona (el negocio activo es un ajuste de la conexión). La aplicación usa el rol `estudia_app` (sin privilegios) y las migraciones/CLI el rol administrador (`DATABASE_URL_ADMIN`). Migraciones propias con reversa: `make migrar ARGS="estado|subir|bajar|verificar"`. Nuevo negocio: `make negocio ARGS="crear ..."`. Fuera de `local` la aplicación se niega a arrancar con configuración insegura. Pendiente de esta fase: API/pantalla de administración, puerto de canal y webhook, Docker/Render/CI, respaldos y exportación de pacientes.
 - **El panel no calcula nada de negocio**: qué botones muestra cada cita lo decide la API (`acciones`), la hora "de ahora" es la del sistema y no la del navegador, y los mensajes de error son los de la API.
 
 ## Privacidad y datos reales
@@ -122,5 +122,5 @@ Los mensajes contienen lo mínimo (nombre de pila, fecha, hora, profesional y di
 
 ## Fuera de alcance
 
-WhatsApp real, despliegue en la nube, pantalla de administración de usuarios, integración con el software de la clínica,
+WhatsApp real, despliegue en la nube, integración con el software de la clínica,
 requerimientos *Should/Could* y multisede (ver PRD §8).

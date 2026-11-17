@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from estudia import agenda, clock, followup, tasks
+
 from .conftest import at, book, button, make_patient, make_pro, outbox, press, status
 
 
@@ -108,6 +109,7 @@ def test_automatic_messages_wait_for_sending_window(conn):
 
 def test_whatsapp_limits_are_enforced(conn):
     import pytest
+
     from estudia import messaging
     with pytest.raises(messaging.MessageError):
         messaging.validate("botones", [{"id": str(i), "title": "x"} for i in range(4)])

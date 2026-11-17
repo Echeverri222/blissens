@@ -1,9 +1,9 @@
 """Backend del panel nuevo (PRD #3 §7.7): servido en /panel, acciones permitidas y movimiento reversible."""
 from estudia import clock
 from estudia.web import panel as servidor
+
 from .conftest import at, book
 from .test_api import API, mundo, nuevo_cliente  # noqa: F401
-
 
 # ------------------------------------------------------------------ servido de /panel
 

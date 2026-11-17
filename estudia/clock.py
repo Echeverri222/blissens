@@ -19,13 +19,27 @@ def advance(delta: timedelta) -> None:
     _frozen = _frozen + delta
 
 
+def tz(conn) -> ZoneInfo:
+    """Zona horaria del negocio activo (la de la sesión de la base); `TZ` es el valor por defecto del producto."""
+    try:
+        return ZoneInfo(conn.execute("select current_setting('TimeZone') z").fetchone()["z"])
+    except Exception:
+        return TZ
+
+
 def now(conn) -> datetime:
     if _frozen is not None:
-        return _frozen
-    real = datetime.now(TZ)
-    if config.get(conn, "demo_mode"):
+        return _frozen.astimezone(tz(conn))
+    real = datetime.now(tz(conn))
+    if demo_activo(conn):
         return real + timedelta(seconds=float(config.get(conn, "reloj_desfase_seg")))
     return real
+
+
+def demo_activo(conn) -> bool:
+    """El reloj simulado solo existe fuera de producción (PRD #4, D7); allí se ignora aunque esté en la base."""
+    from . import settings
+    return settings.ENTORNO != "produccion" and bool(config.get(conn, "demo_mode"))
 
 
 def shift(conn, delta: timedelta) -> datetime:
@@ -37,7 +51,7 @@ def shift(conn, delta: timedelta) -> datetime:
 
 def jump_to(conn, target: datetime) -> datetime:
     """Salta a una hora objetivo (desfase = objetivo - hora real)."""
-    config.set_(conn, "reloj_desfase_seg", (target - datetime.now(TZ)).total_seconds())
+    config.set_(conn, "reloj_desfase_seg", (target - datetime.now(tz(conn))).total_seconds())
     return now(conn)
 
 

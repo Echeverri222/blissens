@@ -36,6 +36,9 @@ TRADUCCION = {
     usuarios.InicioBloqueado: (429, "inicio_bloqueado"),
     usuarios.ClaveInvalida: (422, "clave_invalida"),
     usuarios.UsuarioInvalido: (422, "usuario_invalido"),
+    usuarios.NegocioDesconocido: (404, "negocio_desconocido"),
+    usuarios.UltimoAdministrador: (409, "ultimo_administrador"),
+    usuarios.ClaveDeOtroNegocio: (409, "clave_de_otro_negocio"),
 }
 
 
@@ -91,12 +94,27 @@ def solo_json(request: Request) -> None:
             raise ApiError(422, "solo_json", "Esta operación solo acepta cuerpo JSON.")
 
 
-def usuario_actual(request: Request, conn=Depends(get_conn)) -> dict:
+def usuario_sin_negocio(request: Request, conn=Depends(get_conn)) -> dict:
+    """Sesión válida, con o sin negocio elegido (para ver la sesión, elegir negocio y salir)."""
     token = request.cookies.get(COOKIE)
     u = usuarios.usuario_de_sesion(conn, token)
     if u is None:
         raise ApiError(401, "no_autenticado", "Inicia sesión para continuar.")
     request.state.token = token
+    return u
+
+
+def usuario_actual(u: dict = Depends(usuario_sin_negocio)) -> dict:
+    """Sesión válida con un negocio activo, ya fijado en la conexión: de él sale todo lo que la base deja ver."""
+    if u["negocio_id"] is None:
+        raise ApiError(409, "negocio_requerido", "Elige el negocio con el que vas a trabajar.")
+    if u["debe_cambiar_clave"]:
+        raise ApiError(403, "cambio_de_clave_requerido", "Debes cambiar tu contraseña temporal para continuar.")
+    return u
+
+
+def administrador(u: dict = Depends(usuario_actual)) -> dict:
+    permisos.exigir_administrador(u)
     return u
 
 

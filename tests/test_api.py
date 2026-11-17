@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from estudia import agenda, bandejas, clock, indicators, usuarios
 from estudia.api.esquema import ARCHIVO, esquema
 from estudia.web.app import app
+
 from .conftest import NOW, at, book, button, make_patient, make_pro, press, status, svc
 
 CLAVE = "clave-de-prueba"
@@ -55,7 +56,7 @@ def test_every_api_route_requires_a_session():
         if not path.startswith(API):
             continue
         for method in ops:
-            if (method, path) == ("post", f"{API}/sesion"):
+            if (method, path) in (("post", f"{API}/sesion"), ("get", f"{API}/marca")):
                 continue
             r = anon.request(method.upper(), path.replace("{", "").replace("}", "").replace("_id", "1").replace(
                 "profesional1", "1"), json={} if method != "get" else None)
@@ -253,7 +254,7 @@ def test_demo_users_are_created_with_fake_data(conn):
     from estudia import data
     n = data.seed(conn, patients=12)
     assert {u["usuario"] for u in n["usuarios"]} == {"auxiliar", "especialista1", "especialista2"}
-    assert conn.execute("select count(*) n from usuario where rol='especialista' and profesional_id is not null").fetchone()["n"] == 2
+    assert conn.execute("select count(*) n from acceso where rol='especialista' and profesional_id is not null").fetchone()["n"] == 2
 
 
 # ------------------------------------------------------------------ 5. Bloqueos

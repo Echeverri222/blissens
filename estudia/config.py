@@ -19,6 +19,10 @@ DEFAULTS = {
     "vigencia_enlace_dias": 30,
     "reintentos_tarea": 3,
     "direccion": "Blissens Odontología, Calle 00 # 00-00, Bogotá",
+    "termino_negocio": "la clínica",
+    "texto_consentimiento": "Autorizo a {nombre} a tratar mis datos personales para gestionar mis citas y enviarme mensajes\n"
+                            "      sobre ellas (Ley 1581 de 2012). Puedo pedir la baja respondiendo BAJA.",
+    "consentimiento_version": "1",
     "demo_mode": True,
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
@@ -26,6 +30,11 @@ DEFAULTS = {
     "max_intentos_login": 5,
     "bloqueo_login_min": 15,
 }
+
+
+def plataforma(key):
+    """Valores de la plataforma (sesión e ingreso): no son de un negocio porque el usuario no lo es."""
+    return DEFAULTS[key]
 
 
 def get(conn, key):
@@ -36,7 +45,7 @@ def get(conn, key):
 def set_(conn, key, value):
     conn.execute(
         "insert into configuracion(clave, valor) values (%s, %s) "
-        "on conflict (clave) do update set valor = excluded.valor",
+        "on conflict (negocio_id, clave) do update set valor = excluded.valor",
         (key, json.dumps(value)),
     )
 

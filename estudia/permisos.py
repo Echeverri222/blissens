@@ -22,6 +22,11 @@ def exigir_auxiliar(usuario: dict) -> None:
         raise SinPermiso("Esta operación es solo para recepción")
 
 
+def exigir_administrador(usuario: dict) -> None:
+    if not usuario.get("administrador"):
+        raise SinPermiso("Esta operación es solo para quien administra el negocio")
+
+
 def puede_actuar_sobre_profesional(usuario: dict, profesional_id: int) -> bool:
     return es_auxiliar(usuario) or usuario["profesional_id"] == profesional_id
 

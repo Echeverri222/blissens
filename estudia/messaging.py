@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime, timedelta
 
-from . import clock, config, fmt, settings, tasks
+from . import clock, config, settings, tasks
 
 MAX_BUTTONS, MAX_BUTTON_TITLE = 3, 20
 MAX_LIST_OPTIONS, MAX_LIST_TITLE = 10, 24
@@ -37,7 +37,7 @@ def validate(tipo: str, options: list[dict]) -> None:
 
 def patient_link(conn, patient_id: int, path: str = "") -> str:
     from .links import make_token
-    return f"{settings.BASE_URL}/p/{make_token(patient_id)}{path}"
+    return f"{settings.BASE_URL}/p/{make_token(patient_id, conn=conn)}{path}"
 
 
 def render(conn, key: str, data: dict, options: list[dict] | None = None):

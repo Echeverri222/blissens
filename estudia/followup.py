@@ -1,5 +1,5 @@
 """Seguimiento: casos, intentos y cadencia (PRD §6.5)."""
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import psycopg
 

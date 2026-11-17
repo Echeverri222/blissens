@@ -51,37 +51,59 @@ def _run_one(conn) -> bool:
     return True
 
 
-def cycle(conn=None, max_tasks: int = 500) -> dict:
-    """Un ciclo: tareas vencidas, ofertas vencidas, cupos cerrados, detección y cierre diarios."""
-    own = conn is None
-    if own:
-        conn = db.connect()
-    try:
-        from . import jobs
+_turno = 0
 
-        ran = 0
-        while ran < max_tasks:
-            ok = _run_one(conn)
-            conn.commit()
-            if not ok:
-                break
-            ran += 1
-        now = clock.now(conn)
-        summary = {"tareas": ran}
-        for name, fn in (("ofertas_vencidas", jobs.expire_offers),
-                         ("cupos_cerrados", jobs.close_slots),
-                         ("diario", jobs.run_daily)):
-            try:
-                with conn.transaction():
-                    summary[name] = fn(conn, now)
-            except Exception:
-                summary[name] = "error"
-                _record_failure(conn, name, traceback.format_exc(limit=3), now)
-            conn.commit()
-        return summary
+
+def cycle(conn=None, max_tasks: int = 500) -> dict:
+    """Un ciclo. Con `conn`, para su negocio activo. Sin `conn`, para TODOS los negocios activos, por turnos."""
+    if conn is not None:
+        return _cycle_negocio(conn, max_tasks)
+    global _turno
+    base = db.connect(negocio=None)
+    try:
+        negocios = [r["id"] for r in base.execute("select id from negocios_activos()").fetchall()]
     finally:
-        if own:
-            conn.close()
+        base.close()
+    if not negocios:
+        return {}
+    ini = _turno % len(negocios)
+    _turno += 1
+    out = {}
+    for nid in negocios[ini:] + negocios[:ini]:  # empieza por uno distinto cada vez
+        try:
+            c = db.connect(negocio=nid)
+            try:
+                out[nid] = _cycle_negocio(c, max_tasks)
+            finally:
+                c.close()
+        except Exception as e:  # un negocio que falla no detiene a los demás
+            out[nid] = {"error": type(e).__name__}
+    return out[negocios[0]] if len(negocios) == 1 else out
+
+
+def _cycle_negocio(conn, max_tasks: int) -> dict:
+    from . import jobs
+
+    ran = 0
+    while ran < max_tasks:
+        ok = _run_one(conn)
+        conn.commit()
+        if not ok:
+            break
+        ran += 1
+    now = clock.now(conn)
+    summary = {"tareas": ran}
+    for name, fn in (("ofertas_vencidas", jobs.expire_offers),
+                     ("cupos_cerrados", jobs.close_slots),
+                     ("diario", jobs.run_daily)):
+        try:
+            with conn.transaction():
+                summary[name] = fn(conn, now)
+        except Exception:
+            summary[name] = "error"
+            _record_failure(conn, name, traceback.format_exc(limit=3), now)
+        conn.commit()
+    return summary
 
 
 def _record_failure(conn, name: str, err: str, now: datetime) -> None:

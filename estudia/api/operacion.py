@@ -1,11 +1,11 @@
 """Rutas de sesión, catálogos, agenda, citas y bloqueos. Delgadas: validan, autorizan y llaman al dominio."""
-from datetime import date, timedelta
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from .. import agenda, clock, config, horario, permisos, usuarios
 from . import schemas as sc
-from .comun import (COOKIE, ApiError, a_bogota, auxiliar, fin, get_conn, inicio, solo_json, usuario_actual)
+from .comun import COOKIE, ApiError, a_bogota, auxiliar, fin, get_conn, inicio, solo_json, usuario_actual, usuario_sin_negocio
 
 router = APIRouter(dependencies=[Depends(solo_json)])
 MAX_DIAS = 42
@@ -13,31 +13,57 @@ MAX_DIAS = 42
 
 # ----------------------------------------------------------------- sesión
 
+def _negocios(conn, u: dict) -> list[dict]:
+    return [{"id": a["negocio_id"], "nombre_corto": a["nombre_corto"], "nombre": a["nombre"],
+             "zona_horaria": a["zona_horaria"]} for a in usuarios._accesos_vigentes(conn, u["id"])]
+
+
 def _sesion(conn, u: dict) -> sc.SesionOut:
+    from .. import settings
+    negocios = _negocios(conn, u)
+    activo = next((n for n in negocios if n["id"] == u["negocio_id"]), None)
     pro = conn.execute("select nombre from profesional where id=%s", (u["profesional_id"],)).fetchone() \
         if u["profesional_id"] else None
     return sc.SesionOut(usuario=u["nombre_usuario"], nombre=u["nombre"], rol=u["rol"], profesional_id=u["profesional_id"],
                         profesional=pro["nombre"] if pro else None, hora_sistema=clock.now(conn),
-                        modo_demo=config.get(conn, "demo_mode"))
+                        modo_demo=clock.demo_activo(conn) if activo else False, negocio=activo, negocios=negocios,
+                        administrador=u["administrador"], debe_cambiar_clave=u["debe_cambiar_clave"],
+                        simulador=settings.ENTORNO != "produccion")
+
+
+@router.get("/marca", tags=["Sesión"], summary="Nombre que muestra la pantalla de ingreso", response_model=sc.MarcaOut,
+            description="No pide sesión: es el nombre del negocio por defecto si existe; si no, el del producto.")
+def marca(conn=Depends(get_conn)):
+    from .. import settings
+    r = conn.execute("select nombre from negocio_de_nombre(%s)", (settings.NEGOCIO_POR_DEFECTO,)).fetchone()
+    return sc.MarcaOut(nombre=r["nombre"] if r else "Estud-IA")
 
 
 @router.post("/sesion", tags=["Sesión"], summary="Iniciar sesión", response_model=sc.SesionOut,
-             description="Deja la cookie de sesión puesta. Con 5 fallos seguidos el usuario queda bloqueado 15 minutos (429).")
+             description="Deja la cookie de sesión puesta. Con 5 fallos seguidos el usuario queda bloqueado 15 minutos (429). "
+                         "Con acceso a varios negocios la sesión nace sin negocio activo: se elige con `POST /sesion/negocio`.")
 def iniciar(datos: sc.Credenciales, response: Response, request: Request, conn=Depends(get_conn)):
     from .. import settings
     token, u = usuarios.iniciar_sesion(conn, datos.usuario, datos.clave)
     response.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=settings.BASE_URL.startswith("https"),
-                        max_age=config.get(conn, "sesion_horas") * 3600, path="/")
+                        max_age=config.plataforma("sesion_horas") * 3600, path="/")
     return _sesion(conn, u)
 
 
 @router.get("/sesion", tags=["Sesión"], summary="Sesión actual y hora del sistema", response_model=sc.SesionOut)
-def sesion(conn=Depends(get_conn), u=Depends(usuario_actual)):
+def sesion(conn=Depends(get_conn), u=Depends(usuario_sin_negocio)):
     return _sesion(conn, u)
 
 
+@router.post("/sesion/negocio", tags=["Sesión"], summary="Cambiar el negocio activo", response_model=sc.SesionOut,
+             description="Exige un acceso vigente a ese negocio; si no, 404. No hay que volver a ingresar.")
+def elegir_negocio(datos: sc.ElegirNegocio, request: Request, conn=Depends(get_conn), u=Depends(usuario_sin_negocio)):
+    nuevo = usuarios.elegir_negocio(conn, request.state.token, u["id"], datos.negocio_id)
+    return _sesion(conn, nuevo)
+
+
 @router.delete("/sesion", tags=["Sesión"], summary="Cerrar sesión", response_model=sc.Ok)
-def cerrar(request: Request, response: Response, conn=Depends(get_conn), u=Depends(usuario_actual)):
+def cerrar(request: Request, response: Response, conn=Depends(get_conn), u=Depends(usuario_sin_negocio)):
     usuarios.cerrar_sesion(conn, request.state.token)
     response.delete_cookie(COOKIE, path="/")
     return sc.Ok()
@@ -45,7 +71,7 @@ def cerrar(request: Request, response: Response, conn=Depends(get_conn), u=Depen
 
 @router.post("/sesion/clave", tags=["Sesión"], summary="Cambiar la contraseña propia", response_model=sc.Ok,
              description="Cierra las demás sesiones del usuario; la actual se conserva.")
-def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn), u=Depends(usuario_actual)):
+def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn), u=Depends(usuario_sin_negocio)):
     usuarios.cambiar_clave(conn, u["id"], datos.actual, datos.nueva, request.state.token)
     return sc.Ok()
 

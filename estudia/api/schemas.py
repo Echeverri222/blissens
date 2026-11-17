@@ -50,14 +50,34 @@ class CambioClave(Entrada):
     nueva: str
 
 
+class NegocioOut(Salida):
+    id: int
+    nombre_corto: str
+    nombre: str
+    zona_horaria: str
+
+
 class SesionOut(Salida):
     usuario: str
     nombre: str
-    rol: Literal["auxiliar", "especialista"]
+    rol: Literal["auxiliar", "especialista"] | None
     profesional_id: int | None
     profesional: str | None
     hora_sistema: Momento
     modo_demo: bool
+    negocio: NegocioOut | None
+    negocios: list[NegocioOut]
+    administrador: bool
+    debe_cambiar_clave: bool
+    simulador: bool
+
+
+class ElegirNegocio(Entrada):
+    negocio_id: int
+
+
+class MarcaOut(Salida):
+    nombre: str
 
 
 # ----------------------------------------------------------------- catálogos

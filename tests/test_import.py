@@ -1,8 +1,6 @@
 import openpyxl
-import pytest
 
 from estudia import data
-from .conftest import outbox
 
 
 def build(tmp_path):

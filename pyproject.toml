@@ -17,11 +17,22 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "httpx>=0.27"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 130
+extend-exclude = ["panel", "datos_reales", "contexto"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E701", "E702", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F811", "F841", "E731"]
 
 [build-system]
 requires = ["hatchling"]

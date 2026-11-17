@@ -4,6 +4,7 @@ import psycopg
 import pytest
 
 from estudia import agenda, clock, config, slots, tasks
+
 from .conftest import NOW, at, book, button, make_patient, make_pro, outbox, press, status, svc
 
 
