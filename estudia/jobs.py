@@ -1,7 +1,7 @@
 """Tareas del ciclo: handlers de tareas programadas, vencimientos y procesos diarios."""
 from datetime import datetime, timedelta
 
-from . import config, confirmations, followup, indicators, recovery, slots, tasks
+from . import canales, config, confirmations, followup, indicators, privacidad, recovery, slots, tasks
 
 
 @tasks.handler("recordatorio")
@@ -26,8 +26,9 @@ def _vencer(conn, d, now):
 
 @tasks.handler("entregar_mensaje")
 def _entregar(conn, d, now):
-    conn.execute("update mensaje set estado_entrega='entregado' where id=%s and estado_entrega='diferido'",
-                 (d["mensaje_id"],))
+    if conn.execute("update mensaje set estado_entrega='entregado' where id=%s and estado_entrega='diferido' returning id",
+                    (d["mensaje_id"],)).fetchone():
+        canales.enviar_mensaje(conn, d["mensaje_id"])
 
 
 def expire_offers(conn, now: datetime) -> int:
@@ -52,5 +53,6 @@ def run_daily(conn, now: datetime) -> dict | None:
     first = max(first, today - timedelta(days=60))
     closed = indicators.close_range(conn, first, today - timedelta(days=1)) if first <= today - timedelta(days=1) else 0
     opened = recovery.detect(conn, now)
+    depurado = privacidad.depurar(conn)  # por defecto no borra nada
     config.set_(conn, "ultimo_diario", today.isoformat())
-    return {"cierres": closed, "casos_recuperacion": opened}
+    return {"cierres": closed, "casos_recuperacion": opened, **({"depurado": depurado} if depurado else {})}

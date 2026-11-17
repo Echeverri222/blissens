@@ -25,6 +25,11 @@ dependencias el sistema funciona sin conexión a internet: el panel no hace ning
 | `make api-esquema` | Regenera `docs/openapi.json` (una prueba falla si la API cambia sin regenerarlo) |
 | `make reset` | Borra la base local y la reconstruye desde cero |
 | `make importar` | Importa los Excel reales desde `datos_reales/` (ignorada por git). No crea usuarios: con datos reales se crean con `make usuario` |
+| `make respaldo` / `make restaurar-ensayo` | Copia de la base en `respaldos/` (ignorada por git) y restauración en una base temporal con las verificaciones del migrador |
+| `make migrar ARGS="estado\|subir\|bajar\|verificar"` | Migrador con reversa |
+| `make negocio ARGS="..."` | `crear`, `listar`, `activar`, `desactivar`, `config`, `depurar`, `exportar`, `exportar-paciente`, `anonimizar-paciente` |
+| `make ensayo-supabase` | Ensayo contra la imagen de PostgreSQL de Supabase (migra, suite con el rol de aplicación, API de datos cerrada) |
+| `make lint` | Ruff y lint del panel |
 | `make cierre` | Ejecuta el cierre de indicadores a demanda |
 
 Un clon recién hecho funciona con `make setup && make dev`.
@@ -110,7 +115,7 @@ Decisiones clave:
   al reloj único, para que adelantar el reloj de la demo no cierre la sesión de nadie.
 - **Un bloqueo nunca cancela citas**: si el rango tiene citas vivas se rechaza (409) y se listan para que recepción las mueva.
 - Zona horaria `America/Bogota`. La API y el panel exigen sesión; el simulador y `/tick` solo existen en `local`/`demo` (`/tick` exige `X-Tick-Secreto` fuera de local).
-- **Un negocio hoy, N mañana (PRD #4)**: todas las tablas llevan `negocio_id` con RLS forzada; el código de dominio no lo menciona (el negocio activo es un ajuste de la conexión). La aplicación usa el rol `estudia_app` (sin privilegios) y las migraciones/CLI el rol administrador (`DATABASE_URL_ADMIN`). Migraciones propias con reversa: `make migrar ARGS="estado|subir|bajar|verificar"`. Nuevo negocio: `make negocio ARGS="crear ..."`. Fuera de `local` la aplicación se niega a arrancar con configuración insegura. Administración (`/api/v1/admin/usuarios` y sección *Administración* del panel, solo para administradores): alta con contraseña temporal que se muestra una vez y debe cambiarse al ingresar, quitar/devolver acceso, cambiar permisos y no dejar el negocio sin administrador. Pendiente: puerto de canal y webhook, Docker/Render/CI, respaldos y exportación de pacientes.
+- **Un negocio hoy, N mañana (PRD #4)**: todas las tablas llevan `negocio_id` con RLS forzada; el código de dominio no lo menciona (el negocio activo es un ajuste de la conexión). La aplicación usa el rol `estudia_app` (sin privilegios) y las migraciones/CLI el rol administrador (`DATABASE_URL_ADMIN`). Migraciones propias con reversa: `make migrar ARGS="estado|subir|bajar|verificar"`. Nuevo negocio: `make negocio ARGS="crear ..."`. Fuera de `local` la aplicación se niega a arrancar con configuración insegura. Administración (`/api/v1/admin/usuarios` y sección *Administración* del panel, solo para administradores): alta con contraseña temporal que se muestra una vez y debe cambiarse al ingresar, quitar/devolver acceso, cambiar permisos y no dejar el negocio sin administrador. Canal de mensajes con puerto y webhook (`POST /canales/{tipo}/webhook`); registro de accesos a datos de pacientes, retención y anonimizado; registro JSON por petición sin datos personales. Despliegue preparado y no realizado: `Dockerfile`, `render.yaml` (Render + Supabase, solo datos ficticios) y CI en `.github/workflows/ci.yml`. Decisiones en `docs/adr/` y vocabulario en `GLOSSARY.md`.
 - **El panel no calcula nada de negocio**: qué botones muestra cada cita lo decide la API (`acciones`), la hora "de ahora" es la del sistema y no la del navegador, y los mensajes de error son los de la API.
 
 ## Privacidad y datos reales

@@ -4,7 +4,7 @@ import json
 import re
 import sys
 
-from . import catalog, config, db, usuarios
+from . import catalog, config, db, privacidad, usuarios
 
 
 class NegocioInvalido(Exception):
@@ -30,6 +30,17 @@ def crear(admin, nombre_corto: str, nombre: str, zona_horaria: str = "America/Bo
     return nid
 
 
+def exportar(admin, negocio_id: int, salida: str) -> None:
+    """Todas las filas de un negocio (primer paso para llevarlo a una base propia). La sesión se excluye."""
+    tablas = [r["table_name"] for r in admin.execute(
+        "select table_name from information_schema.columns where table_schema='public' and column_name='negocio_id' "
+        "and table_name not in ('sesion') order by 1")]
+    datos = {t: admin.execute(f'select * from "{t}" where negocio_id=%s order by 1', (negocio_id,)).fetchall() for t in tablas}
+    datos["negocio"] = admin.execute("select * from negocio where id=%s", (negocio_id,)).fetchall()
+    with open(salida, "w", encoding="utf-8") as f:
+        json.dump(datos, f, default=str, ensure_ascii=False)
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="make negocio ARGS=")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -43,6 +54,15 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("listar")
     for n in ("activar", "desactivar"):
         sub.add_parser(n).add_argument("nombre_corto")
+    for n in ("depurar",):
+        sub.add_parser(n).add_argument("nombre_corto")
+    e = sub.add_parser("exportar", help="saca todas las filas de UN negocio a un archivo JSON (fuera del repositorio)")
+    e.add_argument("nombre_corto")
+    e.add_argument("--salida", required=True)
+    for n in ("exportar-paciente", "anonimizar-paciente"):
+        q = sub.add_parser(n)
+        q.add_argument("nombre_corto")
+        q.add_argument("paciente_id", type=int)
     k = sub.add_parser("config")
     k.add_argument("nombre_corto")
     k.add_argument("clave")
@@ -69,6 +89,22 @@ def main(argv: list[str] | None = None) -> None:
                     raise SystemExit("No existe ese negocio")
                 admin.commit()
                 print(f"Negocio '{a.nombre_corto}' {a.cmd}do.")
+            elif a.cmd in ("depurar", "exportar", "exportar-paciente", "anonimizar-paciente"):
+                n = admin.execute("select id from negocio where nombre_corto=%s", (a.nombre_corto,)).fetchone()
+                if not n:
+                    raise SystemExit("No existe ese negocio")
+                db.fijar(admin, n["id"])
+                if a.cmd == "depurar":
+                    print(privacidad.depurar_admin(admin) or "Nada que depurar (la retención está desactivada).")
+                elif a.cmd == "exportar":
+                    exportar(admin, n["id"], a.salida)
+                    print(f"Negocio '{a.nombre_corto}' exportado a {a.salida}. No lo subas al repositorio: es público.")
+                elif a.cmd == "exportar-paciente":
+                    print(json.dumps(privacidad.exportar_paciente(admin, a.paciente_id), ensure_ascii=False, indent=2))
+                else:
+                    privacidad.anonimizar_paciente(admin, a.paciente_id)
+                    print(f"Paciente {a.paciente_id} anonimizado: se conservan los hechos de sus citas.")
+                admin.commit()
             elif a.cmd == "config":
                 n = admin.execute("select id from negocio where nombre_corto=%s", (a.nombre_corto,)).fetchone()
                 if not n:

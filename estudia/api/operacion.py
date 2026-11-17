@@ -5,7 +5,19 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 
 from .. import agenda, clock, config, horario, permisos, usuarios
 from . import schemas as sc
-from .comun import COOKIE, ApiError, a_bogota, auxiliar, fin, get_conn, inicio, solo_json, usuario_actual, usuario_sin_negocio
+from .comun import (
+    COOKIE,
+    ApiError,
+    a_bogota,
+    auditar,
+    auxiliar,
+    fin,
+    get_conn,
+    inicio,
+    solo_json,
+    usuario_actual,
+    usuario_sin_negocio,
+)
 
 router = APIRouter(dependencies=[Depends(solo_json)])
 MAX_DIAS = 42
@@ -147,7 +159,8 @@ def horario_semanal(profesional_id: int, conn=Depends(get_conn), u=Depends(usuar
 
 # ----------------------------------------------------------------- citas
 
-@router.get("/citas/{cita_id}", tags=["Citas"], summary="Detalle de una cita con su historial", response_model=sc.CitaDetalle)
+@router.get("/citas/{cita_id}", tags=["Citas"], summary="Detalle de una cita con su historial", response_model=sc.CitaDetalle,
+            dependencies=[auditar("ver_cita")])
 def detalle_cita(cita_id: int, conn=Depends(get_conn), u=Depends(usuario_actual)):
     permisos.cita_visible(conn, u, cita_id)
     c = conn.execute(

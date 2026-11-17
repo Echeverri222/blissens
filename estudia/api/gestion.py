@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from .. import bandejas, clock, config, followup, indicators, lifecycle, pacientes, permisos
 from . import schemas as sc
-from .comun import ApiError, auxiliar, get_conn, inicio, solo_json
+from .comun import ApiError, auditar, auxiliar, get_conn, inicio, solo_json
 
 router = APIRouter(dependencies=[Depends(solo_json)])
 
@@ -13,7 +13,7 @@ router = APIRouter(dependencies=[Depends(solo_json)])
 # ----------------------------------------------------------------- pacientes
 
 @router.get("/pacientes", tags=["Pacientes"], summary="Buscar pacientes por nombre, documento o celular",
-            response_model=list[sc.PacienteResumen])
+            response_model=list[sc.PacienteResumen], dependencies=[auditar("buscar_paciente")])
 def buscar(q: str = Query(min_length=1), conn=Depends(get_conn), u=Depends(auxiliar)):
     return bandejas.find_patients(conn, q)
 
@@ -26,7 +26,7 @@ def crear(datos: sc.NuevoPaciente, conn=Depends(get_conn), u=Depends(auxiliar)):
 
 
 @router.get("/pacientes/{paciente_id}", tags=["Pacientes"], summary="Ficha completa del paciente",
-            response_model=sc.FichaCompleta)
+            response_model=sc.FichaCompleta, dependencies=[auditar("ver_ficha")])
 def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     if not conn.execute("select 1 from paciente where id=%s", (paciente_id,)).fetchone():
         raise permisos.NoExiste("No existe ese paciente")

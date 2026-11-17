@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
+.PHONY: respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
 
 db-up:
 	docker compose up -d --wait db
@@ -72,3 +72,17 @@ lint:
 
 stop:
 	docker compose stop db
+
+respaldo: db-up
+	@./scripts/respaldo.sh
+
+restaurar-ensayo: db-up
+	@./scripts/restaurar-ensayo.sh $(COPIA)
+
+# Ensaya las migraciones subir/bajar/subir sobre una base temporal
+migrar-ensayo: db-up
+	uv run pytest tests/test_aislamiento.py -k migraciones -q
+
+# Ensayo de lo que distingue a Supabase (imagen de Postgres de Supabase): ver scripts/ensayo-supabase.sh
+ensayo-supabase:
+	@./scripts/ensayo-supabase.sh

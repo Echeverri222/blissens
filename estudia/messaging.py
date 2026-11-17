@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime, timedelta
 
-from . import clock, config, settings, tasks
+from . import canales, clock, config, settings, tasks
 
 MAX_BUTTONS, MAX_BUTTON_TITLE = 3, 20
 MAX_LIST_OPTIONS, MAX_LIST_TITLE = 10, 24
@@ -78,11 +78,13 @@ def send(conn, patient_id: int, key: str, data: dict | None = None, *, direct: b
     et, ei = entity or (None, None)
     row = conn.execute(
         "insert into mensaje(paciente_id, direccion, plantilla, texto, tipo, botones, entidad_tipo, entidad_id, "
-        "estado_entrega, momento) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s) returning id",
-        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento),
+        "estado_entrega, momento, canal) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento, canales.tipo_activo(conn)),
     ).fetchone()
     if estado == "diferido":
         tasks.schedule(conn, "entregar_mensaje", momento, {"mensaje_id": row["id"]})
+    elif estado == "entregado":
+        canales.enviar_mensaje(conn, row["id"])
     return row["id"]
 
 
@@ -91,7 +93,7 @@ def normalize_word(t: str) -> str:
 
 
 def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | None = None,
-            channel: str = "simulado") -> int:
+            channel: str = "simulado", id_externo: str | None = None) -> int:
     """Procesa un mensaje entrante (respuesta de botón/lista o texto libre)."""
     from . import router  # noqa: F401  (registra rutas)
 
@@ -109,9 +111,9 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
                 continue
             break
     mid = conn.execute(
-        "insert into mensaje(paciente_id, direccion, canal, texto, respuesta, momento, gestionado) "
-        "values (%s,'entrante',%s,%s,%s,%s,%s) returning id",
-        (patient_id, channel, shown, button_id, now, button_id is not None),
+        "insert into mensaje(paciente_id, direccion, canal, texto, respuesta, momento, gestionado, id_externo) "
+        "values (%s,'entrante',%s,%s,%s,%s,%s,%s) returning id",
+        (patient_id, channel, shown, button_id, now, button_id is not None, id_externo),
     ).fetchone()["id"]
     if button_id:
         prefix, *parts = button_id.split(":")

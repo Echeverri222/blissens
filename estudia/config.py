@@ -27,6 +27,10 @@ DEFAULTS = {
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
     "sesion_horas": 12,
+    "retencion_mensajes_dias": None,    # None = no se borra nada (por defecto)
+    "retencion_auditoria_dias": None,
+    "retencion_sesiones_dias": None,
+    "retencion_tareas_dias": None,
     "max_intentos_login": 5,
     "bloqueo_login_min": 15,
 }

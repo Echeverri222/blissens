@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+    branches: [main, MVP]
+  pull_request:
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env: { POSTGRES_USER: estudia, POSTGRES_PASSWORD: estudia, POSTGRES_DB: estudia_test }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U estudia" --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest   # incluye fuga entre negocios y migraciones subir/bajar
+  panel:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: panel } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: panel/package-lock.json }
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env: { POSTGRES_USER: estudia, POSTGRES_PASSWORD: estudia, POSTGRES_DB: estudia }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U estudia" --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: panel/package-lock.json }
+      - run: uv sync --frozen
+      - run: cd panel && npm ci --no-audit --no-fund && npm run build && npx playwright install --with-deps chromium
+      - run: psql postgresql://estudia:estudia@localhost:5433/postgres -c "create database estudia_e2e"
+      - run: cd panel && E2E=1 E2E_SIN_DOCKER=1 npm run e2e
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t estudia:ci .

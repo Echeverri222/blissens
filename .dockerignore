@@ -1,0 +1,13 @@
+.git
+.venv
+.env
+datos_reales
+contexto
+respaldos
+exportaciones
+panel/node_modules
+panel/dist
+panel/test-results
+panel/playwright-report
+**/__pycache__
+tests

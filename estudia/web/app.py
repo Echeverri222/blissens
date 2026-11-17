@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import agenda, arranque, clock, config, db, fmt, links, messaging, settings, tasks, usuarios
+from .. import agenda, arranque, canales, clock, config, db, fmt, links, logs, messaging, settings, tasks, usuarios
 from ..api import registrar_errores
 from ..api import router as api_router
 from ..lifecycle import ALIVE
@@ -29,6 +29,7 @@ publico = APIRouter()
 sim = APIRouter()
 operacion = APIRouter()
 operacion_salud = APIRouter()
+canal_entrante = APIRouter()
 
 
 def linkify(text: str):
@@ -59,6 +60,7 @@ def _fijar_negocio(request: Request, conn, negocio: dict | None, prefijo: str = 
     if negocio is None or not negocio["activo"]:
         raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
     db.fijar(conn, negocio["id"])
+    request.state.negocio_id = negocio["id"]
     request.state.negocio = negocio
     request.state.prefijo = prefijo
     request.state.termino = config.get(conn, "termino_negocio")
@@ -374,6 +376,46 @@ def reloj(request: Request, accion: str = Form(...), paciente: int | None = Form
 
 # ----------------------------------------------------------------- Operación
 
+@canal_entrante.post("/canales/{tipo}/webhook", include_in_schema=False)
+async def webhook_canal(tipo: str, request: Request):
+    """Entrada de mensajes de un proveedor: se resuelve el negocio por el canal, se verifica la firma con el secreto
+    de ESE canal, se fija el contexto y se procesa como cualquier mensaje entrante (sin repetir reenvíos)."""
+    from ..data import normalize_phone
+    a = canales.adaptador(tipo)
+    crudo = await request.body()
+    cuerpo = canales.cuerpo_json(crudo)
+    if a is None or cuerpo is None:
+        raise HTTPException(404, "Canal desconocido")
+    id_canal = a.identificar(cuerpo)
+    conn = db.connect(negocio=None)
+    try:
+        nid = conn.execute("select negocio_de_canal(%s,%s) n", (tipo, id_canal)).fetchone()["n"] if id_canal else None
+        if nid is None:
+            raise HTTPException(404, "Canal desconocido")
+        db.fijar(conn, nid)
+        canal = conn.execute("select * from canal_negocio where tipo=%s and id_externo=%s and activo", (tipo, id_canal)).fetchone()
+        secreto = canales.secreto_de(canal) if canal else None
+        if not secreto or not a.verificar(crudo, request.headers, secreto):
+            raise HTTPException(401, "Firma inválida")
+        ent = a.traducir(cuerpo)
+        if ent is None:
+            raise HTTPException(422, "Mensaje no entendido")
+        if conn.execute("select 1 from mensaje where canal=%s and id_externo=%s", (tipo, ent.id_mensaje)).fetchone():
+            return {"estado": "repetido"}
+        celular = normalize_phone(ent.celular)
+        pacientes = conn.execute("select id from paciente where celular=%s", (celular,)).fetchall() if celular else []
+        if len(pacientes) != 1:  # celular desconocido o compartido por varios pacientes: queda para el PRD de WhatsApp
+            return {"estado": "sin_paciente" if not pacientes else "ambiguo"}
+        messaging.receive(conn, pacientes[0]["id"], button_id=ent.boton, text=ent.texto, channel=tipo, id_externo=ent.id_mensaje)
+        conn.commit()
+        return {"estado": "recibido"}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def exigir_tick(request: Request, x_tick_secreto: str = Header("")) -> None:
     """`/tick` sin protección en `local`; con el secreto en `demo`; y solo si hay secreto configurado en producción."""
     if request.app.state.entorno == "local":
@@ -403,6 +445,7 @@ def crear_app(entorno: str | None = None) -> FastAPI:
     app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas")
     app.state.entorno = entorno
     registrar_errores(app)
+    logs.instalar(app)
     app.include_router(api_router)
     app.include_router(panel_router)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
@@ -410,6 +453,7 @@ def crear_app(entorno: str | None = None) -> FastAPI:
     if entorno != "produccion":
         app.include_router(sim)
     app.include_router(operacion_salud)
+    app.include_router(canal_entrante)
     if entorno != "produccion" or settings.TICK_SECRETO:
         app.include_router(operacion)
     return app

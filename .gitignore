@@ -14,3 +14,6 @@ panel/dist/
 panel/src/api/tipos.gen.ts
 panel/test-results/
 panel/playwright-report/
+# Exportaciones y copias con datos: nunca se versionan
+exportaciones/
+respaldos/

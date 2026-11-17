@@ -86,6 +86,10 @@ alter table acceso alter column negocio_id drop default;
 drop function if exists negocio_activo(), usuario_activo();
 do $$ begin
     if exists (select 1 from pg_roles where rolname = 'estudia_app') then
-        execute 'drop owned by estudia_app';  -- solo en esta base; el rol es del servidor y otras bases lo usan
+        -- solo en esta base (el rol es del servidor y otras bases lo usan); sin `drop owned`, que en Supabase pide ser miembro
+        revoke all on all tables in schema public from estudia_app;
+        revoke all on all sequences in schema public from estudia_app;
+        revoke all on all functions in schema public from estudia_app;
+        revoke usage on schema public from estudia_app;
     end if;
 end $$;

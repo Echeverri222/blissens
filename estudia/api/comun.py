@@ -101,6 +101,7 @@ def usuario_sin_negocio(request: Request, conn=Depends(get_conn)) -> dict:
     if u is None:
         raise ApiError(401, "no_autenticado", "Inicia sesión para continuar.")
     request.state.token = token
+    request.state.usuario_id, request.state.negocio_id = u["id"], u["negocio_id"]
     return u
 
 
@@ -134,3 +135,13 @@ def inicio(r: dict) -> datetime | None:
 
 def fin(r: dict) -> datetime | None:
     return r["rango"].upper if r.get("rango") else None
+
+
+def auditar(accion: str):
+    """Dependencia de ruta: deja una fila en el registro de accesos por cada consulta de datos de un paciente o una cita."""
+    def dep(request: Request, conn=Depends(get_conn), u: dict = Depends(usuario_actual)) -> None:
+        from .. import privacidad
+        pp = request.path_params
+        privacidad.registrar(conn, u["id"], accion, pp.get("paciente_id"), pp.get("cita_id"),
+                             f"{request.method} {request.scope['route'].path}" if request.scope.get("route") else None)
+    return Depends(dep)
