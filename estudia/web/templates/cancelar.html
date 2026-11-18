@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Cancelar mi cita</h1>
+<p>Cuéntanos el motivo con un toque. Nos ayuda a mejorar.</p>
+{% for m in motivos %}
+  <form method="post" action="/p/{{ token }}/cancelar/{{ cita_id }}" style="margin:0 0 .5rem">
+    <input type="hidden" name="motivo" value="{{ m.id }}">
+    <button type="submit" class="outline secondary">{{ m.etiqueta }}</button>
+  </form>
+{% endfor %}
+<p><a href="/p/{{ token }}">No cancelar, volver</a></p>
+{% endblock %}

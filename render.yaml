@@ -1,0 +1,34 @@
+# Render (plan gratuito): un servicio web con la imagen del repositorio. Base: Supabase (no se crea aquí).
+# El plan gratuito no tiene procesos en segundo plano: el ciclo de tareas lo dispara `pg_cron` de Supabase llamando a
+# POST /tick cada minuto con el encabezado X-Tick-Secreto. Con un plan de pago, descomentar el trabajador.
+# SOLO DATOS FICTICIOS en el plan gratuito (ver PRD #4, D12).
+services:
+  - type: web
+    name: estudia
+    runtime: docker
+    plan: free
+    healthCheckPath: /salud
+    envVars:
+      - key: ENTORNO
+        value: demo            # `produccion` solo cuando se cumplan las condiciones del PRD #4 (D12)
+      - key: BASE_URL
+        sync: false            # https://<servicio>.onrender.com
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TICK_SECRETO
+        generateValue: true
+      - key: NEGOCIO_POR_DEFECTO
+        value: blissens
+      # Conexión por el intermediario de Supabase en MODO SESIÓN (puerto 5432), con TLS: nunca el modo transacción (6543).
+      - key: DATABASE_URL
+        sync: false            # postgresql://estudia_app.<proyecto>:<clave>@<host>:5432/postgres?sslmode=require
+      - key: DATABASE_URL_ADMIN
+        sync: false            # rol postgres, solo para migrar al arrancar
+      - key: CLAVE_ROL_APP
+        sync: false            # contraseña con la que la migración crea el rol estudia_app
+  # - type: worker
+  #   name: estudia-trabajador
+  #   runtime: docker
+  #   plan: starter
+  #   dockerCommand: /entrada.sh trabajador
+  #   envVars: (las mismas que el servicio web, salvo PORT)

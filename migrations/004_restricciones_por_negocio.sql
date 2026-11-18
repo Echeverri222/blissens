@@ -1,0 +1,68 @@
+-- Multi-negocio, paso 4 (ampliar): unicidad por negocio, claves compuestas (sin validar) y nueva exclusión de cruce.
+alter table paciente add constraint paciente_negocio_id_uq unique (negocio_id, id);
+alter table profesional add constraint profesional_negocio_id_uq unique (negocio_id, id);
+alter table servicio add constraint servicio_negocio_id_uq unique (negocio_id, id);
+alter table horario_atencion add constraint horario_atencion_negocio_id_uq unique (negocio_id, id);
+alter table bloqueo add constraint bloqueo_negocio_id_uq unique (negocio_id, id);
+alter table tratamiento add constraint tratamiento_negocio_id_uq unique (negocio_id, id);
+alter table cita add constraint cita_negocio_id_uq unique (negocio_id, id);
+alter table historial_estado add constraint historial_estado_negocio_id_uq unique (negocio_id, id);
+alter table motivo_cancelacion add constraint motivo_cancelacion_negocio_id_uq unique (negocio_id, id);
+alter table cancelacion add constraint cancelacion_negocio_id_uq unique (negocio_id, id);
+alter table caso_seguimiento add constraint caso_seguimiento_negocio_id_uq unique (negocio_id, id);
+alter table intento add constraint intento_negocio_id_uq unique (negocio_id, id);
+alter table cupo_liberado add constraint cupo_liberado_negocio_id_uq unique (negocio_id, id);
+alter table oferta_adelanto add constraint oferta_adelanto_negocio_id_uq unique (negocio_id, id);
+alter table mensaje add constraint mensaje_negocio_id_uq unique (negocio_id, id);
+alter table tarea_programada add constraint tarea_programada_negocio_id_uq unique (negocio_id, id);
+alter table solicitud_contacto add constraint solicitud_contacto_negocio_id_uq unique (negocio_id, id);
+alter table acceso add constraint acceso_negocio_id_uq unique (negocio_id, id);
+alter table horario_atencion add constraint horario_atencion_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table bloqueo add constraint bloqueo_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table tratamiento add constraint tratamiento_paciente_id_neg_fkey foreign key (negocio_id, paciente_id) references paciente(negocio_id, id) not valid;
+alter table tratamiento add constraint tratamiento_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table cita add constraint cita_paciente_id_neg_fkey foreign key (negocio_id, paciente_id) references paciente(negocio_id, id) not valid;
+alter table cita add constraint cita_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table cita add constraint cita_servicio_id_neg_fkey foreign key (negocio_id, servicio_id) references servicio(negocio_id, id) not valid;
+alter table cita add constraint cita_tratamiento_id_neg_fkey foreign key (negocio_id, tratamiento_id) references tratamiento(negocio_id, id) not valid;
+alter table cita add constraint cita_cita_anterior_id_neg_fkey foreign key (negocio_id, cita_anterior_id) references cita(negocio_id, id) not valid;
+alter table historial_estado add constraint historial_estado_cita_id_neg_fkey foreign key (negocio_id, cita_id) references cita(negocio_id, id) not valid;
+alter table historial_estado add constraint historial_estado_revierte_id_neg_fkey foreign key (negocio_id, revierte_id) references historial_estado(negocio_id, id) not valid;
+alter table cancelacion add constraint cancelacion_cita_id_neg_fkey foreign key (negocio_id, cita_id) references cita(negocio_id, id) not valid;
+alter table cancelacion add constraint cancelacion_motivo_id_neg_fkey foreign key (negocio_id, motivo_id) references motivo_cancelacion(negocio_id, id) not valid;
+alter table caso_seguimiento add constraint caso_seguimiento_paciente_id_neg_fkey foreign key (negocio_id, paciente_id) references paciente(negocio_id, id) not valid;
+alter table caso_seguimiento add constraint caso_seguimiento_cita_id_neg_fkey foreign key (negocio_id, cita_id) references cita(negocio_id, id) not valid;
+alter table caso_seguimiento add constraint caso_seguimiento_tratamiento_id_neg_fkey foreign key (negocio_id, tratamiento_id) references tratamiento(negocio_id, id) not valid;
+alter table caso_seguimiento add constraint caso_seguimiento_cita_resultante_id_neg_fkey foreign key (negocio_id, cita_resultante_id) references cita(negocio_id, id) not valid;
+alter table intento add constraint intento_caso_id_neg_fkey foreign key (negocio_id, caso_id) references caso_seguimiento(negocio_id, id) not valid;
+alter table cupo_liberado add constraint cupo_liberado_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table cupo_liberado add constraint cupo_liberado_cita_origen_id_neg_fkey foreign key (negocio_id, cita_origen_id) references cita(negocio_id, id) not valid;
+alter table oferta_adelanto add constraint oferta_adelanto_cupo_id_neg_fkey foreign key (negocio_id, cupo_id) references cupo_liberado(negocio_id, id) not valid;
+alter table oferta_adelanto add constraint oferta_adelanto_cita_id_neg_fkey foreign key (negocio_id, cita_id) references cita(negocio_id, id) not valid;
+alter table mensaje add constraint mensaje_paciente_id_neg_fkey foreign key (negocio_id, paciente_id) references paciente(negocio_id, id) not valid;
+alter table hecho_diario add constraint hecho_diario_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table hecho_diario add constraint hecho_diario_servicio_id_neg_fkey foreign key (negocio_id, servicio_id) references servicio(negocio_id, id) not valid;
+alter table hecho_diario_profesional add constraint hecho_diario_profesional_profesional_id_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+alter table acceso add constraint acceso_profesional_neg_fkey foreign key (negocio_id, profesional_id) references profesional(negocio_id, id) not valid;
+
+create unique index paciente_documento_neg on paciente(negocio_id, documento);
+create unique index paciente_external_neg on paciente(negocio_id, external_id);
+create unique index profesional_external_neg on profesional(negocio_id, external_id);
+create unique index tratamiento_external_neg on tratamiento(negocio_id, external_id);
+create unique index cita_external_neg on cita(negocio_id, external_id);
+create unique index servicio_nombre_neg on servicio(negocio_id, nombre);
+create unique index motivo_etiqueta_neg on motivo_cancelacion(negocio_id, etiqueta);
+create unique index plantilla_clave_neg on plantilla(negocio_id, clave);
+create unique index configuracion_clave_neg on configuracion(negocio_id, clave);
+create unique index caso_abierto_cita_neg on caso_seguimiento(negocio_id, cita_id) where estado = 'abierto' and cita_id is not null;
+create unique index caso_abierto_tratamiento_neg on caso_seguimiento(negocio_id, tratamiento_id)
+    where estado = 'abierto' and tratamiento_id is not null;
+create unique index oferta_unica_pendiente_neg on oferta_adelanto(negocio_id, cupo_id) where estado = 'pendiente';
+alter table cita add constraint cita_sin_cruce_neg exclude using gist (negocio_id with =, profesional_id with =, rango with &&)
+    where (estado in ('programada','confirmada','no_confirmada') and rango is not null);
+create index cita_dia_neg on cita(negocio_id, dia);
+create index cita_paciente_neg on cita(negocio_id, paciente_id);
+create index cita_estado_neg on cita(negocio_id, estado);
+create index mensaje_paciente_neg on mensaje(negocio_id, paciente_id, momento);
+create index tarea_pendiente_neg on tarea_programada(negocio_id, ejecutar_en) where estado = 'pendiente';
+

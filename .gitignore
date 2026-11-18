@@ -1,1 +1,19 @@
 .DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.logs/
+# Datos reales de pacientes: nunca se versionan
+datos_reales/*
+!datos_reales/.gitkeep
+# Panel (React): lo construido, las dependencias y los tipos generados no se versionan
+panel/node_modules/
+panel/dist/
+panel/src/api/tipos.gen.ts
+panel/test-results/
+panel/playwright-report/
+# Exportaciones y copias con datos: nunca se versionan
+exportaciones/
+respaldos/
