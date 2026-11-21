@@ -154,7 +154,8 @@ def render(request, name, **ctx):
 
 @publico.get("/", include_in_schema=False)
 def root():
-    return RedirectResponse("/agendar")
+    # La entrada es el inicio de sesión del personal; el paciente llega por su enlace o por /agendar.
+    return RedirectResponse("/panel")
 
 
 @publico.get("/agendar", response_class=HTMLResponse)
