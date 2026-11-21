@@ -5652,6 +5652,42 @@
               ],
               "title": "Error"
             }
+          },
+          {
+            "name": "dia",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dia"
+            }
+          },
+          {
+            "name": "pag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Pag"
+            }
+          },
+          {
+            "name": "hpag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Hpag"
+            }
           }
         ],
         "responses": {
