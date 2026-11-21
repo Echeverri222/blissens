@@ -168,7 +168,7 @@ def agendar(request: Request, nombre: str | None = None, caso: int | None = None
 @publico.post("/n/{nombre}/agendar/identificar", response_class=HTMLResponse)
 def identificar(request: Request, nombre: str | None = None, documento: str = Form(...), celular: str = Form(...),
                 nombres: str = Form(""), apellidos: str = Form(""), consentimiento: str = Form(""),
-                conn=Depends(conn_publica)):
+                correo: str = Form(""), acepta_correo: str = Form(""), conn=Depends(conn_publica)):
     from ..data import normalize_phone
     documento = re.sub(r"\D", "", documento)
     phone = normalize_phone(celular)
@@ -188,13 +188,21 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
     if not consentimiento:
         return render(request, "identificar.html",
                       error="Para registrarte necesitamos tu autorización para tratar tus datos.", nuevo=True,
-                      values={**values, "nombres": nombres, "apellidos": apellidos})
+                      values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
+                              "acepta_correo": acepta_correo})
+    if (correo.strip() and not correo_mod.es_direccion(correo)) or (acepta_correo and not correo.strip()):
+        return render(request, "identificar.html", nuevo=True,
+                      error="Escribe un correo válido, o desmarca la opción de recibir correos.",
+                      values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
+                              "acepta_correo": acepta_correo, "consentimiento": consentimiento})
     now = clock.now(conn)
     pid = conn.execute(
         "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, consentimiento_version, creado_en) "
         "values (%s,%s,%s,%s,%s,%s,%s) returning id",
         (nombres.strip(), apellidos.strip(), documento, phone, now, config.get(conn, "consentimiento_version"),
          now)).fetchone()["id"]
+    if correo.strip():
+        correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
     return RedirectResponse(f"/p/{links.make_token(pid, conn=conn)}/nueva", status_code=303)
 
 

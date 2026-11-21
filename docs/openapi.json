@@ -6548,6 +6548,16 @@
             "type": "string",
             "title": "Consentimiento",
             "default": ""
+          },
+          "correo": {
+            "type": "string",
+            "title": "Correo",
+            "default": ""
+          },
+          "acepta_correo": {
+            "type": "string",
+            "title": "Acepta Correo",
+            "default": ""
           }
         },
         "type": "object",
@@ -6580,6 +6590,16 @@
           "consentimiento": {
             "type": "string",
             "title": "Consentimiento",
+            "default": ""
+          },
+          "correo": {
+            "type": "string",
+            "title": "Correo",
+            "default": ""
+          },
+          "acepta_correo": {
+            "type": "string",
+            "title": "Acepta Correo",
             "default": ""
           }
         },
