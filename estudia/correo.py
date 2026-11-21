@@ -4,6 +4,7 @@ Solo tres correos por cita —agendada, recordatorio de 24 h y cancelada—, con
 servicio ni nada clínico) y un enlace de baja propio. Reutiliza las reglas de envío de WhatsApp (ventana horaria,
 diferido, negocio) pero tiene consentimiento propio (`acepta_correo`): quien se da de baja de uno sigue recibiendo el otro.
 """
+import re
 from datetime import timedelta
 
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -11,6 +12,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from . import canales, clock, config, messaging, settings, tasks
 from .lifecycle import ALIVE
 
+_DIRECCION = re.compile(r"[^@\s,;<>\"()\[\]\\]+@[^@\s,;<>\"()\[\]\\]+\.[^@\s,;<>\"()\[\]\\]+")
 PIE = "Si no quieres recibir más correos nuestros, usa este enlace: {enlace_baja}"
 CORREOS = {
     "agendada": (
@@ -31,7 +33,9 @@ CORREOS = {
 # ----------------------------------------------------------------- baja y consentimiento
 
 def _serializador() -> URLSafeSerializer:
-    return URLSafeSerializer(settings.SECRET_KEY, salt="baja-correo")
+    # La primera clave firma; todas verifican (rotar SECRET_KEY no invalida los enlaces de baja ya enviados).
+    claves = [settings.SECRET_KEY] + ([settings.SECRET_KEY_ANTERIOR] if settings.SECRET_KEY_ANTERIOR else [])
+    return URLSafeSerializer(claves, salt="baja-correo")
 
 
 def token_baja(negocio_id: int, paciente_id: int) -> str:
@@ -49,9 +53,11 @@ def leer_token_baja(token: str) -> tuple[int, int] | None:
 
 def registrar_consentimiento(conn, paciente_id: int, correo: str | None, acepta: bool) -> None:
     """Fija el correo del paciente y si autoriza recibir correos (con la fecha en que lo autorizó)."""
+    from .pacientes import DatosInvalidos
     correo = (correo or "").strip().lower() or None
-    if acepta and (correo is None or "@" not in correo or " " in correo):
-        from .pacientes import DatosInvalidos
+    if correo is not None and not _DIRECCION.fullmatch(correo):  # una sola dirección: sin comas, espacios ni saltos
+        raise DatosInvalidos("La dirección de correo no es válida")
+    if acepta and correo is None:
         raise DatosInvalidos("Para recibir correos se necesita una dirección de correo válida")
     conn.execute(
         "update paciente set correo=%s, acepta_correo=%s, consentimiento_correo_en=%s where id=%s",
@@ -83,7 +89,7 @@ def _negocio(conn) -> int:
 
 
 def enviar(conn, paciente_id: int, tipo: str, cita_id: int, *, direct: bool = False) -> int | None:
-    """Registra y envía el correo de una cita. Devuelve el id del mensaje, o None si no corresponde ni registrarlo
+    """Registra el correo de una cita; la tarea `entregar_correo` lo envía. Devuelve el id del mensaje, o None si no corresponde ni registrarlo
     (el paciente no tiene correo, o ese correo ya salió para esa cita: reenviar es idempotente)."""
     p = conn.execute("select * from paciente where id=%s", (paciente_id,)).fetchone()
     if not p["correo"]:
@@ -94,11 +100,13 @@ def enviar(conn, paciente_id: int, tipo: str, cita_id: int, *, direct: bool = Fa
         return None
     now = clock.now(conn)
     adaptador = canales.adaptador_de_correo(conn)
-    estado, momento = "entregado", now
+    # Nunca se envía en línea: el correo sale de la tarea, ya confirmada la cita (ni red dentro de la transacción de
+    # agendar, ni correos de citas que luego se deshacen). `diferido` = pendiente de salir.
+    estado, momento = "diferido", now
     if not p["acepta_correo"] or adaptador is None:
         estado = "omitido"
     elif not direct and not messaging.window_open(conn, now):
-        estado, momento = "diferido", messaging.next_opening(conn, now)
+        momento = messaging.next_opening(conn, now)
     asunto, texto = _componer(conn, tipo, p, cita_id)
     mid = conn.execute(
         "insert into mensaje(paciente_id, direccion, plantilla, asunto, texto, tipo, botones, entidad_tipo, entidad_id, "
@@ -106,8 +114,6 @@ def enviar(conn, paciente_id: int, tipo: str, cita_id: int, *, direct: bool = Fa
         (paciente_id, plantilla, asunto, texto, cita_id, estado, momento)).fetchone()["id"]
     if estado == "diferido":
         tasks.schedule(conn, "entregar_correo", momento, {"mensaje_id": mid, "intento": 1})
-    elif estado == "entregado":
-        _intentar(conn, mid, 1)
     return mid
 
 

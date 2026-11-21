@@ -133,6 +133,10 @@ class CorreoSMTP(AdaptadorCorreo):
             raise RuntimeError("El canal de correo no tiene credenciales (revisa secreto_ref)")
         msg = EmailMessage()
         msg["From"], msg["To"], msg["Subject"] = canal["id_externo"], paciente["correo"], mensaje["asunto"]
+        baja = re.search(r"https?://\S+/correo/baja/\S+", mensaje["texto"])
+        if baja:
+            msg["List-Unsubscribe"] = f"<{baja.group(0)}>"
+            msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
         msg.set_content(mensaje["texto"])
         cuerpo = re.sub(r"(https?://[^\s<]+)", r'<a href="\1">\1</a>', html.escape(mensaje["texto"]))
         msg.add_alternative("<html><body style=\"font-family:sans-serif\">"

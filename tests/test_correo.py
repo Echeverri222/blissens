@@ -45,6 +45,9 @@ def test_agendada_recordatorio_y_cancelada_con_los_datos_minimos(conn):
     canal_correo()
     pro, a = make_pro(conn), paciente(conn)
     c = book(conn, a, pro, at(3, "10:00"))
+    assert canales.CorreoPrueba.ENVIADOS == []   # nada sale en línea: sale de la tarea, ya confirmada la cita
+    assert correos(conn, a)[0]["estado_entrega"] == "diferido"
+    tasks.cycle(conn)
     [m] = correos(conn, a)
     assert (m["plantilla"], m["estado_entrega"]) == ("correo_agendada", "entregado")
     assert m["asunto"] == "Tu cita del jueves 19 de noviembre – Blissens Odontología"
@@ -58,7 +61,9 @@ def test_agendada_recordatorio_y_cancelada_con_los_datos_minimos(conn):
     tasks.cycle(conn)
     assert len(correos(conn, a, "correo_recordatorio")) == 1 and outbox(conn, a, "segundo_intento")
     agenda.cancel(conn, c, "paciente", "enlace")
+    tasks.cycle(conn)
     assert [x["plantilla"] for x in correos(conn, a)] == ["correo_agendada", "correo_recordatorio", "correo_cancelada"]
+    assert {x["estado_entrega"] for x in correos(conn, a)} == {"entregado"}
     assert "/agendar" in correos(conn, a, "correo_cancelada")[0]["texto"]
 
 
@@ -111,6 +116,7 @@ def test_fuera_de_ventana_queda_diferido_y_la_accion_directa_sale_siempre(conn):
     c2 = agenda.reschedule(conn, c, at(4, "10:00"), "paciente")  # el paciente actúa de noche: sale al instante
     clock.freeze(at(1, "23:00"))
     c3 = agenda.reschedule(conn, c2, at(3, "11:00"), "paciente")
+    tasks.cycle(conn)
     assert correos(conn, a)[-1]["estado_entrega"] == "entregado" and c3
 
 
@@ -132,18 +138,21 @@ def test_reenviar_es_idempotente(conn):
     assert len(correos(conn, a)) == 1
 
 
-def test_enlace_de_baja_solo_apaga_el_correo_y_es_idempotente(conn):
+def test_enlace_de_baja_confirma_antes_y_solo_apaga_el_correo(conn):
     pro, a = make_pro(conn), paciente(conn)
     book(conn, a, pro, at(3, "10:00"))
     enlace = re.search(r"/correo/baja/\S+", correos(conn, a)[0]["texto"]).group(0)
     conn.commit()
     c = TestClient(app)
-    for _ in range(2):
-        r = c.get(enlace)
+    r = c.get(enlace)   # un GET (p. ej. un escáner de enlaces) no da de baja a nadie
+    assert r.status_code == 200 and "Dejar de recibir correos" in r.text
+    assert conn.execute("select acepta_correo from paciente where id=%s", (a,)).fetchone()["acepta_correo"]
+    for _ in range(2):  # y repetir la baja no cambia nada
+        r = c.post(enlace)
         assert r.status_code == 200 and "no te enviaremos más correos" in r.text
     p = conn.execute("select acepta_correo, acepta_mensajes from paciente where id=%s", (a,)).fetchone()
     assert (p["acepta_correo"], p["acepta_mensajes"]) == (False, True)
-    assert c.get("/correo/baja/falso").status_code == 404
+    assert c.get("/correo/baja/falso").status_code == 404 and c.post("/correo/baja/falso").status_code == 404
     # y al revés: BAJA por WhatsApp no apaga el correo
     b = paciente(conn, doc="2222")
     from estudia import messaging
@@ -151,6 +160,16 @@ def test_enlace_de_baja_solo_apaga_el_correo_y_es_idempotente(conn):
     p = conn.execute("select acepta_correo, acepta_mensajes from paciente where id=%s", (b,)).fetchone()
     assert (p["acepta_correo"], p["acepta_mensajes"]) == (True, False)
     assert "correos" in outbox(conn, b, "baja_confirmada")[0]["texto"]
+
+
+def test_el_enlace_de_baja_sobrevive_a_la_rotacion_de_la_clave(conn, monkeypatch):
+    from estudia import settings
+    monkeypatch.setattr(settings, "SECRET_KEY", "clave-vieja")
+    token = correo.token_baja(1, 7)
+    monkeypatch.setattr(settings, "SECRET_KEY", "clave-nueva")
+    assert correo.leer_token_baja(token) is None
+    monkeypatch.setattr(settings, "SECRET_KEY_ANTERIOR", "clave-vieja")
+    assert correo.leer_token_baja(token) == (1, 7)
 
 
 def test_un_fallo_del_proveedor_no_impide_agendar_ni_whatsapp_se_reintenta_y_termina_fallido(conn):
@@ -173,6 +192,8 @@ def test_el_reintento_entrega_cuando_el_proveedor_se_recupera(conn):
     canales.CorreoPrueba.FALLAR = True
     pro, a = make_pro(conn), paciente(conn)
     book(conn, a, pro, at(3, "10:00"))
+    tasks.cycle(conn)                                          # primer intento: falla y queda por reintentar
+    assert correos(conn, a)[0]["estado_entrega"] == "diferido"
     canales.CorreoPrueba.FALLAR = False
     clock.freeze(clock.now(conn) + timedelta(minutes=2))
     tasks.cycle(conn)
@@ -182,8 +203,11 @@ def test_el_reintento_entrega_cuando_el_proveedor_se_recupera(conn):
 def test_consentimiento_y_anonimizacion(conn):
     from estudia import privacidad
     a = make_patient(conn)
+    for malo in ("sin-arroba", "a@x.com,b@y.com", "a@x.com b@y.com", "a@x.com;b@y.com", "a@x.com\nBcc: z@y.com"):
+        with pytest.raises(pacientes.DatosInvalidos):
+            correo.registrar_consentimiento(conn, a, malo, True)
     with pytest.raises(pacientes.DatosInvalidos):
-        correo.registrar_consentimiento(conn, a, "sin-arroba", True)
+        correo.registrar_consentimiento(conn, a, None, True)
     correo.registrar_consentimiento(conn, a, " Ana@Example.com ", True)
     p = conn.execute("select * from paciente where id=%s", (a,)).fetchone()
     assert (p["correo"], p["acepta_correo"]) == (AN, True) and p["consentimiento_correo_en"] == clock.now(conn)
@@ -201,12 +225,14 @@ def test_el_correo_de_un_negocio_nunca_usa_el_canal_de_otro(conn):
     canal_correo(b, "citas@b.example.com")
     pro, pa = make_pro(conn), paciente(conn)
     book(conn, pa, pro, at(3, "10:00"))
+    tasks.cycle(conn)
     conn.commit()
     cb = db.connect(URL, negocio=b)
     catalog.load(cb)
     pb = make_patient(cb, "Beto", doc="777", correo="beto@example.com", acepta_correo=True)
     sid = cb.execute("select id from servicio limit 1").fetchone()["id"]
     agenda.book(cb, pb, make_pro(cb, "Dr. B"), sid, at(3, "10:00"), "auxiliar", "auxiliar")
+    tasks.cycle(cb)
     cb.commit()
     cb.close()
     de = {e["para"]: e["de"] for e in canales.CorreoPrueba.ENVIADOS}

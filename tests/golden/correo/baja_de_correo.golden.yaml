@@ -8,7 +8,7 @@ mensajes:
   botones: []
 - direccion: saliente
   plantilla: correo_agendada
-  estado: entregado
+  estado: omitido
   momento: +0d 0h 0m
   texto: "Hola Ana,\n\nTu cita quedó agendada.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n\
     \  Lugar: Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nPara cambiarla o cancelarla: http://localhost:8000/p/<token>\n\

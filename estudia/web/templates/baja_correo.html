@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
+{% if hecha %}
 <h1>Listo, no te enviaremos más correos</h1>
 <p>Dejaste de recibir correos de {{ negocio.nombre }}. Esto no cambia los mensajes de WhatsApp: si también quieres
 dejar de recibirlos, responde BAJA a nuestro WhatsApp.</p>
 <p>Si fue un error, pídele a {{ termino }} que vuelva a activar tu correo.</p>
+{% else %}
+<h1>¿Dejar de recibir correos?</h1>
+<p>Dejarás de recibir correos de {{ negocio.nombre }} sobre tus citas. Los mensajes de WhatsApp no cambian.</p>
+<form method="post" action="/correo/baja/{{ token }}"><button>Sí, no quiero más correos</button></form>
+{% endif %}
 {% endblock %}

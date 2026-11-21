@@ -7,3 +7,4 @@ pasos:
   - avanzar: {respecto_a_cita: "-23h59m"}
   - ciclo: true
   - cancela: true
+  - ciclo: true

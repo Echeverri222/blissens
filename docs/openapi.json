@@ -5919,9 +5919,47 @@
     },
     "/correo/baja/{token}": {
       "get": {
+        "summary": "Baja Correo Pagina",
+        "description": "Pide confirmar: un GET no cambia nada (los escáneres de enlaces precargan los correos).",
+        "operationId": "baja_correo_pagina_correo_baja__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
         "summary": "Baja Correo",
-        "description": "Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca.",
-        "operationId": "baja_correo_correo_baja__token__get",
+        "description": "Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca. También atiende la baja de un\nclic de los clientes de correo (`List-Unsubscribe-Post`).",
+        "operationId": "baja_correo_correo_baja__token__post",
         "parameters": [
           {
             "name": "token",

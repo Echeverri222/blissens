@@ -320,10 +320,17 @@ def cancelar_post(request: Request, token: str, cita_id: int, motivo: int = Form
 
 
 @publico.get("/correo/baja/{token}", response_class=HTMLResponse)
+def baja_correo_pagina(request: Request, token: str, conn=Depends(conn_baja)):
+    """Pide confirmar: un GET no cambia nada (los escáneres de enlaces precargan los correos)."""
+    return render(request, "baja_correo.html", token=token, hecha=False)
+
+
+@publico.post("/correo/baja/{token}", response_class=HTMLResponse)
 def baja_correo(request: Request, token: str, conn=Depends(conn_baja)):
-    """Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca."""
+    """Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca. También atiende la baja de un
+    clic de los clientes de correo (`List-Unsubscribe-Post`)."""
     correo_mod.dar_de_baja(conn, request.state.paciente_baja)
-    return render(request, "baja_correo.html")
+    return render(request, "baja_correo.html", token=token, hecha=True)
 
 
 # ----------------------------------------------------------------- Simulador de WhatsApp
