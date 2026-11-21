@@ -69,9 +69,9 @@ export const numeroDia = (f: string) => fmt({ day: "numeric" }, mediodia(f));
 export const fechaLarga = (f: string) => fmt({ weekday: "long", day: "numeric", month: "long", year: "numeric" }, mediodia(f));
 export const mesAnio = (f: string) => fmt({ month: "long", year: "numeric" }, mediodia(f));
 
-const largo = new Intl.DateTimeFormat("es-CO", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-/** "lun 16 nov, 08:00" en Bogotá. */
-export const fechaHora = (d: Date | string): string => quitarPunto(largo.format(typeof d === "string" ? new Date(d) : d)).replace(",", "");
+const largo = (): Intl.DateTimeFormat => new Intl.DateTimeFormat("es-CO", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+/** "lun 16 nov, 08:00" en la zona del negocio. */
+export const fechaHora = (d: Date | string): string => quitarPunto(largo().format(typeof d === "string" ? new Date(d) : d)).replace(",", "");
 
 export const hhmm = (min: number): string => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
