@@ -14,7 +14,12 @@
     <p><strong>Parece que es tu primera vez.</strong> Cuéntanos tu nombre para registrarte.</p>
     <label>Nombres <input name="nombres" required value="{{ values.nombres or '' }}"></label>
     <label>Apellidos <input name="apellidos" value="{{ values.apellidos or '' }}"></label>
-    <label><input type="checkbox" name="consentimiento" value="1">
+    <label>Correo electrónico (opcional)
+      <input name="correo" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" value="{{ values.correo or '' }}">
+    </label>
+    <label><input type="checkbox" name="acepta_correo" value="1" {% if values.acepta_correo %}checked{% endif %}>
+      Quiero recibir por correo la confirmación, el recordatorio y los avisos de cancelación de mis citas.</label>
+    <label><input type="checkbox" name="consentimiento" value="1" {% if values.consentimiento %}checked{% endif %}>
       {{ consentimiento }}</label>
   {% endif %}
   <button type="submit">{% if nuevo %}Registrarme y continuar{% else %}Continuar{% endif %}</button>

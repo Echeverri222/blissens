@@ -51,6 +51,10 @@ def leer_token_baja(token: str) -> tuple[int, int] | None:
     return (v[0], v[1]) if isinstance(v, list) and len(v) == 2 and all(isinstance(x, int) for x in v) else None
 
 
+def es_direccion(correo: str) -> bool:
+    return bool(_DIRECCION.fullmatch(correo.strip().lower()))
+
+
 def registrar_consentimiento(conn, paciente_id: int, correo: str | None, acepta: bool) -> None:
     """Fija el correo del paciente y si autoriza recibir correos (con la fecha en que lo autorizó)."""
     from .pacientes import DatosInvalidos

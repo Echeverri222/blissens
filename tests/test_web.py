@@ -41,6 +41,30 @@ def test_new_patient_requires_consent_and_is_registered(client, conn):
     assert links.read_token(token) == p["id"]
 
 
+def test_registration_asks_for_email_with_its_own_consent(client, conn):
+    r = client.post("/agendar/identificar", data={"documento": "88", "celular": "3001234567"})
+    assert 'name="correo"' in r.text and 'name="acepta_correo"' in r.text
+    base = {"documento": "88", "celular": "3001234567", "nombres": "Ana", "consentimiento": "1"}
+    r = client.post("/agendar/identificar", data={**base, "correo": "malo", "acepta_correo": "1"})
+    assert r.status_code == 200 and "correo válido" in r.text
+    assert conn.execute("select 1 from paciente where documento='88'").fetchone() is None
+    r = client.post("/agendar/identificar", data={**base, "correo": " Ana@Example.com ", "acepta_correo": "1"})
+    assert r.status_code == 303
+    p = conn.execute("select * from paciente where documento='88'").fetchone()
+    assert p["correo"] == "ana@example.com" and p["acepta_correo"] and p["consentimiento_correo_en"] is not None
+
+
+def test_registration_email_is_optional_and_consent_is_separate(client, conn):
+    base = {"documento": "89", "celular": "3001234568", "nombres": "Luis", "consentimiento": "1"}
+    assert client.post("/agendar/identificar", data=base).status_code == 303
+    p = conn.execute("select * from paciente where documento='89'").fetchone()
+    assert p["correo"] is None and not p["acepta_correo"]
+    base = {**base, "documento": "90", "celular": "3001234569", "correo": "luis@example.com"}
+    assert client.post("/agendar/identificar", data=base).status_code == 303
+    p = conn.execute("select * from paciente where documento='90'").fetchone()
+    assert p["correo"] == "luis@example.com" and not p["acepta_correo"]
+
+
 def test_existing_patient_with_matching_phone_continues_as_himself(client, conn):
     p = make_patient(conn, doc="777", celular="+573001234567")
     conn.commit()
