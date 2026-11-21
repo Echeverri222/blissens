@@ -223,9 +223,77 @@ describe("bandejas", () => {
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "acepto", detalle: "Gestión telefónica" } }));
   });
   it("una bandeja vacía explica qué significa", async () => {
-    servidor.use(http.get(`${API}/bandejas/no-confirmadas`, () => HttpResponse.json([])));
-    montar("/bandejas", AUX);
+    montar("/bandejas?b=no-confirmadas", AUX);
     expect(await screen.findByText("Todas las citas próximas están confirmadas.")).toBeInTheDocument();
+  });
+});
+
+describe("qué hacer hoy", () => {
+  const SEG = { id: 5, tipo: "inasistencia", estado: "abierto", escalado: true, abierto_en: "2026-11-15T10:00:00-05:00", paciente_id: 7, paciente: "Ana Pérez", celular: "+573001112233", intentos: 3, ultimo: null };
+  const NC = { cita_id: 10, inicio: "2026-11-17T09:00:00-05:00", paciente_id: 8, paciente: "Luis Gómez", celular: "+573009998877", profesional: "Dra. Uno", id: 10, fin: "2026-11-17T10:00:00-05:00", estado: "programada" };
+  it("es la pestaña inicial y ordena por urgencia: escalados antes que citas sin confirmar", async () => {
+    servidor.use(
+      http.get(`${API}/bandejas/no-confirmadas`, () => HttpResponse.json([NC])),
+      http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
+    montar("/bandejas", AUX);
+    expect(await screen.findByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
+    const filas = await screen.findAllByRole("button", { name: "Resolver" });
+    expect(filas).toHaveLength(2);
+    const panel = screen.getByRole("tabpanel", { name: "Qué hacer hoy" });
+    expect(panel.textContent!.indexOf("Ana Pérez")).toBeLessThan(panel.textContent!.indexOf("Luis Gómez"));
+    expect(screen.getByText("Escalado")).toBeInTheDocument();
+  });
+  it("Resolver lleva a la bandeja donde se gestiona, con sus acciones", async () => {
+    servidor.use(http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
+    montar("/bandejas", AUX);
+    await userEvent.click(await screen.findByRole("button", { name: "Resolver" }));
+    expect(await screen.findByRole("button", { name: "Aceptó" })).toBeInTheDocument();
+  });
+  it("sin pendientes dice que todo está al día", async () => {
+    montar("/bandejas", AUX);
+    expect(await screen.findByText("Todo al día")).toBeInTheDocument();
+  });
+});
+
+describe("pacientes precargados", () => {
+  it("muestra sin buscar las citas de hoy y mañana, los pacientes en riesgo y los dados de baja", async () => {
+    servidor.use(
+      http.get(`${API}/agenda`, () => HttpResponse.json(agenda([cita({ estado: "no_confirmada" }), cita({ id: 11, dia: "2026-11-17", inicio: "2026-11-17T08:00:00-05:00", paciente_id: 9, paciente: "Marta Ruiz" })]))),
+      http.get(`${API}/bandejas/en-riesgo`, () => HttpResponse.json([{ tratamiento_id: 3, paciente_id: 12, paciente: "Pedro Soto", ultima_cita: "2026-08-01", dias_sin_cita: 90, caso_id: null }])),
+      http.get(`${API}/bandejas/dados-de-baja`, () => HttpResponse.json([{ cita_id: 20, inicio: "2026-11-18T09:00:00-05:00", paciente_id: 13, paciente: "Rosa Vega", celular: "+573001110000", profesional: "Dra. Uno", id: 20, fin: "2026-11-18T10:00:00-05:00", estado: "programada" }])));
+    montar("/pacientes", AUX);
+    const hoy = await screen.findByRole("region", { name: "Citas de hoy y mañana" });
+    expect(await within(hoy).findByText("Ana Pérez")).toBeInTheDocument();
+    expect(within(hoy).getByText("Sin confirmar")).toBeInTheDocument();
+    expect(within(hoy).getByText(/Mañana · 08:00/)).toBeInTheDocument();
+    expect(await screen.findByText("Pedro Soto")).toBeInTheDocument();
+    expect(screen.getByText("90 días sin cita")).toBeInTheDocument();
+    expect(await screen.findByText("Rosa Vega")).toBeInTheDocument();
+    expect(within(hoy).getByRole("link", { name: /Ana Pérez/ })).toHaveAttribute("href", "/pacientes/7");
+  });
+});
+
+describe("sistema", () => {
+  const SIS = (o: object) => http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 162, ultimo_cierre: "2026-11-16", configuracion: { recordatorios_horas: [48, 24] }, ...o }));
+  it("todo bien: dice en palabras que funciona y esconde la configuración en Avanzado", async () => {
+    servidor.use(SIS({}));
+    montar("/sistema", AUX);
+    expect(await screen.findByText("Los mensajes automáticos funcionan")).toBeInTheDocument();
+    expect(screen.getByText("Indicadores al día")).toBeInTheDocument();
+    expect(screen.getByText(/Tareas pendientes \(162\)/)).toBeInTheDocument();
+    expect(screen.getByText("Avanzado: valores del sistema (solo lectura)").closest("details")).not.toHaveAttribute("open");
+  });
+  it("con tareas fallidas y cierre viejo avisa qué hacer", async () => {
+    servidor.use(SIS({ ultimo_cierre: "2026-11-10", tareas_fallidas: [{ id: 1, tipo: "entregar_mensaje", ejecutar_en: "2026-11-15T10:00:00-05:00", intentos: 3, error: "sin saldo" }] }));
+    montar("/sistema", AUX);
+    expect(await screen.findByText("1 tarea falló")).toBeInTheDocument();
+    expect(screen.getByText("Indicadores atrasados 6 días")).toBeInTheDocument();
+    expect(screen.getByText("sin saldo")).toBeInTheDocument();
+  });
+  it("nunca cerrado se marca como problema", async () => {
+    servidor.use(SIS({ ultimo_cierre: null }));
+    montar("/sistema", AUX);
+    expect(await screen.findByText("Los indicadores nunca se han actualizado")).toBeInTheDocument();
   });
 });
 

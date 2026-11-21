@@ -3,11 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BellOff } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
-import { useAccion } from "@/api/consultas";
+import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
 import type { FichaCompleta } from "@/api/tipos";
 import { ESTADOS } from "@/lib/estados";
-import { fechaDe, fechaHora, fechaLarga, horaDe } from "@/lib/tiempo";
+import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
+import { useSesion } from "@/sesion/Sesion";
 import { Confirmar, EtiquetaEstado, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { BuscarPaciente } from "./Agendar";
@@ -16,10 +17,65 @@ import { useNavigate } from "react-router-dom";
 export function Pacientes() {
   const nav = useNavigate();
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-xl font-semibold">Pacientes</h1>
       <Tarjeta className="p-4"><BuscarPaciente alElegir={(p) => nav(`/pacientes/${p.id}`)} /></Tarjeta>
+      <CitasProximas />
+      <ListaPacientes titulo="En riesgo de abandonar el tratamiento" ayuda="Tienen un tratamiento a medias y llevan tiempo sin cita. Agéndalos para que no lo dejen." clave="en-riesgo" fn={api.bandejas.enRiesgo} vacio="Nadie está en riesgo ahora."
+        fila={(r) => ({ id: r.tratamiento_id, pacienteId: r.paciente_id, nombre: r.paciente, detalle: `${r.dias_sin_cita} días sin cita`, agendar: true })} />
+      <ListaPacientes titulo="Dados de baja de mensajes" ayuda="Pidieron no recibir mensajes automáticos; sus citas se confirman por teléfono." clave="dados-de-baja" fn={api.bandejas.dadosDeBaja} vacio="Ningún paciente con cita próxima está dado de baja."
+        fila={(r) => ({ id: r.cita_id, pacienteId: r.paciente_id, nombre: r.paciente, detalle: `Cita ${fechaHora(r.inicio)}` })} />
     </div>
+  );
+}
+
+const ACTIVAS = new Set(["programada", "confirmada", "no_confirmada"]);
+
+function CitasProximas() {
+  const { hoy } = useSesion();
+  const manana = sumarDias(hoy, 1);
+  const q = useAgenda(hoy, manana);
+  return (
+    <section aria-label="Citas de hoy y mañana" className="space-y-2">
+      <h2 className="text-sm font-semibold">Con cita hoy y mañana</h2>
+      <Consulta q={q}>
+        {(a) => {
+          const citas = a.citas.filter((c) => ACTIVAS.has(c.estado) || c.estado === "atendida").sort((x, y) => (x.inicio ?? "").localeCompare(y.inicio ?? ""));
+          if (citas.length === 0) return <Tarjeta><Vacio titulo="Sin citas hoy ni mañana" /></Tarjeta>;
+          return (
+            <Tarjeta className="divide-y divide-linea">{citas.map((c) => (
+              <Link key={c.id} to={`/pacientes/${c.paciente_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm hover:bg-zinc-50">
+                <span className="w-28 shrink-0 text-tinta-suave">{c.dia === hoy ? "Hoy" : "Mañana"}{c.inicio ? ` · ${horaDe(c.inicio)}` : ""}</span>
+                <span className="min-w-0 flex-1"><b>{c.paciente}</b><br /><span className="text-tinta-suave">{c.servicio} · {c.profesional}</span></span>
+                <EtiquetaEstado estado={c.estado} /></Link>))}</Tarjeta>
+          );
+        }}
+      </Consulta>
+    </section>
+  );
+}
+
+function ListaPacientes<T extends object>({ titulo, ayuda, clave, fn, vacio, fila }: {
+  titulo: string; ayuda: string; clave: string; fn: () => Promise<T[]>; vacio: string;
+  fila: (x: T) => { id: number; pacienteId: number; nombre: string; detalle: string; agendar?: boolean };
+}) {
+  const q = useQuery({ queryKey: ["bandeja", clave], queryFn: fn, refetchInterval: CADA_MINUTO });
+  return (
+    <section aria-label={titulo} className="space-y-2">
+      <div><h2 className="text-sm font-semibold">{titulo}</h2><p className="text-sm text-tinta-suave">{ayuda}</p></div>
+      <Consulta q={q}>
+        {(l) => l.length === 0 ? <Tarjeta><Vacio titulo={vacio} /></Tarjeta> : (
+          <Tarjeta className="divide-y divide-linea">{l.map((x) => {
+            const f = fila(x);
+            return (
+              <div key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+                <Link to={`/pacientes/${f.pacienteId}`} className="min-w-40 flex-1 font-medium underline">{f.nombre}</Link>
+                <span className="text-tinta-suave">{f.detalle}</span>
+                {f.agendar && <Link to={`/agendar?paciente=${f.pacienteId}`} className="font-medium underline">Agendar</Link>}
+              </div>);
+          })}</Tarjeta>)}
+      </Consulta>
+    </section>
   );
 }
 
