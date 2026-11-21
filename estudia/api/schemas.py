@@ -515,6 +515,101 @@ class SistemaOut(Salida):
     configuracion: dict[str, Any]
 
 
+# ----------------------------------------------------------------- portal público del paciente
+
+class IdentificarIn(Entrada):
+    documento: str = Field(..., description="Documento numérico del paciente")
+    celular: str = Field(..., description="Celular del paciente (10 dígitos en Colombia)")
+    nombres: str | None = None
+    apellidos: str | None = None
+    consentimiento: bool = False
+    negocio: str | None = None
+
+
+class PacientePublico(Salida):
+    id: int
+    nombres: str
+    apellidos: str | None = None
+    documento: str | None = None
+    celular: str | None = None
+    correo: str | None = None
+    acepta_mensajes: bool = True
+
+
+class IdentificarOut(Salida):
+    estado: Literal["autenticado", "registrado", "requiere_registro", "contacto_pendiente"]
+    token: str | None = None
+    paciente: PacientePublico | None = None
+    mensaje: str | None = None
+
+
+class CitaPacientePublico(Salida):
+    id: int
+    estado: Estado
+    dia: date
+    inicio: Momento | None = None
+    fin: Momento | None = None
+    profesional: str
+    servicio: str
+
+
+class MisCitasPublicoOut(Salida):
+    paciente: PacientePublico
+    citas: list[CitaPacientePublico]
+    termino_negocio: str = "la clínica"
+    nombre_negocio: str = "Blissens"
+    consentimiento_texto: str | None = None
+
+
+class CatalogoEspaciosPublicoOut(Salida):
+    sid: int
+    pid: int
+    servicios: list[ServicioOut]
+    profesionales: list[ProfesionalOut]
+    dias: list[EspaciosDia]
+
+
+class AgendarPublicoIn(Entrada):
+    token: str
+    servicio_id: int
+    profesional_id: int = 0
+    inicio: datetime
+
+
+class AgendarPublicoOut(Salida):
+    ok: bool = True
+    cita_id: int
+    inicio: Momento
+    mensaje: str = "Cita agendada exitosamente"
+
+
+class CambiarPublicoIn(Entrada):
+    token: str
+    inicio: datetime
+
+
+class CambiarPublicoOut(Salida):
+    ok: bool = True
+    cita_id: int
+    mensaje: str = "Fecha cambiada exitosamente"
+
+
+class CancelarPublicoIn(Entrada):
+    token: str
+    motivo_id: int
+
+
+class CancelarPublicoOut(Salida):
+    ok: bool = True
+    cita_id: int
+    mensaje: str = "Tu cita quedó cancelada"
+    espacios_alternativos: CatalogoEspaciosPublicoOut | None = None
+
+
+class BajaCorreoIn(Entrada):
+    token: str
+
+
 Error.model_rebuild()
 
 

@@ -6,6 +6,8 @@ import type {
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
+  IdentificarIn, IdentificarOut, MisCitasPublico, CatalogoEspaciosPublico, AgendarPublicoIn, AgendarPublicoOut,
+  CambiarPublicoIn, CambiarPublicoOut, CancelarPublicoIn, CancelarPublicoOut, BajaCorreoIn,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -120,4 +122,15 @@ export const api = {
     cierre: () => post<Cierre>("/indicadores/cierre"),
   },
   sistema: () => get<Sistema>("/sistema"),
+  publico: {
+    identificar: (datos: IdentificarIn) => post<IdentificarOut>("/publico/identificar", datos),
+    misCitas: (token: string) => get<MisCitasPublico>("/publico/citas", { token }),
+    espacios: (token: string, servicio_id?: number, profesional_id: number = 0) =>
+      get<CatalogoEspaciosPublico>("/publico/espacios", { token, servicio_id, profesional_id }),
+    agendar: (datos: AgendarPublicoIn) => post<AgendarPublicoOut>("/publico/agendar", datos),
+    cambiar: (cita_id: number, datos: CambiarPublicoIn) => post<CambiarPublicoOut>(`/publico/cambiar/${cita_id}`, datos),
+    motivosCancelacion: (token: string) => get<Motivo[]>("/publico/motivos-cancelacion", { token }),
+    cancelar: (cita_id: number, datos: CancelarPublicoIn) => post<CancelarPublicoOut>(`/publico/cancelar/${cita_id}`, datos),
+    bajaCorreo: (datos: BajaCorreoIn) => post<{ ok: boolean }>("/publico/correo/baja", datos),
+  },
 };

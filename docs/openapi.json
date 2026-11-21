@@ -5072,6 +5072,797 @@
         }
       }
     },
+    "/api/v1/publico/identificar": {
+      "post": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Identificar o registrar paciente",
+        "operationId": "identificar_api_v1_publico_identificar_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentificarIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificarOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/citas": {
+      "get": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Consultar citas activas del paciente",
+        "operationId": "mis_citas_api_v1_publico_citas_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Token firmado del paciente",
+              "title": "Token"
+            },
+            "description": "Token firmado del paciente"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MisCitasPublicoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/espacios": {
+      "get": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Consultar espacios disponibles",
+        "operationId": "espacios_api_v1_publico_espacios_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Token firmado del paciente",
+              "title": "Token"
+            },
+            "description": "Token firmado del paciente"
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ID del servicio",
+              "title": "Servicio Id"
+            },
+            "description": "ID del servicio"
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "ID del profesional o 0 para cualquiera",
+              "default": 0,
+              "title": "Profesional Id"
+            },
+            "description": "ID del profesional o 0 para cualquiera"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoEspaciosPublicoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/agendar": {
+      "post": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Agendar nueva cita",
+        "operationId": "agendar_api_v1_publico_agendar_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgendarPublicoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendarPublicoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/cambiar/{cita_id}": {
+      "post": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Reprogramar una cita vigente",
+        "operationId": "cambiar_api_v1_publico_cambiar__cita_id__post",
+        "parameters": [
+          {
+            "name": "cita_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Cita Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarPublicoIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CambiarPublicoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/motivos-cancelacion": {
+      "get": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Listar motivos de cancelación",
+        "operationId": "motivos_cancelacion_api_v1_publico_motivos_cancelacion_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MotivoOut"
+                  },
+                  "title": "Response Motivos Cancelacion Api V1 Publico Motivos Cancelacion Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/cancelar/{cita_id}": {
+      "post": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Cancelar cita y ofrecer retención",
+        "operationId": "cancelar_api_v1_publico_cancelar__cita_id__post",
+        "parameters": [
+          {
+            "name": "cita_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Cita Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelarPublicoIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelarPublicoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publico/correo/baja": {
+      "post": {
+        "tags": [
+          "Público"
+        ],
+        "summary": "Desuscribirse de correos",
+        "operationId": "baja_correo_api_v1_publico_correo_baja_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BajaCorreoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/n/{nombre}/agendar": {
       "get": {
         "summary": "Agendar",
@@ -6372,6 +7163,78 @@
         ],
         "title": "AgendaOut"
       },
+      "AgendarPublicoIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "servicio_id": {
+            "type": "integer",
+            "title": "Servicio Id"
+          },
+          "profesional_id": {
+            "type": "integer",
+            "title": "Profesional Id",
+            "default": 0
+          },
+          "inicio": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Inicio"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "servicio_id",
+          "inicio"
+        ],
+        "title": "AgendarPublicoIn"
+      },
+      "AgendarPublicoOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "cita_id": {
+            "type": "integer",
+            "title": "Cita Id"
+          },
+          "inicio": {
+            "type": "string",
+            "title": "Inicio"
+          },
+          "mensaje": {
+            "type": "string",
+            "title": "Mensaje",
+            "default": "Cita agendada exitosamente"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cita_id",
+          "inicio"
+        ],
+        "title": "AgendarPublicoOut"
+      },
+      "BajaCorreoIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "BajaCorreoIn"
+      },
       "BajaOut": {
         "properties": {
           "cita_id": {
@@ -6642,6 +7505,49 @@
           "texto"
         ],
         "title": "Body_texto_simulador_texto_post"
+      },
+      "CambiarPublicoIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "inicio": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Inicio"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "inicio"
+        ],
+        "title": "CambiarPublicoIn"
+      },
+      "CambiarPublicoOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "cita_id": {
+            "type": "integer",
+            "title": "Cita Id"
+          },
+          "mensaje": {
+            "type": "string",
+            "title": "Mensaje",
+            "default": "Fecha cambiada exitosamente"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cita_id"
+        ],
+        "title": "CambiarPublicoOut"
       },
       "CambioAcceso": {
         "properties": {
@@ -6949,6 +7855,58 @@
         ],
         "title": "Cancelacion"
       },
+      "CancelarPublicoIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "motivo_id": {
+            "type": "integer",
+            "title": "Motivo Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "motivo_id"
+        ],
+        "title": "CancelarPublicoIn"
+      },
+      "CancelarPublicoOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "cita_id": {
+            "type": "integer",
+            "title": "Cita Id"
+          },
+          "mensaje": {
+            "type": "string",
+            "title": "Mensaje",
+            "default": "Tu cita quedó cancelada"
+          },
+          "espacios_alternativos": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogoEspaciosPublicoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "cita_id"
+        ],
+        "title": "CancelarPublicoOut"
+      },
       "CasoOut": {
         "properties": {
           "id": {
@@ -7001,6 +7959,48 @@
           "intentos"
         ],
         "title": "CasoOut"
+      },
+      "CatalogoEspaciosPublicoOut": {
+        "properties": {
+          "sid": {
+            "type": "integer",
+            "title": "Sid"
+          },
+          "pid": {
+            "type": "integer",
+            "title": "Pid"
+          },
+          "servicios": {
+            "items": {
+              "$ref": "#/components/schemas/ServicioOut"
+            },
+            "type": "array",
+            "title": "Servicios"
+          },
+          "profesionales": {
+            "items": {
+              "$ref": "#/components/schemas/ProfesionalOut"
+            },
+            "type": "array",
+            "title": "Profesionales"
+          },
+          "dias": {
+            "items": {
+              "$ref": "#/components/schemas/EspaciosDia"
+            },
+            "type": "array",
+            "title": "Dias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sid",
+          "pid",
+          "servicios",
+          "profesionales",
+          "dias"
+        ],
+        "title": "CatalogoEspaciosPublicoOut"
       },
       "CierreOut": {
         "properties": {
@@ -7393,6 +8393,71 @@
           "servicio"
         ],
         "title": "CitaFicha"
+      },
+      "CitaPacientePublico": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "programada",
+              "confirmada",
+              "no_confirmada",
+              "cancelada",
+              "reprogramada",
+              "atendida",
+              "no_asistio"
+            ],
+            "title": "Estado"
+          },
+          "dia": {
+            "type": "string",
+            "format": "date",
+            "title": "Dia"
+          },
+          "inicio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inicio"
+          },
+          "fin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fin"
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "estado",
+          "dia",
+          "profesional",
+          "servicio"
+        ],
+        "title": "CitaPacientePublico"
       },
       "ConsentimientoCorreo": {
         "properties": {
@@ -8038,6 +9103,116 @@
         ],
         "title": "HorarioOut"
       },
+      "IdentificarIn": {
+        "properties": {
+          "documento": {
+            "type": "string",
+            "title": "Documento",
+            "description": "Documento numérico del paciente"
+          },
+          "celular": {
+            "type": "string",
+            "title": "Celular",
+            "description": "Celular del paciente (10 dígitos en Colombia)"
+          },
+          "nombres": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombres"
+          },
+          "apellidos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apellidos"
+          },
+          "consentimiento": {
+            "type": "boolean",
+            "title": "Consentimiento",
+            "default": false
+          },
+          "negocio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negocio"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "documento",
+          "celular"
+        ],
+        "title": "IdentificarIn"
+      },
+      "IdentificarOut": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "enum": [
+              "autenticado",
+              "registrado",
+              "requiere_registro",
+              "contacto_pendiente"
+            ],
+            "title": "Estado"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "paciente": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PacientePublico"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mensaje": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mensaje"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "IdentificarOut"
+      },
       "IntentoOut": {
         "properties": {
           "numero": {
@@ -8123,6 +9298,47 @@
           "momento"
         ],
         "title": "MensajeOut"
+      },
+      "MisCitasPublicoOut": {
+        "properties": {
+          "paciente": {
+            "$ref": "#/components/schemas/PacientePublico"
+          },
+          "citas": {
+            "items": {
+              "$ref": "#/components/schemas/CitaPacientePublico"
+            },
+            "type": "array",
+            "title": "Citas"
+          },
+          "termino_negocio": {
+            "type": "string",
+            "title": "Termino Negocio",
+            "default": "la clínica"
+          },
+          "nombre_negocio": {
+            "type": "string",
+            "title": "Nombre Negocio",
+            "default": "Blissens"
+          },
+          "consentimiento_texto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consentimiento Texto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paciente",
+          "citas"
+        ],
+        "title": "MisCitasPublicoOut"
       },
       "MotivoIndicador": {
         "properties": {
@@ -8441,6 +9657,73 @@
           "celular"
         ],
         "title": "PacienteMinimo"
+      },
+      "PacientePublico": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "nombres": {
+            "type": "string",
+            "title": "Nombres"
+          },
+          "apellidos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apellidos"
+          },
+          "documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documento"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "correo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correo"
+          },
+          "acepta_mensajes": {
+            "type": "boolean",
+            "title": "Acepta Mensajes",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombres"
+        ],
+        "title": "PacientePublico"
       },
       "PacienteResumen": {
         "properties": {

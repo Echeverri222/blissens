@@ -17,3 +17,4 @@ panel/playwright-report/
 # Exportaciones y copias con datos: nunca se versionan
 exportaciones/
 respaldos/
+.vscode/

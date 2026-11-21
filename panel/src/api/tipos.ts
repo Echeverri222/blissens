@@ -46,3 +46,18 @@ export type NuevoBloqueo = S["NuevoBloqueo"];
 export type ResultadoGestion = S["Gestion"]["resultado"];
 export type Desenlace = S["Desenlace"]["desenlace"];
 export type FiltrosIndicadores = { desde?: string; hasta?: string; profesional_id?: number; servicio_id?: number };
+
+// Tipos del portal público del paciente
+export type IdentificarIn = S["IdentificarIn"];
+export type IdentificarOut = S["IdentificarOut"];
+export type PacientePublico = S["PacientePublico"];
+export type MisCitasPublico = S["MisCitasPublicoOut"];
+export type CitaPacientePublico = S["CitaPacientePublico"];
+export type CatalogoEspaciosPublico = S["CatalogoEspaciosPublicoOut"];
+export type AgendarPublicoIn = S["AgendarPublicoIn"];
+export type AgendarPublicoOut = S["AgendarPublicoOut"];
+export type CambiarPublicoIn = S["CambiarPublicoIn"];
+export type CambiarPublicoOut = S["CambiarPublicoOut"];
+export type CancelarPublicoIn = S["CancelarPublicoIn"];
+export type CancelarPublicoOut = S["CancelarPublicoOut"];
+export type BajaCorreoIn = S["BajaCorreoIn"];
