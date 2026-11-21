@@ -24,7 +24,9 @@ def register_slot(conn, professional_id: int, rango: Range, origin_cita_id: int 
 
 
 def candidates(conn, cupo) -> list[dict]:
-    """Citas vivas del mismo profesional, posteriores al cupo, que admiten adelanto y caben en él."""
+    """Citas vivas del mismo profesional, posteriores al cupo, que admiten adelanto y caben en él.
+
+    Nunca se le ofrece el cupo a quien lo liberó (por ejemplo, al reprogramar su propia cita a una fecha posterior)."""
     now = clock.now(conn)
     slot_min = (cupo["rango"].upper - cupo["rango"].lower).total_seconds() / 60
     week_max = config.get(conn, "max_ofertas_paciente_semana")
@@ -41,6 +43,7 @@ def candidates(conn, cupo) -> list[dict]:
           and s.admite_adelanto
           and s.duracion_min <= %(slot_min)s
           and p.acepta_mensajes
+          and c.paciente_id is distinct from (select o.paciente_id from cita o where o.id = %(origen)s)
           and not exists (select 1 from oferta_adelanto o join cita c2 on c2.id = o.cita_id
                           where c2.paciente_id = c.paciente_id and o.estado = 'pendiente')
           and not exists (select 1 from cita c3 where c3.paciente_id = c.paciente_id and c3.id <> c.id
@@ -51,7 +54,7 @@ def candidates(conn, cupo) -> list[dict]:
         order by lower(c.rango) desc, c.id
         """,
         {"pro": cupo["profesional_id"], "alive": list(ALIVE), "rango": cupo["rango"], "slot_min": slot_min,
-         "cupo": cupo["id"], "now": now, "week_max": week_max}).fetchall()
+         "cupo": cupo["id"], "now": now, "week_max": week_max, "origen": cupo["cita_origen_id"]}).fetchall()
     return rows
 
 
