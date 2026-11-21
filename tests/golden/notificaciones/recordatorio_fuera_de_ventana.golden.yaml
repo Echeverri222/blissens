@@ -4,7 +4,7 @@ fotos:
   - direccion: saliente
     plantilla: cita_agendada
     estado: entregado
-    momento: +0d 0h 0m
+    momento: +0d 1h 0m
     texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. Te esperamos
       en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
     botones: []
@@ -30,7 +30,7 @@ mensajes:
 - direccion: saliente
   plantilla: cita_agendada
   estado: entregado
-  momento: +0d 0h 0m
+  momento: +0d 1h 0m
   texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. Te esperamos
     en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
   botones: []

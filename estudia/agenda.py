@@ -109,7 +109,8 @@ def book(conn, patient_id: int, professional_id: int, service_id: int, start: da
     followup.resolve_on_booking(conn, patient_id, cid)
     if notify:
         p = _info(conn, cid)
-        messaging.send(conn, patient_id, "cita_agendada", p, direct=True, entity=("cita", cid))
+        # Solo sale a quien está dado de baja si él mismo hizo el trámite (respuesta a su acción).
+        messaging.send(conn, patient_id, "cita_agendada", p, direct=(actor == "paciente"), entity=("cita", cid))
     return cid
 
 
@@ -188,7 +189,8 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cambio_fecha")
     from . import messaging
-    messaging.send(conn, c["paciente_id"], "cita_agendada", _info(conn, new), direct=True, entity=("cita", new))
+    messaging.send(conn, c["paciente_id"], "cita_agendada", _info(conn, new), direct=(actor == "paciente"),
+                   entity=("cita", new))
     return new
 
 
