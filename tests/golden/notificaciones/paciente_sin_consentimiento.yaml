@@ -1,0 +1,10 @@
+# Paciente que no acepta mensajes: los recordatorios quedan "omitido" y la cita sigue su curso.
+# OJO: la confirmación de agendamiento sí sale (se envía como respuesta directa). Confirmar que es lo deseado.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez", acepta: false}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true

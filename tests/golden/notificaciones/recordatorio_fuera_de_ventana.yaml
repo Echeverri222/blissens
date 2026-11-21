@@ -1,0 +1,13 @@
+# El recordatorio de 48h cae a las 14:00, fuera de la ventana de envío (09:00-12:00): queda diferido y se entrega
+# a la siguiente apertura de la ventana (09:00 del día siguiente).
+config:
+  ventana_envio: ["09:00", "12:00"]
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "14:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true            # el mensaje queda diferido
+  - foto: diferido
+  - avanzar: {dia: 2, hora: "09:00"}
+  - ciclo: true            # se entrega al abrir la ventana

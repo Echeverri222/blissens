@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
+.PHONY: golden-update respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
 
 db-up:
 	docker compose up -d --wait db
@@ -33,6 +33,9 @@ dev: db-up panel-deps
 	uv run python -m estudia.worker & \
 	(cd panel && npm run build:watch) & \
 	wait
+
+golden-update: db-up
+	GOLDEN_UPDATE=1 uv run pytest tests/test_golden.py
 
 test: db-up panel-deps
 	uv run pytest

@@ -1,0 +1,30 @@
+mensajes:
+- direccion: saliente
+  plantilla: cita_agendada
+  estado: entregado
+  momento: +0d 0h 0m
+  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  botones: []
+- direccion: saliente
+  plantilla: cancelacion_recibida
+  estado: entregado
+  momento: +0d 0h 0m
+  texto: 'Gracias, Ana. Tu cita del jueves 19 de noviembre quedó cancelada. Cuando quieras retomarla, elige un nuevo espacio
+    aquí: http://localhost:8000/p/<token>/agendar?caso=1'
+  botones:
+  - Ahora no
+citas:
+- estado: cancelada
+  inicio: +3d 2h 0m
+tareas_pendientes:
+- tipo: recordatorio
+  ejecutar_en: +2d 2h 0m
+- tipo: intento_seguimiento
+  ejecutar_en: +3d 0h 0m
+- tipo: intento_seguimiento
+  ejecutar_en: +7d 0h 0m
+- tipo: intento_seguimiento
+  ejecutar_en: +15d 0h 0m
+- tipo: agotar_caso
+  ejecutar_en: +22d 0h 0m

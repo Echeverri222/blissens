@@ -1,0 +1,10 @@
+# Camino feliz: recordatorio de 48h, el paciente confirma y a las 24h recibe el recordatorio corto (sin botones).
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - presiona: {mensaje: recordatorio_48h, boton: 0}   # "Sí, asistiré"
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true
