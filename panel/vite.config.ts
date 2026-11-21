@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -6,7 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   base: "/panel/",
   plugins: [react(), tailwindcss()],
-  resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: { port: 5173, proxy: { "/api": "http://localhost:8000", "/simulador": "http://localhost:8000" } },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false },
   test: { environment: "jsdom", globals: true, setupFiles: ["./src/pruebas/preparar.ts"], css: false, exclude: ["e2e/**", "node_modules/**"] },

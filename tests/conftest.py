@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 # (sujeto a RLS); el rol de administración solo migra y vacía la base entre pruebas.
 os.environ["ENTORNO"] = "local"
 os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@localhost:5433/estudia_test")
+    "TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@127.0.0.1:5433/estudia_test")
 os.environ["DATABASE_URL_ADMIN"] = os.environ.get(
-    "TEST_DATABASE_URL_ADMIN", "postgresql://estudia:estudia@localhost:5433/estudia_test")
+    "TEST_DATABASE_URL_ADMIN", "postgresql://estudia:estudia@127.0.0.1:5433/estudia_test")
 
 import pytest  # noqa: E402
 

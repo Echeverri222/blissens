@@ -21,9 +21,9 @@ _load_env()
 ENTORNOS = ("local", "demo", "produccion")
 ENTORNO = os.environ.get("ENTORNO", "local")
 # DATABASE_URL es la del rol de aplicación (sin privilegios, sujeto a RLS); DATABASE_URL_ADMIN, la del dueño del esquema.
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://estudia_app:estudia_app@localhost:5433/estudia")
-DATABASE_URL_ADMIN = os.environ.get("DATABASE_URL_ADMIN", "postgresql://estudia:estudia@localhost:5433/estudia")
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@localhost:5433/estudia_test")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://estudia_app:estudia_app@127.0.0.1:5433/estudia")
+DATABASE_URL_ADMIN = os.environ.get("DATABASE_URL_ADMIN", "postgresql://estudia:estudia@127.0.0.1:5433/estudia")
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@127.0.0.1:5433/estudia_test")
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 SECRET_KEY_POR_DEFECTO = "cambia-esto-en-cualquier-despliegue"
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY_POR_DEFECTO)
