@@ -49,8 +49,9 @@ PLANTILLAS = {
                             "{profesional}, en {direccion}. Esta es tu nueva fecha.", "botones", []),
     "oferta_no_disponible": ("Hola {nombre}, ese espacio ya no está disponible. No te preocupes: tu cita original "
                              "sigue igual.", "botones", []),
-    "baja_confirmada": ("Listo {nombre}, no te enviaremos más mensajes automáticos. Si necesitas algo, "
-                        "escríbenos o llámanos.", "botones", []),
+    "baja_confirmada": ("Listo {nombre}, no te enviaremos más mensajes automáticos por WhatsApp. Los correos, si los "
+                        "recibes, se cancelan con el enlace que traen. Si necesitas algo, escríbenos o llámanos.",
+                        "botones", []),
     "respuesta_tardia": ("Hola {nombre}, esa cita ya no está vigente. Si necesitas ayuda, la clínica te acompaña "
                          "con gusto.", "botones", []),
     "cambiar_fecha": ("Claro, {nombre}. Elige tu nueva fecha aquí: {enlace}. Tu cita actual se mantiene hasta "

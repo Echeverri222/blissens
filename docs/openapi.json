@@ -2192,6 +2192,108 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/correo": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Registrar el correo del paciente y si autoriza recibir correos",
+        "operationId": "correo_paciente_api_v1_pacientes__paciente_id__correo_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentimientoCorreo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentimientoCorreo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}": {
       "get": {
         "tags": [
@@ -5815,6 +5917,84 @@
         }
       }
     },
+    "/correo/baja/{token}": {
+      "get": {
+        "summary": "Baja Correo Pagina",
+        "description": "Pide confirmar: un GET no cambia nada (los escáneres de enlaces precargan los correos).",
+        "operationId": "baja_correo_pagina_correo_baja__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Baja Correo",
+        "description": "Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca. También atiende la baja de un\nclic de los clientes de correo (`List-Unsubscribe-Post`).",
+        "operationId": "baja_correo_correo_baja__token__post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/simulador": {
       "get": {
         "summary": "Simulador",
@@ -7176,6 +7356,31 @@
           "servicio"
         ],
         "title": "CitaFicha"
+      },
+      "ConsentimientoCorreo": {
+        "properties": {
+          "correo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correo"
+          },
+          "acepta": {
+            "type": "boolean",
+            "title": "Acepta"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "acepta"
+        ],
+        "title": "ConsentimientoCorreo"
       },
       "ContactoOut": {
         "properties": {

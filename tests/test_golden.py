@@ -63,6 +63,9 @@ def _ejecutar(conn, caso: dict) -> dict:
             agenda.cancel(conn, cita, "paciente", "enlace")
         elif accion == "reprograma":
             agenda.reschedule(conn, cita, at(arg["dia"], arg["hora"]), "auxiliar", "auxiliar")
+        elif accion == "baja_correo":  # el enlace de baja de un correo
+            from estudia import correo
+            correo.dar_de_baja(conn, pac)
         elif accion == "escribe":
             from estudia import messaging
             messaging.receive(conn, pac, text=arg)
@@ -71,11 +74,17 @@ def _ejecutar(conn, caso: dict) -> dict:
     return {"fotos": fotos, **_snapshot(conn)} if fotos else _snapshot(conn)
 
 
+def _sin_tokens(texto: str) -> str:
+    texto = re.sub(r"/p/[^/\s]+", "/p/<token>", texto)
+    return re.sub(r"/correo/baja/[^/\s]+", "/correo/baja/<token>", texto)
+
+
 def _snapshot(conn) -> dict:
     mensajes = [{
         "direccion": m["direccion"], "plantilla": m["plantilla"], "estado": m["estado_entrega"],
-        "momento": _delta(m["momento"]), "texto": re.sub(r"/p/[^/\s]+", "/p/<token>", m["texto"] or ""),
+        "momento": _delta(m["momento"]), "texto": _sin_tokens(m["texto"] or ""),
         "botones": [b["title"] for b in (m["botones"] or [])],
+        **({"canal": m["canal"], "asunto": m["asunto"]} if m["canal"] == "correo" else {}),
     } for m in conn.execute("select * from mensaje order by id")]
     pendientes = [{"tipo": t["tipo"], "ejecutar_en": _delta(t["ejecutar_en"])} for t in conn.execute(
         "select tipo, ejecutar_en from tarea_programada where estado='pendiente' order by ejecutar_en, id")]

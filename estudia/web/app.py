@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .. import agenda, arranque, canales, clock, config, db, fmt, links, logs, messaging, settings, tasks, usuarios
+from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
 from ..lifecycle import ALIVE
@@ -89,6 +90,22 @@ def conn_enlace(request: Request, token: str):
             raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
         db.fijar(conn, nid)
         _fijar_negocio(request, conn, conn.execute("select * from negocio where id=%s", (nid,)).fetchone())
+    except Exception:
+        conn.close()
+        raise
+    yield from _con_conexion(conn)
+
+
+def conn_baja(request: Request, token: str):
+    """`/correo/baja/<token>`: el negocio va firmado en el enlace de baja del correo."""
+    conn = db.connect(negocio=None)
+    try:
+        v = correo_mod.leer_token_baja(token)
+        if v is None:
+            raise HTTPException(404, "Este enlace no es válido. Pide ayuda a la clínica.")
+        db.fijar(conn, v[0])
+        _fijar_negocio(request, conn, conn.execute("select * from negocio where id=%s", (v[0],)).fetchone())
+        request.state.paciente_baja = v[1]
     except Exception:
         conn.close()
         raise
@@ -302,6 +319,20 @@ def cancelar_post(request: Request, token: str, cita_id: int, motivo: int = Form
                   action=f"/p/{token}/agendar", cancelada=True, **ctx)
 
 
+@publico.get("/correo/baja/{token}", response_class=HTMLResponse)
+def baja_correo_pagina(request: Request, token: str, conn=Depends(conn_baja)):
+    """Pide confirmar: un GET no cambia nada (los escáneres de enlaces precargan los correos)."""
+    return render(request, "baja_correo.html", token=token, hecha=False)
+
+
+@publico.post("/correo/baja/{token}", response_class=HTMLResponse)
+def baja_correo(request: Request, token: str, conn=Depends(conn_baja)):
+    """Da de baja SOLO el correo (idempotente). La baja de WhatsApp es otra y no se toca. También atiende la baja de un
+    clic de los clientes de correo (`List-Unsubscribe-Post`)."""
+    correo_mod.dar_de_baja(conn, request.state.paciente_baja)
+    return render(request, "baja_correo.html", token=token, hecha=True)
+
+
 # ----------------------------------------------------------------- Simulador de WhatsApp
 
 def _clock_info(conn):
@@ -325,13 +356,15 @@ def _chat_ctx(conn, patient_id):
     if not patient_id:
         return None
     p = conn.execute("select * from paciente where id=%s", (patient_id,)).fetchone()
-    msgs = conn.execute("select * from mensaje where paciente_id=%s and estado_entrega='entregado' order by momento, id",
-                        (patient_id,)).fetchall()
+    msgs = conn.execute("select * from mensaje where paciente_id=%s and estado_entrega='entregado' and canal <> 'correo' "
+                        "order by momento, id", (patient_id,)).fetchall()
+    correos = conn.execute("select * from mensaje where paciente_id=%s and canal='correo' and direccion='saliente' "
+                           "order by momento, id", (patient_id,)).fetchall()
     citas = conn.execute(
         "select c.id, c.estado, c.rango, pr.nombre as profesional from cita c join profesional pr on pr.id=c.profesional_id "
         "where c.paciente_id=%s and c.estado = any(%s) and c.rango is not null order by lower(c.rango)",
         (patient_id, list(ALIVE))).fetchall()
-    return {"p": p, "msgs": msgs, "citas": citas}
+    return {"p": p, "msgs": msgs, "citas": citas, "correos": correos}
 
 
 @sim.get("/simulador/burbujas/{patient_id}", response_class=HTMLResponse)

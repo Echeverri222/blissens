@@ -9,4 +9,16 @@
   <input name="texto" placeholder="Escribe un mensaje de texto libre (prueba BAJA)…" style="margin:0" required>
   <button style="width:auto;margin:0">Enviar</button>
 </form>
+<details style="margin-top:1rem" {% if chat.correos %}open{% endif %}>
+  <summary>Bandeja de correo ({{ chat.correos|length }}) — en local no salen</summary>
+  {% if not chat.p.correo %}<p><small>Este paciente no tiene correo registrado.</small></p>
+  {% elif not chat.p.acepta_correo %}<p><small>{{ chat.p.correo }} · no autorizó recibir correos.</small></p>{% endif %}
+  {% for c in chat.correos %}
+    <article style="padding:.5rem">
+      <small>{{ c.momento|local|fecha_hora }} · {{ c.estado_entrega }} · {{ c.plantilla }}</small>
+      <strong style="display:block">{{ c.asunto }}</strong>
+      <pre style="white-space:pre-wrap;margin:0">{{ c.texto|linkify }}</pre>
+    </article>
+  {% endfor %}
+</details>
 {% endif %}

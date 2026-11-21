@@ -277,6 +277,11 @@ class NuevoPaciente(Entrada):
     consentimiento: bool
 
 
+class ConsentimientoCorreo(Entrada):
+    correo: str | None = None
+    acepta: bool
+
+
 class PacienteCreado(Salida):
     paciente_id: int
 

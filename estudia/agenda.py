@@ -84,7 +84,7 @@ def book(conn, patient_id: int, professional_id: int, service_id: int, start: da
          actor: str, treatment_id: int | None = None, previous_id: int | None = None,
          notify: bool = True, user_id: int | None = None) -> int:
     """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces)."""
-    from . import followup, messaging
+    from . import correo, followup, messaging
 
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
@@ -111,6 +111,7 @@ def book(conn, patient_id: int, professional_id: int, service_id: int, start: da
         p = _info(conn, cid)
         # Solo sale a quien está dado de baja si él mismo hizo el trámite (respuesta a su acción).
         messaging.send(conn, patient_id, "cita_agendada", p, direct=(actor == "paciente"), entity=("cita", cid))
+        correo.enviar(conn, patient_id, "agendada", cid, direct=(actor == "paciente"))
     return cid
 
 
@@ -132,7 +133,7 @@ def hours_ahead(conn, cita) -> float:
 def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None = None, text: str | None = None,
            defer_first_attempt: bool = False, user_id: int | None = None) -> int:
     """Cancela una cita: registro de cancelación, cupo liberado y caso de seguimiento."""
-    from . import followup, slots
+    from . import correo, followup, slots
 
     c = conn.execute("select * from cita where id=%s for update", (cita_id,)).fetchone()
     now = clock.now(conn)
@@ -150,6 +151,7 @@ def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None =
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cancelacion")
     followup.open_case(conn, "cancelacion", c["paciente_id"], cita_id=cita_id,
                        send_first=not defer_first_attempt)
+    correo.enviar(conn, c["paciente_id"], "cancelada", cita_id, direct=(actor == "paciente"))
     return row["id"]
 
 
@@ -188,9 +190,10 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
     _schedule_reminders(conn, new, new_start, now)
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cambio_fecha")
-    from . import messaging
+    from . import correo, messaging
     messaging.send(conn, c["paciente_id"], "cita_agendada", _info(conn, new), direct=(actor == "paciente"),
                    entity=("cita", new))
+    correo.enviar(conn, c["paciente_id"], "agendada", new, direct=(actor == "paciente"))
     return new
 
 

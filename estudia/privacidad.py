@@ -37,7 +37,7 @@ def anonimizar_paciente(conn, paciente_id: int) -> None:
         raise permisos.NoExiste("No existe ese paciente")
     conn.execute(
         "update paciente set nombres=%s, apellidos='', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
-        "external_id=null, acepta_mensajes=false where id=%s", (ANONIMO, paciente_id))
+        "external_id=null, acepta_mensajes=false, acepta_correo=false, consentimiento_correo_en=null where id=%s", (ANONIMO, paciente_id))
     conn.execute("update mensaje set texto='[eliminado]', botones='[]'::jsonb, respuesta=null where paciente_id=%s", (paciente_id,))
 
 

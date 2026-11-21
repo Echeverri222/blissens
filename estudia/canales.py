@@ -24,6 +24,7 @@ class Entrante:
 
 class Adaptador:
     tipo = ""
+    medio = "mensajeria"   # «mensajeria» (WhatsApp y similares) o «correo»: un negocio tiene un canal activo por medio
 
     def identificar(self, cuerpo: dict) -> str | None:
         """Identificador del canal destino (para encaminar al negocio ANTES de verificar la firma)."""
@@ -78,10 +79,86 @@ class Prueba(Adaptador):
         self.ENVIADOS.append({"mensaje_id": mensaje["id"], "celular": paciente["celular"], "texto": mensaje["texto"]})
 
 
+class AdaptadorCorreo(Adaptador):
+    """Base de los adaptadores de correo: no reciben nada; solo envían un correo ya compuesto (asunto y texto plano)."""
+    medio = "correo"
+
+    def identificar(self, cuerpo):
+        return None
+
+    def verificar(self, cuerpo_crudo, cabeceras, secreto):
+        return False
+
+    def traducir(self, cuerpo):
+        return None
+
+
+class CorreoSimulado(AdaptadorCorreo):
+    """El correo de `local` y `demo`: no sale; queda en la bitácora y la bandeja del simulador lo muestra."""
+    tipo = "correo_simulado"
+
+    def enviar(self, conn, mensaje, paciente):
+        return None
+
+
+class CorreoPrueba(AdaptadorCorreo):
+    """Proveedor de prueba: guarda lo «enviado» y puede fallar a voluntad (`FALLAR`). No existe en producción."""
+    tipo = "correo_prueba"
+    ENVIADOS: list[dict] = []
+    FALLAR = False
+
+    def enviar(self, conn, mensaje, paciente):
+        if self.FALLAR:
+            raise RuntimeError("El proveedor de prueba rechazó el correo")
+        remitente = (canal_del_negocio(conn, "correo") or {}).get("id_externo")
+        self.ENVIADOS.append({"mensaje_id": mensaje["id"], "de": remitente, "para": paciente["correo"],
+                              "asunto": mensaje["asunto"], "texto": mensaje["texto"]})
+
+
+class CorreoSMTP(AdaptadorCorreo):
+    """SMTP genérico (solo producción). `id_externo` del canal es el remitente y `secreto_ref` nombra la variable de
+    entorno con la URL de conexión: `smtp://usuario:clave@servidor:587` (`smtps://` para TLS directo)."""
+    tipo = "smtp"
+
+    def enviar(self, conn, mensaje, paciente):
+        import html
+        import re
+        import smtplib
+        from email.message import EmailMessage
+        from urllib.parse import unquote, urlparse
+
+        canal = canal_del_negocio(conn, "correo")
+        url = urlparse(secreto_de(canal) or "")
+        if not url.hostname:
+            raise RuntimeError("El canal de correo no tiene credenciales (revisa secreto_ref)")
+        msg = EmailMessage()
+        msg["From"], msg["To"], msg["Subject"] = canal["id_externo"], paciente["correo"], mensaje["asunto"]
+        baja = re.search(r"https?://\S+/correo/baja/\S+", mensaje["texto"])
+        if baja:
+            msg["List-Unsubscribe"] = f"<{baja.group(0)}>"
+            msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+        msg.set_content(mensaje["texto"])
+        cuerpo = re.sub(r"(https?://[^\s<]+)", r'<a href="\1">\1</a>', html.escape(mensaje["texto"]))
+        msg.add_alternative("<html><body style=\"font-family:sans-serif\">"
+                            + cuerpo.replace("\n", "<br>") + "</body></html>", subtype="html")
+        directo = url.scheme == "smtps"
+        with (smtplib.SMTP_SSL if directo else smtplib.SMTP)(url.hostname, url.port or (465 if directo else 587),
+                                                             timeout=15) as s:
+            if not directo:
+                s.starttls()
+            if url.username:
+                s.login(unquote(url.username), unquote(url.password or ""))
+            s.send_message(msg)
+
+
 def _disponibles() -> dict[str, Adaptador]:
     out: dict[str, Adaptador] = {"simulado": Simulado()}
     if settings.ENTORNO != "produccion":
         out["prueba"] = Prueba()
+        out["correo_simulado"] = CorreoSimulado()
+        out["correo_prueba"] = CorreoPrueba()
+    else:
+        out["smtp"] = CorreoSMTP()
     return out
 
 
@@ -89,14 +166,27 @@ def adaptador(tipo: str) -> Adaptador | None:
     return _disponibles().get(tipo)
 
 
-def canal_del_negocio(conn) -> dict | None:
-    """El canal activo del negocio activo (si no tiene, usa el simulado)."""
-    return conn.execute("select * from canal_negocio where activo order by id limit 1").fetchone()
+def canal_del_negocio(conn, medio: str = "mensajeria") -> dict | None:
+    """El canal activo del negocio activo para ese medio (con un adaptador disponible en este entorno)."""
+    for c in conn.execute("select * from canal_negocio where activo order by id").fetchall():
+        a = adaptador(c["tipo"])
+        if a is not None and a.medio == medio:
+            return c
+    return None
 
 
 def tipo_activo(conn) -> str:
     c = canal_del_negocio(conn)
-    return c["tipo"] if c and adaptador(c["tipo"]) else "simulado"
+    return c["tipo"] if c else "simulado"
+
+
+def adaptador_de_correo(conn) -> Adaptador | None:
+    """Adaptador de correo del negocio. Sin canal propio, en `local` y `demo` el correo se simula (no sale); en
+    producción, un negocio sin canal de correo no envía correos."""
+    c = canal_del_negocio(conn, "correo")
+    if c:
+        return adaptador(c["tipo"])
+    return adaptador("correo_simulado")
 
 
 def enviar_mensaje(conn, mensaje_id: int) -> None:

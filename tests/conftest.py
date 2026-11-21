@@ -74,11 +74,13 @@ def make_pro(conn, name="Dra. Prueba"):
 _doc = itertools.count(1000)
 
 
-def make_patient(conn, nombres="Ana", apellidos="Pérez", doc=None, acepta=True, celular="+573001112233"):
+def make_patient(conn, nombres="Ana", apellidos="Pérez", doc=None, acepta=True, celular="+573001112233",
+                 correo=None, acepta_correo=False):
     doc = doc or str(next(_doc))
     return conn.execute(
-        "insert into paciente(nombres, apellidos, documento, celular, acepta_mensajes, consentimiento_en) "
-        "values (%s,%s,%s,%s,%s,%s) returning id", (nombres, apellidos, doc, celular, acepta, NOW)).fetchone()["id"]
+        "insert into paciente(nombres, apellidos, documento, celular, acepta_mensajes, consentimiento_en, correo, "
+        "acepta_correo, consentimiento_correo_en) values (%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (nombres, apellidos, doc, celular, acepta, NOW, correo, acepta_correo, NOW if acepta_correo else None)).fetchone()["id"]
 
 
 def svc(conn, name="Valoración o revisión"):
