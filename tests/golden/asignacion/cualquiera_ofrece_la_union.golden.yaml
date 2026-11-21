@@ -1,0 +1,18 @@
+resultados:
+- espacios: cualquiera
+  horas:
+  - '10:00'
+  - '10:30'
+- espacios: Dra. Ana Uno
+  horas:
+  - '10:30'
+- espacios: Dra. Bea Dos
+  horas:
+  - '10:00'
+citas:
+- profesional: Dra. Ana Uno
+  paciente: Otra
+  inicio: +3d 2h 0m
+- profesional: Dra. Bea Dos
+  paciente: Otra
+  inicio: +3d 2h 30m

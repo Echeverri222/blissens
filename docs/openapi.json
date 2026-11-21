@@ -5604,9 +5604,10 @@
           {
             "name": "profesional",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "integer",
+              "default": 0,
               "title": "Profesional"
             }
           },
@@ -6428,7 +6429,8 @@
           },
           "profesional": {
             "type": "integer",
-            "title": "Profesional"
+            "title": "Profesional",
+            "default": 0
           },
           "inicio": {
             "type": "string",
@@ -6438,7 +6440,6 @@
         "type": "object",
         "required": [
           "servicio",
-          "profesional",
           "inicio"
         ],
         "title": "Body_agendar_post_p__token__agendar_post"

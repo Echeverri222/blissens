@@ -73,6 +73,36 @@ def available_slots(conn, professional_id: int, service_id: int, days: int | Non
     return out
 
 
+def any_slots(conn, service_id: int, days: int | None = None) -> dict[date, list[datetime]]:
+    """Espacios de «cualquier especialista»: la unión de lo que ofrece cada profesional activo, sin repetir horas."""
+    now = clock.now(conn)
+    days = days or config.get(conn, "horizonte_dias")
+    pros = [r["id"] for r in conn.execute("select id from profesional where activo order by id")]
+    out = {}
+    for i in range(days + 1):
+        d = now.date() + timedelta(days=i)
+        horas = sorted({h for pid in pros for h in day_slots(conn, pid, service_id, d, now)})
+        if horas:
+            out[d] = horas
+    return out
+
+
+def assign_professional(conn, service_id: int, start: datetime) -> int:
+    """Elige a UN especialista para «cualquiera» entre quienes tienen libre ese espacio.
+
+    Regla de desempate (determinista): menos citas vivas ese día; si empatan, el de menor id."""
+    now = clock.now(conn)
+    start = start.astimezone(clock.TZ)
+    libres = [r["id"] for r in conn.execute("select id from profesional where activo order by id")
+              if start in day_slots(conn, r["id"], service_id, start.date(), now)]
+    if not libres:
+        raise SlotTaken("Ese espacio ya no está disponible")
+    carga = {r["profesional_id"]: r["n"] for r in conn.execute(
+        "select profesional_id, count(*) as n from cita where dia=%s and estado = any(%s) and profesional_id = any(%s) "
+        "group by profesional_id", (start.date(), list(ALIVE), libres))}
+    return min(libres, key=lambda pid: (carga.get(pid, 0), pid))
+
+
 def _schedule_reminders(conn, cita_id: int, start: datetime, now: datetime) -> None:
     for h in config.get(conn, "recordatorios_horas"):
         at = start - timedelta(hours=h)
@@ -80,14 +110,26 @@ def _schedule_reminders(conn, cita_id: int, start: datetime, now: datetime) -> N
             tasks.schedule(conn, "recordatorio", at, {"cita_id": cita_id, "horas": h, "inicio": start.isoformat()})
 
 
-def book(conn, patient_id: int, professional_id: int, service_id: int, start: datetime, origin: str,
+def book(conn, patient_id: int, professional_id: int | None, service_id: int, start: datetime, origin: str,
          actor: str, treatment_id: int | None = None, previous_id: int | None = None,
          notify: bool = True, user_id: int | None = None) -> int:
-    """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces)."""
+    """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces).
+
+    `professional_id=None` es «cualquier especialista»: se asigna uno solo entre los que tienen libre ese espacio."""
     from . import correo, followup, messaging
 
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
+    if professional_id is None:
+        # Si otro paciente toma justo ese espacio con el elegido, se reintenta con quien siga libre.
+        for _ in range(3):
+            elegido = assign_professional(conn, service_id, start)  # SlotTaken si ya nadie lo tiene
+            try:
+                return book(conn, patient_id, elegido, service_id, start, origin, actor, treatment_id, previous_id,
+                            notify, user_id)
+            except SlotTaken:
+                continue
+        raise SlotTaken("Ese espacio ya no está disponible")
     if start not in day_slots(conn, professional_id, service_id, start.date(), now):
         raise SlotTaken("Ese espacio ya no está disponible")
     dur = conn.execute("select duracion_min from servicio where id=%s", (service_id,)).fetchone()["duracion_min"]
