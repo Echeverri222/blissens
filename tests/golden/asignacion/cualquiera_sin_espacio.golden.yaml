@@ -1,0 +1,9 @@
+resultados:
+- agenda: cualquiera -> sin espacio
+citas:
+- profesional: Dra. Ana Uno
+  paciente: Otra
+  inicio: +3d 2h 0m
+- profesional: Dra. Bea Dos
+  paciente: Otra
+  inicio: +3d 2h 0m

@@ -1,0 +1,7 @@
+# Si uno de los dos ya tiene ese espacio, "cualquiera" asigna a quien sigue libre.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}
+  profesionales: ["Dra. Ana Uno", "Dra. Bea Dos"]
+pasos:
+  - ocupa: {profesional: "Dra. Ana Uno", dia: 3, hora: "10:00"}
+  - agenda: {profesional: cualquiera, dia: 3, hora: "10:00"}

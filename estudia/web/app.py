@@ -213,13 +213,17 @@ def mis_citas(request: Request, token: str, aviso: str = "", conn=Depends(conn_e
     return render(request, "mis_citas.html", p=p, token=token, citas=_appointments(conn, p["id"]), aviso=aviso)
 
 
-def _picker_context(conn, service_id, professional_id):
+def _slots(conn, professional_id, service_id):
+    """`professional_id` 0 o None = «cualquier especialista»."""
+    return agenda.available_slots(conn, professional_id, service_id) if professional_id else agenda.any_slots(conn, service_id)
+
+
+def _picker_context(conn, service_id, professional_id, any_default=True):
     services = conn.execute("select * from servicio where autoagendable order by id").fetchall()
     pros = conn.execute("select * from profesional where activo order by id").fetchall()
     sid = service_id or services[0]["id"]
-    pid = professional_id or pros[0]["id"]
-    slots = agenda.available_slots(conn, pid, sid)
-    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": slots}
+    pid = professional_id if professional_id is not None else (0 if any_default else pros[0]["id"])
+    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": _slots(conn, pid, sid)}
 
 
 @publico.get("/p/{token}/nueva", response_class=HTMLResponse)
@@ -233,22 +237,22 @@ def nueva(request: Request, token: str, servicio: int | None = None, profesional
 
 
 @publico.get("/p/{token}/espacios", response_class=HTMLResponse)
-def espacios(request: Request, token: str, servicio: int, profesional: int, cita: int | None = None,
+def espacios(request: Request, token: str, servicio: int, profesional: int = 0, cita: int | None = None,
              modo: str = "nueva", error: str | None = None, conn=Depends(conn_enlace)):
     patient_from_token(conn, token)
-    slots = agenda.available_slots(conn, profesional, servicio)
+    slots = _slots(conn, profesional, servicio)
     return render(request, "_espacios.html", slots=slots, sid=servicio, pid=profesional, token=token, cita=cita,
                   modo=modo, error=error)
 
 
 @publico.post("/p/{token}/agendar", response_class=HTMLResponse)
-def agendar_post(request: Request, token: str, servicio: int = Form(...), profesional: int = Form(...),
+def agendar_post(request: Request, token: str, servicio: int = Form(...), profesional: int = Form(0),
                  inicio: str = Form(...), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
     try:
-        agenda.book(conn, p["id"], profesional, servicio, datetime.fromisoformat(inicio), "paciente", "paciente")
+        agenda.book(conn, p["id"], profesional or None, servicio, datetime.fromisoformat(inicio), "paciente", "paciente")
     except agenda.SlotTaken:
-        slots = agenda.available_slots(conn, profesional, servicio)
+        slots = _slots(conn, profesional, servicio)
         return render(request, "_espacios.html", slots=slots, sid=servicio, pid=profesional, token=token, cita=None,
                       modo="nueva", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
     resp = HTMLResponse("")

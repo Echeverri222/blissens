@@ -14,6 +14,7 @@
   </label>
   <label>Profesional
     <select name="profesional">
+      {% if modo != 'cambiar' %}<option value="0" {% if not pid %}selected{% endif %}>Cualquier especialista</option>{% endif %}
       {% for pr in pros %}<option value="{{ pr.id }}" {% if pr.id == pid %}selected{% endif %}>{{ pr.nombre }}</option>{% endfor %}
     </select>
   </label>

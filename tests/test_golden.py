@@ -12,7 +12,7 @@ import yaml
 
 from estudia import agenda, clock, config, tasks
 
-from .conftest import NOW, at, book, button, make_patient, make_pro, press
+from .conftest import NOW, at, book, button, make_patient, make_pro, press, svc
 
 RAIZ = Path(__file__).parent / "golden"
 CASOS = sorted(p for p in RAIZ.rglob("*.yaml") if not p.name.endswith(".golden.yaml"))
@@ -79,6 +79,43 @@ def _sin_tokens(texto: str) -> str:
     return re.sub(r"/correo/baja/[^/\s]+", "/correo/baja/<token>", texto)
 
 
+def _ejecutar_asignacion(conn, caso: dict) -> dict:
+    """Escenarios de «cualquier especialista»: quién queda asignado y qué espacios se ofrecen."""
+    dado = caso["dado"]
+    pros = {n: make_pro(conn, n) for n in dado["profesionales"]}
+    pac = make_patient(conn, **dado["paciente"])
+    otro = make_patient(conn, nombres="Otra", apellidos="Persona")
+    resultados = []
+    for paso in caso["pasos"]:
+        (accion, arg), = paso.items()
+        if accion == "ocupa":  # otra persona ya tiene ese espacio con un especialista concreto
+            book(conn, otro, pros[arg["profesional"]], at(arg["dia"], arg["hora"]))
+        elif accion == "agenda":
+            quien = None if arg["profesional"] == "cualquiera" else pros[arg["profesional"]]
+            try:
+                cid = book(conn, pac, quien, at(arg["dia"], arg["hora"]))
+                asignado = conn.execute("select p.nombre from cita c join profesional p on p.id=c.profesional_id "
+                                        "where c.id=%s", (cid,)).fetchone()["nombre"]
+                resultados.append({"agenda": f"{arg['profesional']} -> {asignado}"})
+            except agenda.SlotTaken:
+                resultados.append({"agenda": f"{arg['profesional']} -> sin espacio"})
+        elif accion == "espacios":
+            from estudia.agenda import any_slots, day_slots
+            servicio, dia = svc(conn, "Valoración o revisión"), at(arg["dia"], "08:00").date()
+            horas = (sorted({h for p in pros.values() for h in day_slots(conn, p, servicio, dia)})
+                     if arg["profesional"] == "cualquiera" else day_slots(conn, pros[arg["profesional"]], servicio, dia))
+            if arg["profesional"] == "cualquiera":
+                assert dia in any_slots(conn, servicio) and any_slots(conn, servicio)[dia] == horas
+            resultados.append({"espacios": arg["profesional"], "horas": [h.strftime("%H:%M") for h in horas
+                                                                         if h.strftime("%H:%M") in arg["ver"]]})
+        else:
+            raise ValueError(f"Paso desconocido: {accion}")
+    citas = [{"profesional": c["nombre"], "paciente": c["nombres"], "inicio": _delta(c["rango"].lower)} for c in conn.execute(
+        "select p.nombre, pa.nombres, c.rango from cita c join profesional p on p.id=c.profesional_id "
+        "join paciente pa on pa.id=c.paciente_id order by c.id")]
+    return {"resultados": resultados, "citas": citas}
+
+
 def _snapshot(conn) -> dict:
     mensajes = [{
         "direccion": m["direccion"], "plantilla": m["plantilla"], "estado": m["estado_entrega"],
@@ -96,7 +133,7 @@ def _snapshot(conn) -> dict:
 @pytest.mark.parametrize("ruta", CASOS, ids=lambda p: f"{p.parent.name}/{p.stem}")
 def test_golden(conn, ruta):
     caso = yaml.safe_load(ruta.read_text(encoding="utf-8"))
-    obtenido = _ejecutar(conn, caso)
+    obtenido = _ejecutar_asignacion(conn, caso) if "profesionales" in caso["dado"] else _ejecutar(conn, caso)
     golden = ruta.with_suffix(".golden.yaml")
     if ACTUALIZAR:
         golden.write_text(yaml.safe_dump(obtenido, allow_unicode=True, sort_keys=False, width=120), encoding="utf-8")
