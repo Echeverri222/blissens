@@ -1,0 +1,9 @@
+# El paciente nunca contesta: a las 24h la cita pasa a no_confirmada y sale el segundo intento.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true

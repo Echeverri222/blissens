@@ -1,0 +1,12 @@
+# La paciente que libera el cupo al reprogramar no recibe una oferta de adelanto de ese mismo cupo.
+# Al cambiar la fecha se crea una cita nueva: el recordatorio de la cita vieja se descarta y sale uno solo, para la nueva.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - reprograma: {dia: 4, hora: "10:00"}
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - foto: fecha_vieja
+  - avanzar: {dia: 2, hora: "10:01"}   # 48h antes de la cita NUEVA
+  - ciclo: true

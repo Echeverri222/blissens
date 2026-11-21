@@ -121,3 +121,25 @@ def test_cancel_records_reason_advance_and_late_flag(conn):
     c3 = book(conn, a, pro, at(3, "14:00"))
     agenda.cancel(conn, c3, "paciente", "enlace")
     assert conn.execute("select tardia from cancelacion order by id desc limit 1").fetchone()["tardia"] is True
+
+
+def _agendada(conn, patient):
+    return conn.execute("select estado_entrega from mensaje where paciente_id=%s and plantilla='cita_agendada' order by id",
+                        (patient,)).fetchall()
+
+
+def test_booking_confirmation_respects_opt_out_unless_patient_acts(conn):
+    pro, a = make_pro(conn), make_patient(conn, acepta=False)
+    book(conn, a, pro, at(3, "10:00"))  # la auxiliar agenda: no se escribe a quien se dio de baja
+    assert [m["estado_entrega"] for m in _agendada(conn, a)] == ["omitido"]
+    agenda.book(conn, a, pro, svc(conn), at(3, "11:00"), "paciente", "paciente")  # él mismo agenda: sí se le confirma
+    assert [m["estado_entrega"] for m in _agendada(conn, a)] == ["omitido", "entregado"]
+
+
+def test_reschedule_confirmation_respects_opt_out_unless_patient_acts(conn):
+    pro, a = make_pro(conn), make_patient(conn, acepta=False)
+    c = book(conn, a, pro, at(3, "10:00"))
+    c2 = agenda.reschedule(conn, c, at(4, "10:00"), "auxiliar", "auxiliar")
+    assert [m["estado_entrega"] for m in _agendada(conn, a)] == ["omitido", "omitido"]
+    agenda.reschedule(conn, c2, at(4, "11:00"), "paciente")
+    assert _agendada(conn, a)[-1]["estado_entrega"] == "entregado"

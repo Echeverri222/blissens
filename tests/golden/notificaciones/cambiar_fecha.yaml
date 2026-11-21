@@ -1,0 +1,8 @@
+# "Cambiar fecha": la cita sigue programada y el paciente recibe el enlace para elegir otra fecha.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - presiona: {mensaje: recordatorio_48h, boton: 2}

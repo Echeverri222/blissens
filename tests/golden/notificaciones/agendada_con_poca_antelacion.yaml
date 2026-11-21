@@ -1,0 +1,7 @@
+# Cita a menos de 24h: nace confirmada, no hay recordatorios y solo sale la notificación de agendamiento.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 0, hora: "14:00"}}
+pasos:
+  - avanzar: {dia: 0, hora: "13:00"}
+  - ciclo: true

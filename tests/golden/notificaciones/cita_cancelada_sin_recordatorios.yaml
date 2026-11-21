@@ -1,0 +1,8 @@
+# Si la cita se cancela antes del recordatorio, el recordatorio no sale.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - cancela: true
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true

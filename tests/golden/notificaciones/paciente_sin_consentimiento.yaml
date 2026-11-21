@@ -1,0 +1,10 @@
+# Paciente que no acepta mensajes: la confirmación de agendamiento (la auxiliar agenda) y los recordatorios quedan
+# "omitido", y la cita sigue su curso. Solo se le confirma si él mismo hace el trámite (ver test_agenda).
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez", acepta: false}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true

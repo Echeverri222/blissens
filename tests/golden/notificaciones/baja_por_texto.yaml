@@ -1,0 +1,11 @@
+# El paciente escribe "BAJA." (con mayúsculas y punto): se da de baja, recibe la confirmación (respuesta directa,
+# sale siempre) y los mensajes automáticos siguientes quedan "omitido".
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez"}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - escribe: "BAJA."
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true

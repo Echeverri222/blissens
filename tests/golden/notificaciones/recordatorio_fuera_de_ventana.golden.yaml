@@ -1,0 +1,51 @@
+fotos:
+- paso: diferido
+  mensajes:
+  - direccion: saliente
+    plantilla: cita_agendada
+    estado: entregado
+    momento: +0d 1h 0m
+    texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. Te esperamos
+      en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+    botones: []
+  - direccion: saliente
+    plantilla: recordatorio_48h
+    estado: diferido
+    momento: +2d 1h 0m
+    texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. ¿Nos confirmas tu
+      asistencia?
+    botones:
+    - Sí, asistiré
+    - No podré ir
+    - Cambiar fecha
+  citas:
+  - estado: programada
+    inicio: +3d 6h 0m
+  tareas_pendientes:
+  - tipo: entregar_mensaje
+    ejecutar_en: +2d 1h 0m
+  - tipo: recordatorio
+    ejecutar_en: +2d 6h 0m
+mensajes:
+- direccion: saliente
+  plantilla: cita_agendada
+  estado: entregado
+  momento: +0d 1h 0m
+  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. Te esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  botones: []
+- direccion: saliente
+  plantilla: recordatorio_48h
+  estado: entregado
+  momento: +2d 1h 0m
+  texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 2:00 p. m. con Dra. Prueba. ¿Nos confirmas tu asistencia?
+  botones:
+  - Sí, asistiré
+  - No podré ir
+  - Cambiar fecha
+citas:
+- estado: programada
+  inicio: +3d 6h 0m
+tareas_pendientes:
+- tipo: recordatorio
+  ejecutar_en: +2d 6h 0m
