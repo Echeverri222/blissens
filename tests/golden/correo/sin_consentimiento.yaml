@@ -1,0 +1,8 @@
+# Tiene correo pero no autorizó recibir correos: cada correo queda "omitido" y WhatsApp sigue igual.
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez", correo: "ana@example.com", acepta_correo: false}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true
+  - cancela: true

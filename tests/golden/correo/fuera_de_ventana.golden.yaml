@@ -1,0 +1,58 @@
+fotos:
+- paso: antes_de_abrir
+  mensajes:
+  - direccion: saliente
+    plantilla: cita_agendada
+    estado: diferido
+    momento: +0d 1h 0m
+    texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
+      en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+    botones: []
+  - direccion: saliente
+    plantilla: correo_agendada
+    estado: diferido
+    momento: +0d 1h 0m
+    texto: "Hola Ana,\n\nTu cita quedó agendada.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n\
+      \  Lugar: Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nPara cambiarla o cancelarla: http://localhost:8000/p/<token>\n\
+      \nSi no quieres recibir más correos nuestros, usa este enlace: http://localhost:8000/correo/baja/<token>"
+    botones: []
+    canal: correo
+    asunto: Tu cita del jueves 19 de noviembre – Blissens Odontología
+  citas:
+  - estado: programada
+    inicio: +3d 2h 0m
+  tareas_pendientes:
+  - tipo: entregar_mensaje
+    ejecutar_en: +0d 1h 0m
+  - tipo: entregar_correo
+    ejecutar_en: +0d 1h 0m
+  - tipo: recordatorio
+    ejecutar_en: +1d 2h 0m
+  - tipo: recordatorio
+    ejecutar_en: +2d 2h 0m
+mensajes:
+- direccion: saliente
+  plantilla: cita_agendada
+  estado: entregado
+  momento: +0d 1h 0m
+  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  botones: []
+- direccion: saliente
+  plantilla: correo_agendada
+  estado: entregado
+  momento: +0d 1h 0m
+  texto: "Hola Ana,\n\nTu cita quedó agendada.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n\
+    \  Lugar: Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nPara cambiarla o cancelarla: http://localhost:8000/p/<token>\n\
+    \nSi no quieres recibir más correos nuestros, usa este enlace: http://localhost:8000/correo/baja/<token>"
+  botones: []
+  canal: correo
+  asunto: Tu cita del jueves 19 de noviembre – Blissens Odontología
+citas:
+- estado: programada
+  inicio: +3d 2h 0m
+tareas_pendientes:
+- tipo: recordatorio
+  ejecutar_en: +1d 2h 0m
+- tipo: recordatorio
+  ejecutar_en: +2d 2h 0m

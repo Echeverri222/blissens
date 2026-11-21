@@ -1,7 +1,7 @@
 """Recordatorios y confirmación explícita (RF-08 a RF-10)."""
 from datetime import datetime
 
-from . import agenda, clock, config, lifecycle, messaging
+from . import agenda, clock, config, correo, lifecycle, messaging
 from .lifecycle import ALIVE
 
 
@@ -21,6 +21,7 @@ def run_reminder(conn, cita_id: int, horas: int, inicio: str, now: datetime) -> 
             messaging.send(conn, c["paciente_id"], "recordatorio_48h", data, entity=("cita", cita_id))
             conn.execute("update cita set datos_origen = datos_origen || '{\"recordatorio_enviado\": true}' where id=%s", (cita_id,))
     else:
+        correo.enviar(conn, c["paciente_id"], "recordatorio", cita_id)  # el correo avisa; no pide confirmar
         if c["estado"] == "confirmada":
             messaging.send(conn, c["paciente_id"], "recordatorio_24h", data, entity=("cita", cita_id))
         else:

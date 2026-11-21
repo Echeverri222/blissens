@@ -1,0 +1,11 @@
+# Paciente con correo y consentimiento: recibe los tres correos de una cita y ninguno más. El recordatorio de correo
+# (24 h antes) sale aunque la cita no esté confirmada: avisa, no pide confirmar (eso lo hace WhatsApp).
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez", correo: "ana@example.com", acepta_correo: true}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - avanzar: {respecto_a_cita: "-47h59m"}
+  - ciclo: true
+  - avanzar: {respecto_a_cita: "-23h59m"}
+  - ciclo: true
+  - cancela: true

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
-from .. import bandejas, clock, config, followup, indicators, lifecycle, pacientes, permisos
+from .. import bandejas, clock, config, correo, followup, indicators, lifecycle, pacientes, permisos
 from . import schemas as sc
 from .comun import ApiError, auditar, auxiliar, get_conn, inicio, solo_json
 
@@ -23,6 +23,17 @@ def buscar(q: str = Query(min_length=1), conn=Depends(get_conn), u=Depends(auxil
 def crear(datos: sc.NuevoPaciente, conn=Depends(get_conn), u=Depends(auxiliar)):
     return sc.PacienteCreado(paciente_id=pacientes.create(
         conn, datos.nombres, datos.apellidos, datos.documento, datos.celular, datos.consentimiento))
+
+
+@router.put("/pacientes/{paciente_id}/correo", tags=["Pacientes"], response_model=sc.ConsentimientoCorreo,
+            summary="Registrar el correo del paciente y si autoriza recibir correos",
+            dependencies=[auditar("editar_correo")])
+def correo_paciente(paciente_id: int, datos: sc.ConsentimientoCorreo, conn=Depends(get_conn), u=Depends(auxiliar)):
+    if not conn.execute("select 1 from paciente where id=%s", (paciente_id,)).fetchone():
+        raise permisos.NoExiste("No existe ese paciente")
+    correo.registrar_consentimiento(conn, paciente_id, datos.correo, datos.acepta)
+    p = conn.execute("select correo, acepta_correo from paciente where id=%s", (paciente_id,)).fetchone()
+    return sc.ConsentimientoCorreo(correo=p["correo"], acepta=p["acepta_correo"])
 
 
 @router.get("/pacientes/{paciente_id}", tags=["Pacientes"], summary="Ficha completa del paciente",

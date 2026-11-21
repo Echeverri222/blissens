@@ -19,4 +19,6 @@ Vocabulario del dominio de Estud-IA. El código y los documentos usan estos tér
 | **Registro de accesos** | `auditoria_acceso`: quién consultó la ficha, el detalle de una cita o el buscador de pacientes. No guarda el texto buscado. |
 | **Retención** | Cuánto se conservan mensajes, tareas, registro de accesos y sesiones. Por defecto no se borra nada. |
 | **Anonimizar** | Quitar lo que identifica a un paciente conservando los hechos de sus citas para los indicadores. |
+| **Correo de cita** | Uno de los tres correos que el sistema envía: agendada, recordatorio de 24 h y cancelada. Complementa a WhatsApp; no pide confirmar ni lleva servicio ni datos clínicos. |
+| **Consentimiento de correo** | Autorización del paciente para recibir correos (`acepta_correo`). Independiente de `acepta_mensajes`: la baja de uno no toca al otro. |
 | **Cupo, oferta, caso de seguimiento, recuperación** | Ver `requirements.md` y el PRD #1. |

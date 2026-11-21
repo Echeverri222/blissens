@@ -1,7 +1,7 @@
 """Tareas del ciclo: handlers de tareas programadas, vencimientos y procesos diarios."""
 from datetime import datetime, timedelta
 
-from . import canales, config, confirmations, followup, indicators, privacidad, recovery, slots, tasks
+from . import canales, config, confirmations, correo, followup, indicators, privacidad, recovery, slots, tasks
 
 
 @tasks.handler("recordatorio")
@@ -29,6 +29,11 @@ def _entregar(conn, d, now):
     if conn.execute("update mensaje set estado_entrega='entregado' where id=%s and estado_entrega='diferido' returning id",
                     (d["mensaje_id"],)).fetchone():
         canales.enviar_mensaje(conn, d["mensaje_id"])
+
+
+@tasks.handler("entregar_correo")
+def _entregar_correo(conn, d, now):
+    correo.entregar_diferido(conn, d["mensaje_id"], d["intento"])
 
 
 def expire_offers(conn, now: datetime) -> int:

@@ -25,7 +25,8 @@ mensajes:
   plantilla: baja_confirmada
   estado: entregado
   momento: +1d 2h 1m
-  texto: Listo Ana, no te enviaremos más mensajes automáticos. Si necesitas algo, escríbenos o llámanos.
+  texto: Listo Ana, no te enviaremos más mensajes automáticos por WhatsApp. Los correos, si los recibes, se cancelan con el
+    enlace que traen. Si necesitas algo, escríbenos o llámanos.
   botones: []
 - direccion: saliente
   plantilla: segundo_intento

@@ -1,0 +1,11 @@
+# La cita se agenda a las 08:00, antes de que abra la ventana de envío (09:00-12:00): el correo queda diferido y sale
+# al abrirse la ventana.
+config:
+  ventana_envio: ["09:00", "12:00"]
+dado:
+  paciente: {nombres: "Ana", apellidos: "Pérez", correo: "ana@example.com", acepta_correo: true}   # datos ficticios
+  cita: {inicio: {dia: 3, hora: "10:00"}}
+pasos:
+  - foto: antes_de_abrir
+  - avanzar: {dia: 0, hora: "09:01"}
+  - ciclo: true
