@@ -116,3 +116,23 @@ def test_simulator_buttons_text_and_clock(client, conn):
 
 def test_tick_endpoint_runs_the_cycle(client):
     assert "tareas" in client.post("/tick").json()
+
+
+def test_agenda_a_un_toque_cualquier_especialista_y_navegacion(client, conn):
+    make_pro(conn, "Dra. Ana Uno")
+    make_pro(conn, "Dra. Bea Dos")
+    conn.commit()
+    token = register(client)
+    sid = svc(conn)
+    pagina = client.get(f"/p/{token}/agendar").text
+    assert "Cualquier especialista" in pagina and 'name="inicio"' in pagina and "Confirmar cita" in pagina
+    # Otro día de la fila: se pide por htmx y marca ese día como elegido.
+    dia = at(4, "10:00").date().isoformat()
+    r = client.get(f"/p/{token}/espacios", params={"servicio": sid, "profesional": 0, "dia": dia})
+    assert r.status_code == 200 and 'aria-pressed="true"' in r.text and "Confirmar cita" in r.text
+    # Con «cualquiera» queda asignada una sola especialista.
+    inicio = at(3, "10:00").isoformat()
+    r = client.post(f"/p/{token}/agendar", data={"servicio": sid, "profesional": 0, "inicio": inicio})
+    assert r.status_code == 200 and "HX-Redirect" in r.headers
+    conn.rollback()
+    assert conn.execute("select count(distinct profesional_id) n from cita").fetchone()["n"] == 1

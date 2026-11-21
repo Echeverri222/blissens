@@ -2,7 +2,7 @@
 import os
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
@@ -23,6 +23,7 @@ templates = Jinja2Templates(directory=HERE / "templates")
 templates.env.filters["fecha"] = fmt.fecha
 templates.env.filters["hora"] = fmt.hora
 templates.env.filters["fecha_hora"] = fmt.fecha_hora
+templates.env.filters["dia_corto"] = lambda d: fmt.DIAS[d.weekday()][:3].capitalize()
 templates.env.filters["local"] = lambda d: d.astimezone(clock.TZ) if d else d
 
 
@@ -218,12 +219,37 @@ def _slots(conn, professional_id, service_id):
     return agenda.available_slots(conn, professional_id, service_id) if professional_id else agenda.any_slots(conn, service_id)
 
 
+DIAS_POR_PAGINA = 5
+
+
+HORAS_POR_PAGINA = 9
+
+
+def _vista(slots, dia=None, pag=0, hpag=0):
+    """Qué muestra la agenda a un toque: 5 días con espacios por página, el día elegido y sus horas."""
+    dias = list(slots)
+    pag = max(0, min(pag, max(0, (len(dias) - 1) // DIAS_POR_PAGINA)))
+    pagina = dias[pag * DIAS_POR_PAGINA:(pag + 1) * DIAS_POR_PAGINA]
+    elegido = dia if dia in pagina else (pagina[0] if pagina else None)
+    todas = slots.get(elegido, [])
+    hpag = hpag if 0 <= hpag <= max(0, (len(todas) - 1) // HORAS_POR_PAGINA) else 0
+    return {"dias_pagina": pagina, "dia": elegido, "pag": pag, "hpag": hpag,
+            "horas": todas[hpag * HORAS_POR_PAGINA:(hpag + 1) * HORAS_POR_PAGINA],
+            "hpag_sig": (hpag + 1) % max(1, -(-len(todas) // HORAS_POR_PAGINA)), "hay_mas_horas": len(todas) > HORAS_POR_PAGINA,
+            "hay_anterior": pag > 0, "hay_siguiente": (pag + 1) * DIAS_POR_PAGINA < len(dias)}
+
+
+def _espacios_resp(request, dia=None, pag=0, hpag=0, **ctx):
+    return render(request, "_espacios.html", **ctx, **_vista(ctx["slots"], dia, pag, hpag))
+
+
 def _picker_context(conn, service_id, professional_id, any_default=True):
     services = conn.execute("select * from servicio where autoagendable order by id").fetchall()
     pros = conn.execute("select * from profesional where activo order by id").fetchall()
     sid = service_id or services[0]["id"]
     pid = professional_id if professional_id is not None else (0 if any_default else pros[0]["id"])
-    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": _slots(conn, pid, sid)}
+    slots = _slots(conn, pid, sid)
+    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": slots, **_vista(slots)}
 
 
 @publico.get("/p/{token}/nueva", response_class=HTMLResponse)
@@ -238,11 +264,13 @@ def nueva(request: Request, token: str, servicio: int | None = None, profesional
 
 @publico.get("/p/{token}/espacios", response_class=HTMLResponse)
 def espacios(request: Request, token: str, servicio: int, profesional: int = 0, cita: int | None = None,
-             modo: str = "nueva", error: str | None = None, conn=Depends(conn_enlace)):
+             modo: str = "nueva", error: str | None = None, dia: str | None = None, pag: int = 0,
+             hpag: int = 0, conn=Depends(conn_enlace)):
     patient_from_token(conn, token)
     slots = _slots(conn, profesional, servicio)
-    return render(request, "_espacios.html", slots=slots, sid=servicio, pid=profesional, token=token, cita=cita,
-                  modo=modo, error=error)
+    d = date.fromisoformat(dia) if dia else None
+    return _espacios_resp(request, dia=d, pag=pag, hpag=hpag, slots=slots, sid=servicio, pid=profesional, token=token, cita=cita,
+                          modo=modo, error=error)
 
 
 @publico.post("/p/{token}/agendar", response_class=HTMLResponse)
@@ -253,7 +281,7 @@ def agendar_post(request: Request, token: str, servicio: int = Form(...), profes
         agenda.book(conn, p["id"], profesional or None, servicio, datetime.fromisoformat(inicio), "paciente", "paciente")
     except agenda.SlotTaken:
         slots = _slots(conn, profesional, servicio)
-        return render(request, "_espacios.html", slots=slots, sid=servicio, pid=profesional, token=token, cita=None,
+        return _espacios_resp(request, slots=slots, sid=servicio, pid=profesional, token=token, cita=None,
                       modo="nueva", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
     resp = HTMLResponse("")
     resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote("Tu cita quedó agendada. Te enviamos la confirmación por WhatsApp.")
@@ -273,6 +301,7 @@ def cambiar(request: Request, token: str, cita_id: int, servicio: int | None = N
     if c["servicio_id"] not in [s["id"] for s in ctx["services"]]:
         ctx["services"] = conn.execute("select * from servicio where id=%s", (c["servicio_id"],)).fetchall()
     ctx["slots"] = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
+    ctx.update(_vista(ctx["slots"]))
     ctx["sid"], ctx["pid"] = c["servicio_id"], c["profesional_id"]
     return render(request, "elegir.html", p=p, token=token, modo="cambiar", cita=cita_id, error=None,
                   action=f"/p/{token}/cambiar/{cita_id}", **ctx)
@@ -288,7 +317,7 @@ def cambiar_post(request: Request, token: str, cita_id: int, inicio: str = Form(
         agenda.reschedule(conn, cita_id, datetime.fromisoformat(inicio), "paciente")
     except agenda.SlotTaken:
         slots = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
-        return render(request, "_espacios.html", slots=slots, sid=c["servicio_id"], pid=c["profesional_id"], token=token,
+        return _espacios_resp(request, slots=slots, sid=c["servicio_id"], pid=c["profesional_id"], token=token,
                       cita=cita_id, modo="cambiar", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
     resp = HTMLResponse("")
     resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote("Cambiamos la fecha de tu cita.")
@@ -319,6 +348,7 @@ def cancelar_post(request: Request, token: str, cita_id: int, motivo: int = Form
         ctx["services"] = conn.execute("select * from servicio where id=%s", (c["servicio_id"],)).fetchall()
     ctx["sid"], ctx["pid"] = c["servicio_id"], c["profesional_id"]
     ctx["slots"] = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
+    ctx.update(_vista(ctx["slots"]))
     return render(request, "elegir.html", p=p, token=token, modo="nueva", cita=None, error=None,
                   action=f"/p/{token}/agendar", cancelada=True, **ctx)
 

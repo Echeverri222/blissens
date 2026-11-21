@@ -3,22 +3,24 @@
 {% if cancelada %}
   <p class="aviso">Tu cita quedó cancelada. ¿Quieres elegir otro espacio ahora mismo?</p>
 {% endif %}
-<h1>{% if modo == 'cambiar' %}Cambiar fecha{% else %}Elige tu espacio{% endif %}</h1>
-<form hx-get="/p/{{ token }}/espacios" hx-target="#espacios" hx-trigger="change">
-  <input type="hidden" name="modo" value="{{ modo }}">
-  {% if cita %}<input type="hidden" name="cita" value="{{ cita }}">{% endif %}
-  <label>Servicio
-    <select name="servicio">
-      {% for s in services %}<option value="{{ s.id }}" {% if s.id == sid %}selected{% endif %}>{{ s.nombre }} ({{ s.duracion_min }} min)</option>{% endfor %}
-    </select>
-  </label>
-  <label>Profesional
-    <select name="profesional">
-      {% if modo != 'cambiar' %}<option value="0" {% if not pid %}selected{% endif %}>Cualquier especialista</option>{% endif %}
-      {% for pr in pros %}<option value="{{ pr.id }}" {% if pr.id == pid %}selected{% endif %}>{{ pr.nombre }}</option>{% endfor %}
-    </select>
-  </label>
-</form>
-<div id="espacios">{% include "_espacios.html" %}</div>
-<p><a href="/p/{{ token }}">{% if cancelada %}Salir sin elegir{% else %}Volver a mis citas{% endif %}</a></p>
+<div class="tarjeta">
+  <h1>{% if modo == 'cambiar' %}Cambiar fecha{% else %}Elige tu espacio{% endif %}</h1>
+  <form id="filtros" class="filtros" hx-get="/p/{{ token }}/espacios" hx-target="#espacios" hx-trigger="change">
+    <input type="hidden" name="modo" value="{{ modo }}">
+    {% if cita %}<input type="hidden" name="cita" value="{{ cita }}">{% endif %}
+    <label>Tipo de cita
+      <select name="servicio">
+        {% for s in services %}<option value="{{ s.id }}" {% if s.id == sid %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Especialista
+      <select name="profesional">
+        {% if modo != 'cambiar' %}<option value="0" {% if not pid %}selected{% endif %}>Cualquier especialista</option>{% endif %}
+        {% for pr in pros %}<option value="{{ pr.id }}" {% if pr.id == pid %}selected{% endif %}>{{ pr.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+  </form>
+  <div id="espacios">{% include "_espacios.html" %}</div>
+</div>
+<p style="text-align:center"><a href="/p/{{ token }}">{% if cancelada %}Salir sin elegir{% else %}Volver a mis citas{% endif %}</a></p>
 {% endblock %}
