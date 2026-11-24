@@ -1,0 +1,25 @@
+{# Primer paso del agendamiento (identificar). Se usa en /agendar y, con HTMX, dentro de la landing. #}
+{% set i = t.ident %}
+<form id="ident" class="form" method="post" action="{{ prefijo }}/agendar/identificar" hx-post="{{ prefijo }}/agendar/identificar" hx-target="#ident" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+  <input type="hidden" name="idioma" value="{{ lang }}">
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <label>{{ i.documento }}
+    <input name="documento" inputmode="numeric" autocomplete="off" required value="{{ values.documento or '' }}" {% if nuevo %}readonly{% endif %}>
+  </label>
+  <label>{{ i.celular }}
+    <input name="celular" inputmode="tel" autocomplete="tel" placeholder="{{ i.ph_celular }}" required value="{{ values.celular or '' }}" {% if nuevo %}readonly{% endif %}>
+  </label>
+  {% if nuevo %}
+    <p class="nota"><strong>{{ i.primera }}</strong> {{ i.primera2 }}</p>
+    <label>{{ i.nombres }} <input name="nombres" autocomplete="given-name" required value="{{ values.nombres or '' }}"></label>
+    <label>{{ i.apellidos }} <input name="apellidos" autocomplete="family-name" value="{{ values.apellidos or '' }}"></label>
+    <label>{{ i.correo }}
+      <input name="correo" type="email" inputmode="email" autocomplete="email" placeholder="{{ i.ph_correo }}" value="{{ values.correo or '' }}">
+    </label>
+    <label class="casilla"><input type="checkbox" name="acepta_correo" value="1" {% if values.acepta_correo %}checked{% endif %}>
+      <span>{{ i.acepta_correo }}</span></label>
+    <label class="casilla"><input type="checkbox" name="consentimiento" value="1" {% if values.consentimiento %}checked{% endif %}>
+      <span>{% if lang == 'en' and i.consent %}{{ i.consent.format(nombre=negocio.nombre if negocio else 'Blissens') }}{% else %}{{ consentimiento }}{% endif %}</span></label>
+  {% endif %}
+  <button class="boton" type="submit">{% if nuevo %}{{ i.registrar }}{% else %}{{ i.continuar }}{% endif %}</button>
+</form>

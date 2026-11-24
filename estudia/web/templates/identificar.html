@@ -1,27 +1,9 @@
 {% extends "base.html" %}
+{% block title %}Agenda tu cita · Blissens{% endblock %}
 {% block content %}
-<h1>Agenda tu cita</h1>
-<p>Sin cuentas ni instalaciones. Solo necesitamos tu documento y tu celular.</p>
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-<form method="post" action="{{ prefijo }}/agendar/identificar">
-  <label>Documento de identidad
-    <input name="documento" inputmode="numeric" required value="{{ values.documento or '' }}" {% if nuevo %}readonly{% endif %}>
-  </label>
-  <label>Celular
-    <input name="celular" inputmode="tel" placeholder="3001234567" required value="{{ values.celular or '' }}" {% if nuevo %}readonly{% endif %}>
-  </label>
-  {% if nuevo %}
-    <p><strong>Parece que es tu primera vez.</strong> Cuéntanos tu nombre para registrarte.</p>
-    <label>Nombres <input name="nombres" required value="{{ values.nombres or '' }}"></label>
-    <label>Apellidos <input name="apellidos" value="{{ values.apellidos or '' }}"></label>
-    <label>Correo electrónico (opcional)
-      <input name="correo" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" value="{{ values.correo or '' }}">
-    </label>
-    <label><input type="checkbox" name="acepta_correo" value="1" {% if values.acepta_correo %}checked{% endif %}>
-      Quiero recibir por correo la confirmación, el recordatorio y los avisos de cancelación de mis citas.</label>
-    <label><input type="checkbox" name="consentimiento" value="1" {% if values.consentimiento %}checked{% endif %}>
-      {{ consentimiento }}</label>
-  {% endif %}
-  <button type="submit">{% if nuevo %}Registrarme y continuar{% else %}Continuar{% endif %}</button>
-</form>
+<div class="tarjeta tarjeta--angosta">
+  <h1>Agenda tu cita</h1>
+  <p>Sin cuentas ni instalaciones. Solo necesitamos tu documento y tu celular.</p>
+  {% include "_identificar.html" %}
+</div>
 {% endblock %}

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Mis citas · Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>Hola, {{ p.nombres.split()[0]|title }}</h1>
 {% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}

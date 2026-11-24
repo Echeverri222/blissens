@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block head %}
+  <link rel="canonical" href="{{ base_url }}{{ t.home }}">
+  <link rel="alternate" hreflang="es" href="{{ base_url }}/">
+  <link rel="alternate" hreflang="en" href="{{ base_url }}/en">
+  <link rel="alternate" hreflang="x-default" href="{{ base_url }}/">
+{% endblock %}
+{% block pie %}{% include "_pie.html" %}{% endblock %}
+{% block body_class %}landing{% endblock %}
+{% block main_class %}{% endblock %}
+{% block negocio %}{% endblock %}
+{% block content %}
+
+<section class="hero" id="inicio" aria-labelledby="hero-t">
+  <div class="hero__fondo" aria-hidden="true"></div>
+  <div class="contenedor hero__cuerpo">
+    <p class="kicker rev">{{ t.hero.kicker }}</p>
+    <h1 id="hero-t" class="hero__titulo rev">{% for linea in t.hero.titulo %}<span>{{ linea }}</span>{% endfor %}</h1>
+    <p class="hero__sub rev">{% for linea in t.hero.sub %}<span>{{ linea }}</span>{% endfor %}</p>
+    <div class="hero__ctas rev" role="group" aria-label="{{ t.hero.aria }}">
+      <a class="boton boton--linea" href="#evaluacion">{{ t.hero.afuera }}</a>
+      <a class="boton boton--blanco" href="#agendar">{{ t.hero.local }}</a>
+    </div>
+  </div>
+  <a class="hero__bajar" href="#nosotros" aria-label="{{ t.adn.kicker }}"><span></span></a>
+</section>
+
+<section class="sec sec--negra" id="nosotros" aria-labelledby="adn-t">
+  <div class="contenedor angosto centrado">
+    <p class="kicker rev">{{ t.adn.kicker }}</p>
+    <h2 id="adn-t" class="titulo rev">{{ t.adn.titulo }}</h2>
+    <p class="lead rev">{{ t.adn.texto }}</p>
+  </div>
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee__pista">
+      {% for _ in range(2) %}<div class="marquee__grupo">{% for x in t.adn.marquee %}<span>{{ x }}</span>{% endfor %}</div>{% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--blanca" aria-labelledby="emo-t">
+  <div class="contenedor dos">
+    <div class="dos__texto">
+      <h2 id="emo-t" class="titulo rev">{{ t.emocion.titulo }}</h2>
+      <p class="rev">{{ t.emocion.texto }}</p>
+    </div>
+    <figure class="foto rev"><img src="/static/sitio/{{ sitio.IMAGENES.equipo }}" width="700" height="810" loading="lazy" alt="{{ t.emocion.alt }}"></figure>
+  </div>
+</section>
+
+<section class="sec sec--negra" aria-labelledby="conf-t">
+  <div class="contenedor dos dos--inv">
+    <div class="dos__texto">
+      <h2 id="conf-t" class="titulo rev">{{ t.confort.titulo }}</h2>
+      <ol class="pasos3 rev">{% for p in t.confort.pasos %}<li><span class="num">{{ loop.index }}</span>{{ p }}</li>{% endfor %}</ol>
+      <p class="rev claro">{{ t.confort.texto }}</p>
+    </div>
+    <div class="sello rev" aria-hidden="true"><img src="/static/sitio/{{ sitio.IMAGENES.confort }}" width="646" height="658" loading="lazy" alt=""></div>
+  </div>
+</section>
+
+<section class="sec sec--blanca" id="servicios" aria-labelledby="serv-t">
+  <div class="contenedor dos">
+    <figure class="foto foto--ancha rev"><img src="/static/sitio/{{ sitio.IMAGENES.servicios }}" width="1074" height="805" loading="lazy" alt="{{ t.servicios.alt }}"></figure>
+    <div class="dos__texto">
+      <p class="kicker kicker--oscuro rev">{{ t.servicios.kicker }}</p>
+      <h2 id="serv-t" class="titulo rev">{{ t.servicios.titulo }}</h2>
+      <p class="rev">{{ t.servicios.texto }}</p>
+      <div class="acordeon rev">
+        {% for nombre, detalle in t.servicios.lista %}
+        <details name="servicios"><summary>{{ nombre }}</summary><p>{{ detalle }}</p></details>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--negra" id="evaluacion" aria-labelledby="eval-t">
+  <div class="contenedor dos">
+    <div class="dos__texto">
+      <p class="kicker rev">{{ t.evaluacion.kicker }}</p>
+      <h2 id="eval-t" class="titulo rev">{{ t.evaluacion.titulo }}</h2>
+      <p class="rev claro">{{ t.evaluacion.texto }}</p>
+      <ol class="pasos4 rev">{% for p in t.evaluacion.pasos %}<li><span class="num">{{ loop.index }}</span><span>{{ p }}</span></li>{% endfor %}</ol>
+    </div>
+    <div class="panel-form rev">
+      <h3>{{ t.evaluacion.form_titulo }}</h3>
+      {% set interes = 'evaluacion_virtual' %}{% include "_solicitud.html" %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--blanca" id="antes-despues" aria-labelledby="ba-t">
+  <div class="contenedor">
+    <div class="encabezado centrado">
+      <h2 id="ba-t" class="titulo rev">{{ t.antes.titulo }}</h2>
+      <p class="lead rev">{{ t.antes.texto }}</p>
+    </div>
+    <div class="casos">
+      {% for etiqueta, tema, texto in t.antes.casos %}
+      {% set n = loop.index %}
+      <figure class="caso rev">
+        <div class="ba" style="--pos:50%">
+          <img class="ba__img" src="/static/sitio/caso-{{ n }}-despues.svg" width="800" height="600" loading="lazy" alt="{{ t.antes.despues }} · {{ etiqueta }} ({{ t.antes.ejemplo }})">
+          <img class="ba__img ba__antes" src="/static/sitio/caso-{{ n }}-antes.svg" width="800" height="600" loading="lazy" alt="">
+          <span class="ba__tag ba__tag--a" aria-hidden="true">{{ t.antes.antes }}</span>
+          <span class="ba__tag ba__tag--d" aria-hidden="true">{{ t.antes.despues }}</span>
+          <span class="ba__linea" aria-hidden="true"></span>
+          <input class="ba__rango" type="range" min="0" max="100" value="50" aria-label="{{ etiqueta }}: {{ t.antes.slider }}">
+        </div>
+        <figcaption><strong>{{ etiqueta }} · {{ tema }}</strong><span>{{ texto }}</span></figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    <p class="pie-nota centrado">{{ t.antes.nota }}</p>
+  </div>
+</section>
+
+<section class="sec sec--negra" id="experiencias" aria-labelledby="exp-t">
+  <div class="contenedor">
+    <div class="encabezado centrado">
+      <p class="kicker rev">{{ t.experiencias.kicker }}</p>
+      <h2 id="exp-t" class="titulo rev">{{ t.experiencias.titulo }}</h2>
+      <p class="lead rev">{{ t.experiencias.texto }}</p>
+    </div>
+    <div class="paquetes">
+      {% for clave, nombre, tipo, img in t.experiencias.paquetes %}
+      <article class="paquete rev">
+        <img src="/static/sitio/{{ img }}" width="460" height="460" loading="lazy" alt="">
+        <div class="paquete__pie">
+          <div><h3>{{ nombre }}</h3><p>{{ tipo }}</p></div>
+          <button class="boton boton--blanco boton--chico" type="button" data-paquete="{{ clave }}" aria-label="{{ t.experiencias.elegir }} {{ nombre }}">{{ t.experiencias.elegir }}</button>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    <div class="panel-form panel-form--centro rev" id="reservar">
+      <h3>{{ t.experiencias.form_titulo }}</h3>
+      {% set interes = 'experiencia' %}{% include "_solicitud.html" %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--blanca" id="equipo" aria-labelledby="eq-t">
+  <div class="contenedor">
+    <h2 id="eq-t" class="titulo centrado rev">{{ t.equipo.titulo }}</h2>
+    <ul class="equipo">
+      {% for nombre, cargo, img, w, h in t.equipo.personas %}
+      <li class="persona rev"><img src="/static/sitio/{{ img }}" width="{{ w }}" height="{{ h }}" loading="lazy" alt="{{ nombre }}"><div class="persona__pie"><h3>{{ nombre }}</h3><p>{{ cargo }}</p></div></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="sec sec--negra" id="agendar" aria-labelledby="ag-t">
+  <div class="contenedor dos">
+    <div class="dos__texto">
+      <p class="kicker rev">{{ t.agendar.kicker }}</p>
+      <h2 id="ag-t" class="titulo rev">{{ t.agendar.titulo }}</h2>
+      <p class="rev claro">{{ t.agendar.texto }}</p>
+      <ol class="migas rev" aria-hidden="true"><li class="on">1</li><li>2</li><li>3</li></ol>
+    </div>
+    <div class="panel-form rev">
+      <h3>{{ t.agendar.paso1 }}</h3>
+      {% set nuevo = None %}{% include "_identificar.html" %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--blanca" id="contacto" aria-labelledby="ct-t">
+  <div class="contenedor dos">
+    <div class="dos__texto">
+      <h2 id="ct-t" class="titulo rev">{{ t.contacto.titulo }}</h2>
+      <p class="rev">{{ t.contacto.texto }}</p>
+      <dl class="datos rev">
+        <dt>{{ t.contacto.horario }}</dt><dd>{{ sitio.HORARIO[lang] }}</dd>
+        <dt>{{ t.contacto.direccion }}</dt><dd>{{ sitio.DIRECCION }}</dd>
+        <dt>{{ t.contacto.correo }}</dt><dd><a href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a></dd>
+        <dt>{{ t.contacto.telefono }}</dt><dd><a href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a></dd>
+      </dl>
+    </div>
+    <div class="panel-form panel-form--claro rev">
+      {% set interes = 'contacto' %}{% include "_solicitud.html" %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block barra %}
+<div class="barra" id="barra"><a class="boton boton--blanco" href="#agendar">{{ t.barra }}</a></div>
+{% endblock %}

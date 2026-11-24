@@ -1,0 +1,21 @@
+<header class="cab" id="cab">
+  <div class="cab__fila">
+    <a class="cab__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
+    <nav class="cab__nav" aria-label="{{ t.nav_aria }}">
+      {% for id, etiqueta in t.nav %}<a href="{{ t.home }}#{{ id }}">{{ etiqueta }}</a>{% endfor %}
+    </nav>
+    <div class="cab__der">
+      <a class="idioma" href="{{ t.otro_home }}" hreflang="{{ t.otro_idioma }}" lang="{{ t.otro_idioma }}" aria-label="{{ t.idioma_aria }}"><span aria-hidden="true">{{ t.idioma_nombre }}</span> / <b>{{ t.otro_idioma_nombre }}</b></a>
+      <a class="boton boton--linea boton--chico cab__cta" href="{{ t.home }}#agendar">{{ t.cta }}</a>
+      <button class="burger" type="button" aria-expanded="false" aria-controls="menu" data-abrir-menu aria-label="{{ t.menu_abrir }}"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="menu" id="menu" hidden>
+    <button class="menu__cerrar" type="button" data-cerrar-menu aria-label="{{ t.menu_cerrar }}">&times;</button>
+    <nav aria-label="{{ t.nav_aria }}">
+      {% for id, etiqueta in t.nav %}<a href="{{ t.home }}#{{ id }}">{{ etiqueta }}</a>{% endfor %}
+    </nav>
+    <a class="boton boton--blanco" href="{{ t.home }}#agendar">{{ t.cta }}</a>
+    <a class="idioma idioma--menu" href="{{ t.otro_home }}" hreflang="{{ t.otro_idioma }}" lang="{{ t.otro_idioma }}">{{ t.idioma_nombre }} / <b>{{ t.otro_idioma_nombre }}</b></a>
+  </div>
+</header>
