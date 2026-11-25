@@ -45,7 +45,7 @@ def test_panel_rule_does_not_intercept_other_routes():
     assert c.get("/api/v1/sesion").status_code == 401
     assert c.get("/agendar").status_code == 200
     r = c.get("/", follow_redirects=False)
-    assert r.status_code in (302, 307) and r.headers["location"] == "/panel"
+    assert r.status_code == 200 and "Blissens" in r.text  # la raíz es la landing pública, ya no redirige al panel
     assert c.get("/simulador").status_code == 200
     assert c.get("/static/inexistente.css").status_code == 404
 

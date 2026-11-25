@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="tarjeta tarjeta--angosta">
+  {% include "_solicitud.html" %}
+  <p><a href="{{ t.home }}">&larr; Blissens</a></p>
+</div>
+{% endblock %}

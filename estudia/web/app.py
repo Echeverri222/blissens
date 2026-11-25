@@ -16,6 +16,8 @@ from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
 from ..lifecycle import ALIVE
+from . import copia
+from .limite import LimiteVentana
 from .panel import router as panel_router
 
 HERE = Path(__file__).parent
@@ -141,21 +143,104 @@ def patient_from_token(conn, token: str) -> dict:
     return p
 
 
-def render(request, name, **ctx):
+def render(request, name, status_code: int = 200, **ctx):
     st = request.state
     ctx.setdefault("negocio", getattr(st, "negocio", None))
     ctx.setdefault("prefijo", getattr(st, "prefijo", ""))
     ctx.setdefault("termino", getattr(st, "termino", "la clínica"))
     ctx.setdefault("consentimiento", getattr(st, "consentimiento", ""))
-    return templates.TemplateResponse(request, name, ctx)
+    ctx.setdefault("lang", "es")
+    ctx.setdefault("t", copia.COPIA[ctx["lang"]])
+    ctx.setdefault("sitio", copia)
+    ctx.setdefault("base_url", settings.BASE_URL.rstrip("/"))
+    return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 
 # ----------------------------------------------------------------- Entrada pública
 
-@publico.get("/", include_in_schema=False)
-def root():
-    # La entrada es el inicio de sesión del personal; el paciente llega por su enlace o por /agendar.
-    return RedirectResponse("/panel")
+# 5 solicitudes del sitio por IP cada 10 minutos (en memoria: se reinicia con el proceso y no se comparte entre procesos).
+limite_solicitudes = LimiteVentana(maximo=5, segundos=600)
+
+def _landing(request, lang: str):
+    """Texto estático: no abre conexión a la base de datos, así que la landing sirve aunque falte el negocio."""
+    return render(request, "sitio.html", lang=lang, values={}, error=None, hecho=False)
+
+
+@publico.get("/", response_class=HTMLResponse, include_in_schema=False)
+def inicio(request: Request):
+    """La landing pública (español). El panel del personal vive en `/panel`."""
+    return _landing(request, "es")
+
+
+@publico.get("/en", response_class=HTMLResponse, include_in_schema=False)
+def inicio_en(request: Request):
+    return _landing(request, "en")
+
+
+def _ip_cliente(request: Request) -> str:
+    """La IP del socket. No se lee X-Forwarded-For: el repositorio no declara proxies de confianza, y cualquiera
+    podría falsificar la cabecera para saltarse el límite."""
+    return request.client.host if request.client else "?"
+
+
+def _celular_de_sitio(raw: str) -> str:
+    """Un celular colombiano se normaliza; uno del exterior se conserva (solo dígitos, + y separadores). Vacío si no
+    parece un teléfono (7 a 15 dígitos, como E.164)."""
+    from ..data import normalize_phone
+    raw = raw.strip()
+    limpio = normalize_phone(raw) or re.sub(r"[^\d+()\- ]", "", raw)[:30].strip()
+    return limpio if 7 <= len(re.sub(r"\D", "", limpio)) <= 15 else ""
+
+
+@publico.post("/sitio/solicitud", response_class=HTMLResponse, include_in_schema=False)
+def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Form("es"), nombre: str = Form(""),
+                    correo: str = Form(""), celular: str = Form(""), pais: str = Form(""), paquete: str = Form(""),
+                    mensaje: str = Form(""), consentimiento: str = Form(""), web: str = Form(""),
+                    conn=Depends(conn_publica)):
+    """Formularios de la landing (evaluación virtual, experiencias, contacto): crean una solicitud de contacto que la
+    auxiliar ve en Bandejas. No hay migración: el interés, el paquete y los datos van en la nota."""
+    if interes not in copia.INTERESES:
+        raise HTTPException(422, "Interés desconocido")
+    lang = idioma if idioma in copia.COPIA else "es"
+    t = copia.COPIA[lang]
+    f = t["form"]
+    nombre, correo, celular, pais, mensaje = (x.strip() for x in (nombre, correo, celular, pais, mensaje))
+    values = {"nombre": nombre, "correo": correo, "celular": celular, "pais": pais, "paquete": paquete,
+              "mensaje": mensaje, "consentimiento": consentimiento}
+    error = None
+    if not limite_solicitudes.disponible(_ip_cliente(request)):
+        return render(request, "_solicitud.html" if request.headers.get("HX-Request") else "solicitud.html",
+                      lang=lang, interes=interes, values=values, error=f["err_limite"], hecho=False,
+                      status_code=429)
+    if web:  # campo trampa para robots: se responde como si hubiera salido bien, sin guardar nada
+        return render(request, "_solicitud.html", lang=lang, interes=interes, values={}, error=None, hecho=True)
+    tel = _celular_de_sitio(celular)
+    if not nombre:
+        error = f["err_nombre"]
+    elif not (tel or (correo and correo_mod.es_direccion(correo))) or (correo and not correo_mod.es_direccion(correo)):
+        error = f["err_contacto"]
+    elif interes == "experiencia" and paquete not in copia.PAQUETES:
+        error = f["err_paquete"]
+    elif not consentimiento:
+        error = f["err_consent"]
+    hecho = error is None
+    if hecho:
+        limite_solicitudes.registrar(_ip_cliente(request))
+        partes = [f"Sitio web · {copia.INTERESES[interes]}"
+                  + (f" · {copia.PAQUETES[paquete]}" if interes == "experiencia" else "") + f" · idioma {lang}",
+                  f"Nombre: {nombre[:120]}"]
+        if correo:
+            partes.append(f"Correo: {correo[:120]}")
+        if pais:
+            partes.append(f"País: {pais[:80]}")
+        if mensaje:
+            partes.append(f"Mensaje: {mensaje[:600]}")
+        conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
+                     ("—", tel, " | ".join(partes), clock.now(conn)))
+    ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho)
+    if request.headers.get("HX-Request"):
+        return render(request, "_solicitud.html", **ctx)
+    return render(request, "solicitud.html", **ctx)
 
 
 @publico.get("/agendar", response_class=HTMLResponse)
@@ -168,31 +253,43 @@ def agendar(request: Request, nombre: str | None = None, caso: int | None = None
 @publico.post("/n/{nombre}/agendar/identificar", response_class=HTMLResponse)
 def identificar(request: Request, nombre: str | None = None, documento: str = Form(...), celular: str = Form(...),
                 nombres: str = Form(""), apellidos: str = Form(""), consentimiento: str = Form(""),
-                correo: str = Form(""), acepta_correo: str = Form(""), conn=Depends(conn_publica)):
+                correo: str = Form(""), acepta_correo: str = Form(""), idioma: str = Form("es"),
+                conn=Depends(conn_publica)):
     from ..data import normalize_phone
+    lang = idioma if idioma in copia.COPIA else "es"
+    i = copia.COPIA[lang]["ident"]
+    hx = bool(request.headers.get("HX-Request"))  # la landing pide solo el formulario y recibe solo el formulario
+
+    def pagina(**ctx):
+        return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, **ctx)
+
+    def ir(url):
+        if hx:
+            return HTMLResponse("", headers={"HX-Redirect": url})
+        return RedirectResponse(url, status_code=303)
+
     documento = re.sub(r"\D", "", documento)
     phone = normalize_phone(celular)
     values = {"documento": documento, "celular": celular}
     if not documento or not phone:
-        return render(request, "identificar.html", error="Revisa tu documento y tu celular (10 dígitos, empieza por 3).",
+        return pagina(error=i["err_datos"],
                       nuevo=None, values=values)
     p = conn.execute("select * from paciente where documento=%s", (documento,)).fetchone()
     if p and p["celular"] == phone:
-        return RedirectResponse(f"/p/{links.make_token(p['id'], conn=conn)}", status_code=303)
+        return ir(f"/p/{links.make_token(p['id'], conn=conn)}")
     if p:  # No se revela nada: la clínica lo contactará y el caso aparece en el panel.
         conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
                      (documento, phone, "Documento ya registrado con otro celular", clock.now(conn)))
-        return render(request, "contacto.html")
+        return render(request, "_contacto.html" if hx else "contacto.html", lang=lang)
     if not nombres.strip():
-        return render(request, "identificar.html", error=None, nuevo=True, values=values)
+        return pagina(error=None, nuevo=True, values=values)
     if not consentimiento:
-        return render(request, "identificar.html",
-                      error="Para registrarte necesitamos tu autorización para tratar tus datos.", nuevo=True,
+        return pagina(error=i["err_consent"], nuevo=True,
                       values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
                               "acepta_correo": acepta_correo})
     if (correo.strip() and not correo_mod.es_direccion(correo)) or (acepta_correo and not correo.strip()):
-        return render(request, "identificar.html", nuevo=True,
-                      error="Escribe un correo válido, o desmarca la opción de recibir correos.",
+        return pagina(nuevo=True,
+                      error=i["err_correo"],
                       values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
                               "acepta_correo": acepta_correo, "consentimiento": consentimiento})
     now = clock.now(conn)
@@ -203,7 +300,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
          now)).fetchone()["id"]
     if correo.strip():
         correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
-    return RedirectResponse(f"/p/{links.make_token(pid, conn=conn)}/nueva", status_code=303)
+    return ir(f"/p/{links.make_token(pid, conn=conn)}/nueva")
 
 
 # ----------------------------------------------------------------- Mis citas

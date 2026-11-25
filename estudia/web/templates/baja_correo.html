@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Correos · Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 {% if hecha %}
 <h1>Listo, no te enviaremos más correos</h1>
@@ -8,6 +10,6 @@ dejar de recibirlos, responde BAJA a nuestro WhatsApp.</p>
 {% else %}
 <h1>¿Dejar de recibir correos?</h1>
 <p>Dejarás de recibir correos de {{ negocio.nombre }} sobre tus citas. Los mensajes de WhatsApp no cambian.</p>
-<form method="post" action="/correo/baja/{{ token }}"><button>Sí, no quiero más correos</button></form>
+<form method="post" action="/correo/baja/{{ token }}"><button type="submit">Sí, no quiero más correos</button></form>
 {% endif %}
 {% endblock %}

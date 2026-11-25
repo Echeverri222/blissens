@@ -4,6 +4,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
 import type { ConteoBandejas, ResultadoGestion } from "@/api/tipos";
+import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { Boton, Confirmar, Tarjeta } from "@/ui/controles";
@@ -16,7 +17,7 @@ const BANDEJAS: { clave: keyof ConteoBandejas; slug: string; texto: string; ayud
   { clave: "cupos_libres", slug: "cupos-libres", texto: "Cupos libres", ayuda: "Espacios liberados por cancelaciones que aún no se han ocupado, y a quién se ofrecieron.", vacio: "No hay cupos liberados pendientes." },
   { clave: "sin_desenlace", slug: "sin-desenlace", texto: "Citas por cerrar", ayuda: "Citas pasadas que quedaron sin desenlace. Ciérralas para no dejar huecos en los datos.", vacio: "No hay citas pasadas sin cerrar." },
   { clave: "sin_interpretar", slug: "sin-interpretar", texto: "Mensajes por responder", ayuda: "Mensajes que el paciente escribió y el sistema no supo interpretar. Respóndele por tu cuenta y márcalo como resuelto.", vacio: "No hay mensajes pendientes." },
-  { clave: "contactos", slug: "contactos", texto: "Validar por teléfono", ayuda: "Alguien intentó agendar con un documento ya registrado pero otro celular. Llámalo para validar.", vacio: "No hay solicitudes de contacto." },
+  { clave: "contactos", slug: "contactos", texto: "Contactos y solicitudes", ayuda: "Solicitudes de contacto: personas del sitio web que piden información y quienes intentaron agendar con un documento ya registrado pero otro celular (esas se validan por teléfono).", vacio: "No hay solicitudes de contacto." },
   { clave: "dados_de_baja", slug: "dados-de-baja", texto: "Dados de baja", ayuda: "Citas próximas de pacientes que pidieron no recibir mensajes automáticos: confírmalas por teléfono.", vacio: "No hay citas próximas de pacientes dados de baja." },
 ];
 
@@ -71,8 +72,8 @@ function pendientes(d: {
   const f: Pendiente[] = [];
   for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 5, orden: r.abierto_en, etiqueta: r.escalado ? "Escalado" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id,
     texto: <><b>{r.paciente}</b>: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
-  for (const r of d.contactos ?? []) f.push({ id: `con-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: "Validar", slug: "contactos",
-    texto: <>El documento <b>{r.documento}</b> intentó agendar desde otro celular ({r.celular}). Llama para validar.</> });
+  for (const r of d.contactos ?? []) f.push({ id: `con-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: esSolicitudWeb(r) ? "Solicitud web" : "Validar", slug: "contactos",
+    texto: esSolicitudWeb(r) ? resumenWeb(r) : <>El documento <b>{r.documento}</b> intentó agendar desde otro celular ({r.celular}). Llama para validar.</> });
   for (const r of d.mensajes ?? []) f.push({ id: `msj-${r.id}`, urgencia: 2, orden: r.momento, etiqueta: "Mensaje", slug: "sin-interpretar", pacienteId: r.paciente_id,
     texto: <><b>{r.paciente}</b> escribió algo que el sistema no entendió: “{r.texto}”.</> });
   for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: "Sin confirmar", slug: "no-confirmadas", pacienteId: r.paciente_id,
@@ -85,6 +86,29 @@ function pendientes(d: {
 }
 
 const MAXIMO_HOY = 15;
+
+type FilaContacto = { documento: string; celular: string; nota: string };
+
+function resumenWeb(r: FilaContacto): ReactNode {
+  const w = leerSolicitudWeb(r.nota);
+  return <><b>{w.nombre ?? "Sin nombre"}</b> escribió desde el sitio web: {w.tipo}{w.paquete ? ` · ${w.paquete}` : ""}. Contáctale por {w.correo && !r.celular ? "correo" : "teléfono o WhatsApp"}.</>;
+}
+
+function DetalleWeb({ r }: { r: FilaContacto }) {
+  const w = leerSolicitudWeb(r.nota);
+  const wa = digitosWhatsApp(r.celular);
+  return (
+    <div className="min-w-48 flex-1 space-y-0.5">
+      <p><span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-950">Solicitud web</span> <b>{w.tipo}</b>{w.paquete ? ` · ${w.paquete}` : ""}{w.idioma ? ` · ${w.idioma.toUpperCase()}` : ""}</p>
+      <p><b>{w.nombre ?? "Sin nombre"}</b>{w.pais ? ` · ${w.pais}` : ""}</p>
+      <p className="flex flex-wrap gap-x-3">
+        {r.celular && <><a className={ENLACE} href={`tel:${r.celular.replace(/[^\d+]/g, "")}`}>Llamar {r.celular}</a>{wa && <a className={ENLACE} href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}</>}
+        {w.correo && <a className={ENLACE} href={`mailto:${w.correo}`}>{w.correo}</a>}
+      </p>
+      {w.mensaje && <p className="whitespace-pre-wrap text-tinta-suave">“{w.mensaje}”</p>}
+    </div>
+  );
+}
 
 function QueHacerHoy() {
   const [, setParams] = useSearchParams();
@@ -179,7 +203,8 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
           <span className="text-tinta-suave">{fechaHora(r.momento)}</span><Boton pequeno variante="secundario" onClick={() => mensaje.mutate(r.id)}>Resuelto</Boton></Fila>)} />;
     case "contactos":
       return <Lista clave={slug} fn={api.bandejas.contactos} vacio={vacio} fila={(r) => (
-        <Fila key={r.id}><span className="w-32 font-medium">{r.documento}</span><span className="w-32">{r.celular}</span><span className="flex-1 text-tinta-suave">{r.nota}</span>
+        <Fila key={r.id}>
+          {esSolicitudWeb(r) ? <DetalleWeb r={r} /> : <><span className="w-32 font-medium">{r.documento}</span><span className="w-32">{r.celular}</span><span className="flex-1 text-tinta-suave">{r.nota}</span></>}
           <span className="text-tinta-suave">{fechaHora(r.momento)}</span><Boton pequeno variante="secundario" onClick={() => contacto.mutate(r.id)}>Gestionada</Boton></Fila>)} />;
     default:
       return <Lista clave={slug} fn={api.bandejas.dadosDeBaja} vacio={vacio} fila={(r) => (

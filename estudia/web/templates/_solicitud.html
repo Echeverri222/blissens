@@ -1,0 +1,33 @@
+{# Formulario de solicitud de la landing (evaluación virtual, experiencias o contacto). Crea una solicitud de contacto. #}
+{% set f = t.form %}{% set v = values or {} %}
+<div id="sol-{{ interes }}" class="sol">
+{% if hecho %}
+  <div class="aviso aviso--claro" role="status"><p>{{ t.experiencias.ok if interes == 'experiencia' else f.ok }}</p></div>
+{% else %}
+  <form class="form" method="post" action="/sitio/solicitud" hx-post="/sitio/solicitud" hx-target="#sol-{{ interes }}" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+    <input type="hidden" name="interes" value="{{ interes }}">
+    <input type="hidden" name="idioma" value="{{ lang }}">
+    <div class="trampa" aria-hidden="true"><label>No llenar <input name="web" tabindex="-1" autocomplete="off"></label></div>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <label>{{ f.nombre }}<input name="nombre" autocomplete="name" required value="{{ v.nombre or '' }}"></label>
+    <div class="form__par">
+      <label>{{ f.correo }}<input name="correo" type="email" inputmode="email" autocomplete="email" value="{{ v.correo or '' }}"></label>
+      <label>{{ f.celular }}<input name="celular" type="tel" inputmode="tel" autocomplete="tel" value="{{ v.celular or '' }}"></label>
+    </div>
+    {% if interes == 'evaluacion_virtual' %}
+    <label>{{ f.pais }}<input name="pais" autocomplete="country-name" value="{{ v.pais or '' }}"></label>
+    {% endif %}
+    {% if interes == 'experiencia' %}
+    <label>{{ f.paquete }}
+      <select name="paquete" id="paquete-{{ interes }}" required>
+        <option value="">{{ f.paquete_ph }}</option>
+        {% for clave, nombre, _, _ in t.experiencias.paquetes %}<option value="{{ clave }}" {% if v.paquete == clave %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <label>{{ f.mensaje }}<textarea name="mensaje" rows="4">{{ v.mensaje or '' }}</textarea></label>
+    <label class="casilla"><input type="checkbox" name="consentimiento" value="1" required {% if v.consentimiento %}checked{% endif %}><span>{{ f.consent }}</span></label>
+    <button class="boton" type="submit">{{ f.enviar }}</button>
+  </form>
+{% endif %}
+</div>

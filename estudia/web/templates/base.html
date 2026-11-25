@@ -1,65 +1,34 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ negocio.nombre.split()[0] }} · Agenda tu cita{% endblock %}</title>
-  <link rel="stylesheet" href="/static/pico.min.css">
-  <script src="/static/htmx.min.js"></script>
-  <style>
-    /* Misma identidad que el panel del asistente (panel/src/estilos.css). Sin fuentes ni recursos externos. */
-    :root, :root:not([data-theme=dark]) {
-      --marca: #0a0a0a; --marca-suave: #1c1c1e; --linea: #e4e4e7; --tinta: #18181b; --tinta-suave: #52525b;
-      --degradado: linear-gradient(135deg, #3fbfb0, #3b9fe0 55%, #b07cf0);
-      --pico-font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      --pico-background-color: #f6f6f7; --pico-color: var(--tinta); --pico-muted-color: var(--tinta-suave);
-      --pico-muted-border-color: var(--linea); --pico-form-element-border-color: #d4d4d8;
-      --pico-primary: var(--marca); --pico-primary-background: var(--marca); --pico-primary-border: var(--marca);
-      --pico-primary-hover-background: var(--marca-suave); --pico-primary-hover-border: var(--marca-suave);
-      --pico-primary-underline: rgba(10,10,10,.5); --pico-primary-focus: rgba(59,159,224,.35);
-      --pico-border-radius: .625rem;
-    }
-    main.container { max-width: 480px; padding: .75rem 1rem 1rem; }
-    h1 { font-size: 1.375rem; margin: 0 0 .75rem; letter-spacing: -.01em; }
-    .brand { display: flex; align-items: center; gap: .75rem; margin: 0 0 .75rem; font-size: .75rem; font-weight: 600;
-             text-transform: uppercase; letter-spacing: .2em; }
-    .aro { display: inline-flex; padding: 2px; border-radius: 9999px; background: var(--degradado); }
-    .aro span { display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 9999px;
-                background: var(--marca); color: #fff; font-size: .8rem; letter-spacing: 0; }
-    .tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: .875rem; padding: 1rem; margin-bottom: .75rem; }
-    .filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .625rem; margin-bottom: .75rem; }
-    .filtros label { font-size: .875rem; font-weight: 500; margin: 0; }
-    .filtros select { margin: .25rem 0 0; font-size: .8125rem; padding: .5rem 1.75rem .5rem .625rem; min-height: 2.75rem; background-position: right .5rem center; text-overflow: ellipsis; }
-    .mas-horas { display: block; margin: -.25rem 0 .75rem; padding: 0; background: none; border: 0; color: var(--tinta); text-decoration: underline; font-size: .875rem; width: auto; }
-    .dias { display: flex; align-items: stretch; gap: .375rem; margin-bottom: .75rem; }
-    .dias .dia { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: .125rem;
-                 margin: 0; padding: .375rem 0; min-height: 3.25rem; background: #fff; color: var(--tinta);
-                 border: 1px solid var(--linea); border-radius: .625rem; font-size: .75rem; }
-    .dias .dia strong { font-size: 1.125rem; font-weight: 600; }
-    .dias .dia[aria-pressed=true] { background: var(--marca); color: #fff; border-color: var(--marca); }
-    .dias .mas { flex: 0 0 auto; width: 2rem; padding: 0; margin: 0; background: none; border: 0; color: var(--tinta-suave); }
-    .dia-titulo { margin: 0 0 .5rem; font-size: .875rem; font-weight: 500; }
-    .horas { justify-items: stretch; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .375rem; margin-bottom: .75rem; }
-    .horas .hora { position: relative; display: block; width: auto; margin: 0; }
-    .hora input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
-    .hora span { display: flex; width: 100%; box-sizing: border-box; align-items: center; justify-content: center; min-height: 2.5rem; padding: .25rem .375rem;
-                 border: 1px solid var(--linea); border-radius: .5rem; background: #fff; font-size: .875rem; }
-    .hora:hover span { background: #fafafa; }
-    .hora input:checked + span { background: var(--marca); color: #fff; border-color: var(--marca); }
-    .hora input:focus-visible + span, .dias button:focus-visible { outline: 2px solid #3b9fe0; outline-offset: 2px; }
-    .aviso { background: #ecfdf5; color: #065f46; padding: .75rem 1rem; border-radius: .625rem; }
-    .error { background: #fff1f2; color: #9f1239; padding: .75rem 1rem; border-radius: .625rem; }
-    .cita { border: 1px solid var(--linea); border-radius: .875rem; padding: 1rem; margin-bottom: 1rem; background: #fff; }
-    .acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
-    .acciones a[role=button] { width: auto; margin: 0; }
-    small.muted { color: var(--tinta-suave); }
-    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
-  </style>
+  <title>{% block title %}{{ t.meta.titulo }}{% endblock %}</title>
+  <meta name="description" content="{% block descripcion %}{{ t.meta.descripcion }}{% endblock %}">
+  {% block robots %}{% endblock %}
+  <meta name="theme-color" content="#000000">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Blissens">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.descripcion() }}">
+  <meta property="og:locale" content="{{ t.meta.og_locale }}">
+  <meta property="og:image" content="{{ base_url }}/static/sitio/New-Team.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/static/sitio/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/sitio/fuentes/inter-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/sitio/sitio.css">
+  {% block head %}{% endblock %}
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/sitio/sitio.js" defer></script>
 </head>
-<body>
-  <main class="container">
-    <p class="brand"><span class="aro" aria-hidden="true"><span>{{ negocio.nombre[:1]|upper }}</span></span>{{ negocio.nombre }}</p>
+<body class="{% block body_class %}interior{% endblock %}">
+  <a class="saltar" href="#contenido">{{ t.saltar }}</a>
+  {% include "_cabecera.html" %}
+  <main id="contenido" class="{% block main_class %}app{% endblock %}">
+    {% block negocio %}{% if negocio %}<p class="app__negocio">{{ negocio.nombre }}</p>{% endif %}{% endblock %}
     {% block content %}{% endblock %}
   </main>
+  {% block pie %}{% include "_pie_minimo.html" %}{% endblock %}
+  {% block barra %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,24 @@
+<footer class="pie" id="pie">
+  <div class="pie__grid">
+    <div class="pie__marca">
+      <img class="pie__logo" src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens" loading="lazy">
+      <p class="pie__lema">{{ t.hero.titulo|join(' ') }}</p>
+    </div>
+    <div>
+      <h2 class="pie__t">{{ t.pie.horario }}</h2>
+      <p>{{ sitio.HORARIO[lang] }}</p>
+      <h2 class="pie__t">{{ t.pie.direccion }}</h2>
+      <address>{{ sitio.DIRECCION }}</address>
+    </div>
+    <div>
+      <h2 class="pie__t">{{ t.pie.contacto }}</h2>
+      <p><a href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a><br><a href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a></p>
+      <h2 class="pie__t">{{ t.pie.siguenos }}</h2>
+      <p class="pie__redes">{% for nombre, url in sitio.REDES.items() %}{% if url %}<a href="{{ url }}" rel="noopener" target="_blank">{{ nombre }}</a>{% else %}<span>{{ nombre }}</span>{% endif %}{% endfor %}</p>
+    </div>
+  </div>
+  <div class="pie__base">
+    <p>Blissens® {{ t.pie.derechos }} · {{ t.pie.politica }}</p>
+    <p><a class="pie__equipo" href="/panel">{{ t.pie.equipo }}</a></p>
+  </div>
+</footer>

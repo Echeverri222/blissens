@@ -6558,6 +6558,11 @@
             "type": "string",
             "title": "Acepta Correo",
             "default": ""
+          },
+          "idioma": {
+            "type": "string",
+            "title": "Idioma",
+            "default": "es"
           }
         },
         "type": "object",
@@ -6601,6 +6606,11 @@
             "type": "string",
             "title": "Acepta Correo",
             "default": ""
+          },
+          "idioma": {
+            "type": "string",
+            "title": "Idioma",
+            "default": "es"
           }
         },
         "type": "object",
