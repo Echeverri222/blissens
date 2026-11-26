@@ -85,7 +85,7 @@ function Fila({ u, yo, alEmitir }: { u: UsuarioAdmin; yo: string; alEmitir: (usu
         {u.activo && !esYo && <Confirmar pequeno etiqueta={u.administrador ? "Quitar administración" : "Hacer administrador"} pregunta={`¿Cambiar los permisos de ${u.nombre}?`} alConfirmar={() => admin.mutate(undefined)} />}
         {u.activo
           ? !esYo && <Confirmar pequeno variante="peligro" etiqueta="Quitar acceso" pregunta={`${u.nombre} perderá el acceso a este negocio de inmediato.`} alConfirmar={() => desactivar.mutate(undefined)} />
-          : <Boton pequeno variante="secundario" onClick={() => activar.mutate(undefined)}>Devolver acceso</Boton>}
+          : <Confirmar pequeno etiqueta="Devolver acceso" pregunta={`${u.nombre} podrá volver a entrar a este negocio.`} alConfirmar={() => activar.mutate(undefined)} />}
       </div>
     </li>
   );

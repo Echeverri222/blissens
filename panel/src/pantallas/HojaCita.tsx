@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Phone } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useCita, useMotivos } from "@/api/consultas";
 import type { CitaDetalle } from "@/api/tipos";
@@ -10,6 +9,7 @@ import { useSesion } from "@/sesion/Sesion";
 import { AreaTexto, Boton, Confirmar, EtiquetaEstado, Hoja, Seleccion } from "@/ui/controles";
 import { Aviso, Consulta } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
+import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 
 const etiqueta = (e: keyof typeof ESTADOS) => ESTADOS[e].texto;
 const ACTOR = { paciente: "Paciente", auxiliar: "Recepción", especialista: "Especialista", sistema: "Sistema" } as const;
@@ -41,10 +41,7 @@ function Contenido({ c, alCerrar, alMover }: { c: CitaDetalle; alCerrar: () => v
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-xl font-semibold">{c.paciente.nombre}</h3>
-            {c.paciente.celular && (
-              <a href={`tel:${c.paciente.celular}`} className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-sky-800 underline">
-                <Phone className="size-4" aria-hidden /> {c.paciente.celular}</a>
-            )}
+            <div className="mt-1"><EnlacesContacto celular={c.paciente.celular} /></div>
           </div>
           <EtiquetaEstado estado={c.estado} />
         </div>
@@ -63,11 +60,14 @@ function Contenido({ c, alCerrar, alMover }: { c: CitaDetalle; alCerrar: () => v
           <h4 className="text-sm font-semibold">Acciones</h4>
           <div className="flex flex-wrap gap-2">
             {c.acciones.includes("desenlace") && (<>
-              <Boton onClick={() => desenlace.mutate("atendida")} disabled={desenlace.isPending}>Atendida</Boton>
+              <Confirmar etiqueta="Atendida" variante="primario" deshabilitado={desenlace.isPending} si="Sí, fue atendida"
+                pregunta={<><b className="text-tinta">{c.paciente.nombre}</b> asistió a esta cita. Se cierra como atendida.</>}
+                alConfirmar={() => desenlace.mutate("atendida")} />
               <Confirmar etiqueta="No asistió" variante="secundario" deshabilitado={desenlace.isPending}
                 pregunta="Se abrirá un seguimiento y el paciente recibirá un mensaje para reagendar."
                 alConfirmar={() => desenlace.mutate("no_asistio")} />
             </>)}
+            {c.acciones.includes("confirmar") && <BotonConfirmo citaId={c.id} paciente={c.paciente.nombre} inicio={c.inicio} pequeno={false} />}
             {c.acciones.includes("cambiar_fecha") && <Boton variante="secundario" onClick={() => setModo(modo === "fecha" ? null : "fecha")}>Cambiar fecha</Boton>}
             {c.acciones.includes("cancelar") && <Boton variante="secundario" onClick={() => setModo(modo === "cancelar" ? null : "cancelar")}>Cancelar cita</Boton>}
           </div>

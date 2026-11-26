@@ -27,6 +27,7 @@ export type PacienteResumen = S["PacienteResumen"];
 export type NuevoPaciente = S["NuevoPaciente"];
 export type FichaCompleta = S["FichaCompleta"];
 export type ConteoBandejas = S["ConteoBandejas"];
+export type ResumenDia = S["ResumenDiaOut"];
 export type NoConfirmada = S["NoConfirmadaOut"];
 export type Seguimiento = S["SeguimientoOut"];
 export type EnRiesgo = S["EnRiesgoOut"];

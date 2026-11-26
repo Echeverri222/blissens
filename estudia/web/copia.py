@@ -22,6 +22,13 @@ PAQUETES = {"premium": "Premium (hotel)", "standard": "Standard (Airbnb)", "esse
 ES = {
     "lang": "es", "otro_idioma": "en", "otro_idioma_nombre": "EN", "idioma_nombre": "ES",
     "home": "/", "otro_home": "/en",
+    "agendar_url": "/agendar",  # página aparte, sin distracciones; la sección de la landing se mantiene
+    "pag_agendar": {"kicker": "Blissens Odontología · Medellín", "titulo": "Agenda tu cita",
+                    "lead": "Toma menos de un minuto. Sin cuentas ni contraseñas: solo tu documento y tu celular.",
+                    "pasos": ["Identifícate", "Elige el día y la hora", "Recibe la confirmación por WhatsApp"],
+                    "paso1": "Paso 1 de 3 · Identifícate", "volver": "Volver al sitio",
+                    "info": "Dónde y cuándo atendemos", "donde": "Dónde", "horario": "Horario",
+                    "ayuda": "¿Prefieres que te ayudemos? Llámanos o escríbenos por WhatsApp"},
     "meta": {"titulo": "Blissens · Estudio odontológico de alta tecnología en Medellín",
              "descripcion": "Odontología digital y diseño de sonrisa en Medellín. Agenda tu cita o recibe una evaluación "
                             "virtual si vives en el exterior.",
@@ -137,6 +144,7 @@ ES = {
 EN = {
     "lang": "en", "otro_idioma": "es", "otro_idioma_nombre": "ES", "idioma_nombre": "EN",
     "home": "/en", "otro_home": "/",
+    "agendar_url": "/en#agendar",  # las páginas interiores aún no están en inglés (WP3 de prd-sitio-publico.md)
     "meta": {"titulo": "Blissens · High-technology dental studio in Medellín",
              "descripcion": "Digital dentistry and smile design in Medellín. Book an appointment or get a virtual "
                             "assessment if you live abroad.",

@@ -23,7 +23,7 @@
 </head>
 <body class="{% block body_class %}interior{% endblock %}">
   <a class="saltar" href="#contenido">{{ t.saltar }}</a>
-  {% include "_cabecera.html" %}
+  {% block cabecera %}{% include "_cabecera.html" %}{% endblock %}
   <main id="contenido" class="{% block main_class %}app{% endblock %}">
     {% block negocio %}{% if negocio %}<p class="app__negocio">{{ negocio.nombre }}</p>{% endif %}{% endblock %}
     {% block content %}{% endblock %}

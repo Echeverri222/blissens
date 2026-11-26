@@ -61,12 +61,16 @@ export function Tarjeta({ className, ...p }: React.HTMLAttributes<HTMLDivElement
 
 const ICONOS = { calendario: CalendarClock, check: CircleCheck, pregunta: CircleHelp, doble: CheckCheck, "usuario-x": UserX, x: Ban, repetir: Repeat };
 
+export function IconoEstado({ estado, className }: { estado: Estado; className?: string }) {
+  const Icono = ICONOS[ESTADOS[estado].icono as keyof typeof ICONOS];
+  return <Icono className={cn("size-3.5 shrink-0", className)} aria-hidden />;
+}
+
 export function EtiquetaEstado({ estado, className }: { estado: Estado; className?: string }) {
   const e = ESTADOS[estado];
-  const Icono = ICONOS[e.icono as keyof typeof ICONOS];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", e.clases, className)}>
-      <Icono className="size-3.5" aria-hidden />{e.texto}
+      <IconoEstado estado={estado} />{e.texto}
     </span>
   );
 }
@@ -96,20 +100,23 @@ export function Hoja({ abierta, alCerrar, titulo, descripcion, ancho = "md:max-w
 }
 
 /** Acción que pide confirmación antes de ejecutarse (envía mensajes al paciente o es difícil de deshacer). */
-export function Confirmar({ etiqueta, pregunta, alConfirmar, variante = "secundario", deshabilitado, pequeno }: {
-  etiqueta: string; pregunta: string; alConfirmar: () => void; variante?: Variante; deshabilitado?: boolean; pequeno?: boolean;
+/** Toda acción que cambia datos pasa por aquí: un clic por error no debe registrar nada. `pregunta` dice a quién y qué
+ * afecta (nombre, fecha) y `si` repite la acción en el botón que la ejecuta. */
+export function Confirmar({ etiqueta, pregunta, alConfirmar, variante = "secundario", deshabilitado, pequeno, icono, titulo, si = "Sí, continuar" }: {
+  etiqueta: string; pregunta: ReactNode; alConfirmar: () => void; variante?: Variante; deshabilitado?: boolean; pequeno?: boolean;
+  icono?: ReactNode; titulo?: string; si?: string;
 }) {
   return (
     <Dialog.Root>
-      <Dialog.Trigger asChild><Boton variante={variante} disabled={deshabilitado} pequeno={pequeno}>{etiqueta}</Boton></Dialog.Trigger>
+      <Dialog.Trigger asChild><Boton variante={variante} disabled={deshabilitado} pequeno={pequeno}>{icono}{etiqueta}</Boton></Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
-          <Dialog.Title className="text-base font-semibold">{etiqueta}</Dialog.Title>
+          <Dialog.Title className="text-base font-semibold">{titulo ?? etiqueta}</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-tinta-suave">{pregunta}</Dialog.Description>
           <div className="mt-4 flex justify-end gap-2">
             <Dialog.Close asChild><Boton variante="secundario" pequeno>No, volver</Boton></Dialog.Close>
-            <Dialog.Close asChild><Boton variante={variante === "secundario" ? "primario" : variante} pequeno onClick={alConfirmar}>Sí, continuar</Boton></Dialog.Close>
+            <Dialog.Close asChild><Boton variante={variante === "secundario" ? "primario" : variante} pequeno onClick={alConfirmar}>{si}</Boton></Dialog.Close>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -1,9 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Agenda tu cita · Blissens{% endblock %}
+{# Página aparte para agendar: sin menú ni otras secciones, para que el paciente termine lo que vino a hacer. #}
+{% set a = t.pag_agendar %}
+{% block title %}{{ a.titulo }} · Blissens{% endblock %}
+{% block body_class %}interior foco-body{% endblock %}
+{% block main_class %}foco{% endblock %}
+{% block cabecera %}
+<header class="cab cab--foco">
+  <div class="cab__fila">
+    <a class="cab__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
+    <div class="cab__der">
+      <a class="foco__tel" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
+      <a class="foco__volver" href="{{ t.home }}"><span aria-hidden="true">←</span> <span class="foco__volver-txt">{{ a.volver }}</span></a>
+    </div>
+  </div>
+</header>
+{% endblock %}
+{% block negocio %}{% endblock %}
 {% block content %}
-<div class="tarjeta tarjeta--angosta">
-  <h1>Agenda tu cita</h1>
-  <p>Sin cuentas ni instalaciones. Solo necesitamos tu documento y tu celular.</p>
-  {% include "_identificar.html" %}
+<div class="foco__intro">
+  <p class="foco__kicker">{{ a.kicker }}</p>
+  <h1 class="foco__titulo">{{ a.titulo }}</h1>
+  <p class="foco__lead">{{ a.lead }}</p>
+  <ol class="foco__pasos" aria-label="{{ a.paso1 }}">
+    {% for p in a.pasos %}<li{% if loop.first %} class="on" aria-current="step"{% endif %}><span class="foco__num">{{ loop.index }}</span><span class="foco__paso-txt">{{ p }}</span></li>{% endfor %}
+  </ol>
 </div>
+
+<section class="foco__form" aria-labelledby="paso-t">
+  <div class="panel-form panel-form--claro foco__tarjeta">
+    <h2 id="paso-t" class="foco__paso">{{ a.paso1 }}</h2>
+    {% include "_identificar.html" %}
+  </div>
+</section>
+
+<div class="foco__extra">
+  <details class="foco__info" data-abrir-en-escritorio>
+    <summary>{{ a.info }}</summary>
+    <dl class="datos foco__datos">
+      <dt>{{ a.donde }}</dt><dd>{{ sitio.DIRECCION }}</dd>
+      <dt>{{ a.horario }}</dt><dd>{{ sitio.HORARIO[lang] }}</dd>
+    </dl>
+  </details>
+  <a class="foco__ayuda" href="tel:{{ sitio.TELEFONO_TEL }}">
+    <span>{{ a.ayuda }}</span><strong>{{ sitio.TELEFONO }}</strong>
+  </a>
+</div>
+<script>
+  // En pantallas anchas la información se muestra abierta; en el celular queda plegada para no empujar el formulario.
+  if (matchMedia("(min-width: 900px)").matches) document.querySelectorAll("[data-abrir-en-escritorio]").forEach(d => d.open = true);
+</script>
 {% endblock %}

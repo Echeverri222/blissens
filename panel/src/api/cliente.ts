@@ -5,7 +5,7 @@ import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
-  SinInterpretar, Sistema, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
+  SinInterpretar, Sistema, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -80,6 +80,7 @@ export const api = {
     agendar: (d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string }) => post<{ cita_id: number }>("/citas", d),
     cancelar: (id: number, motivo_id: number, texto?: string) => post<{ ok: boolean }>(`/citas/${id}/cancelar`, { motivo_id, texto: texto || null }),
     cambiarFecha: (id: number, inicio: string) => post<{ cita_id: number }>(`/citas/${id}/cambiar-fecha`, { inicio }),
+    confirmar: (id: number) => post<{ ok: boolean }>(`/citas/${id}/confirmar`),
     desenlace: (id: number, desenlace: Desenlace) => post<{ ok: boolean }>(`/citas/${id}/desenlace`, { desenlace }),
     espacios: (profesionalId: number, servicioId: number, dias = 21) =>
       get<Espacios>("/espacios", { profesional_id: profesionalId, servicio_id: servicioId, dias }),
@@ -119,5 +120,6 @@ export const api = {
     tiempoEntreCitas: (f: FiltrosIndicadores) => get<TiempoEntreCitas>("/indicadores/tiempo-entre-citas", f),
     cierre: () => post<Cierre>("/indicadores/cierre"),
   },
+  resumenDia: () => get<ResumenDia>("/resumen-dia"),
   sistema: () => get<Sistema>("/sistema"),
 };

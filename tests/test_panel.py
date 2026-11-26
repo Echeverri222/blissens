@@ -69,7 +69,7 @@ def test_allowed_actions_follow_role_state_and_the_system_clock(mundo, conn):
     c = book(conn, mundo.p1, mundo.pro1, at(1, "09:00"))
     conn.commit()
     dia = at(1, "09:00").date()
-    assert _acciones(mundo.aux, c, dia) == ["cancelar", "cambiar_fecha"]
+    assert _acciones(mundo.aux, c, dia) == ["confirmar", "cancelar", "cambiar_fecha"]
     assert _acciones(mundo.esp1, c, dia) == []
     clock.freeze(at(1, "09:05"))
     assert _acciones(mundo.aux, c, dia) == ["desenlace"]

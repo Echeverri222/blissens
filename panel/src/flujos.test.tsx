@@ -52,12 +52,12 @@ describe("navegación por rol", () => {
     const menu = screen.getAllByRole("navigation", { name: "Secciones" })[0];
     expect(within(menu).getByText("Mi agenda")).toBeInTheDocument();
     expect(within(menu).getByText("Mi horario")).toBeInTheDocument();
-    for (const t of ["Bandejas", "Pacientes", "Indicadores", "Sistema"]) expect(within(menu).queryByText(t)).not.toBeInTheDocument();
+    for (const t of ["Pendientes", "Pacientes", "Indicadores", "Sistema"]) expect(within(menu).queryByText(t)).not.toBeInTheDocument();
   });
   it("la auxiliar ve todas sus secciones, el contador de bandejas y el enlace al simulador en modo demo", async () => {
     montar("/agenda", AUX);
     const menu = (await screen.findAllByRole("navigation", { name: "Secciones" }))[0];
-    for (const t of ["Agenda", "Bandejas", "Pacientes", "Indicadores", "Sistema"]) expect(within(menu).getByText(t)).toBeInTheDocument();
+    for (const t of ["Agenda", "Pendientes", "Pacientes", "Indicadores", "Sistema"]) expect(within(menu).getByText(t)).toBeInTheDocument();
     expect(await within(menu).findByLabelText("3 pendientes")).toBeInTheDocument();
     expect(screen.getByText("Modo demo")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Simulador/ })).toHaveAttribute("target", "_blank");
@@ -92,6 +92,8 @@ describe("hoja de cita", () => {
     servidor.use(http.post(`${API}/citas/10/desenlace`, ok()));
     const d = await abrir();
     await userEvent.click(await within(d).findByRole("button", { name: "Atendida" }));
+    expect(enviadas).toHaveLength(0); // un clic por error no registra nada
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, fue atendida" }));
     await waitFor(() => expect(enviadas).toContainEqual({ metodo: "POST", ruta: "/api/v1/citas/10/desenlace", cuerpo: { desenlace: "atendida" } }));
     enviadas.length = 0;
     await userEvent.click(within(d).getByRole("button", { name: "No asistió" }));
@@ -104,6 +106,7 @@ describe("hoja de cita", () => {
     servidor.use(http.post(`${API}/citas/10/desenlace`, () => error(409, "desenlace_anticipado", "Solo se puede registrar el desenlace desde la hora de inicio de la cita.")));
     const d = await abrir();
     await userEvent.click(await within(d).findByRole("button", { name: "Atendida" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, fue atendida" }));
     expect((await screen.findAllByText(/desde la hora de inicio/)).length).toBeGreaterThan(0);
   });
 
@@ -118,6 +121,20 @@ describe("hoja de cita", () => {
     await userEvent.click(await within(d).findByRole("button", { name: "Revertir" }));
     await userEvent.click(await screen.findByRole("button", { name: "Sí, continuar" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/historial/2/revertir" }));
+  });
+
+  it("«Confirmó» registra la confirmación por teléfono y la hoja pasa a Confirmada", async () => {
+    let confirmada = false;
+    servidor.use(
+      http.get(`${API}/citas/:id`, () => HttpResponse.json(confirmada ? detalle({ estado: "confirmada", acciones: ["cancelar", "cambiar_fecha"] }) : detalle({ acciones: ["confirmar", "cancelar", "cambiar_fecha"] }))),
+      http.post(`${API}/citas/10/confirmar`, async ({ request }) => { await registrar(request); confirmada = true; return HttpResponse.json({ ok: true }); }));
+    const d = await abrir(AUX);
+    await userEvent.click(await within(d).findByRole("button", { name: "Confirmó" }));
+    expect(enviadas).toHaveLength(0);
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, confirmó" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ metodo: "POST", ruta: "/api/v1/citas/10/confirmar" }));
+    expect(await within(d).findByText("Confirmada")).toBeInTheDocument();
+    expect(within(d).queryByRole("button", { name: "Confirmó" })).not.toBeInTheDocument();
   });
 
   it("la auxiliar cancela eligiendo un motivo", async () => {
@@ -218,8 +235,9 @@ describe("bandejas", () => {
       http.post(`${API}/seguimientos/5/gestion`, ok()));
     montar("/bandejas?b=seguimientos", AUX);
     expect(await screen.findByRole("tab", { name: /No confirmadas\s*2/ })).toBeInTheDocument();
-    expect(await screen.findByText("ESCALADO")).toBeInTheDocument();
+    expect(await screen.findByText("Necesita llamada")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Aceptó" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, aceptó" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "acepto", detalle: "Gestión telefónica" } }));
   });
   it("una bandeja vacía explica qué significa", async () => {
@@ -237,17 +255,22 @@ describe("qué hacer hoy", () => {
       http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
     montar("/bandejas", AUX);
     expect(await screen.findByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
-    const filas = await screen.findAllByRole("button", { name: "Resolver" });
-    expect(filas).toHaveLength(2);
+    expect(await screen.findByRole("button", { name: "Aceptó" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmó" })).toBeInTheDocument();
     const panel = screen.getByRole("tabpanel", { name: "Qué hacer hoy" });
     expect(panel.textContent!.indexOf("Ana Pérez")).toBeLessThan(panel.textContent!.indexOf("Luis Gómez"));
-    expect(screen.getByText("Escalado")).toBeInTheDocument();
+    expect(screen.getByText("Necesita llamada")).toBeInTheDocument();
   });
-  it("Resolver lleva a la bandeja donde se gestiona, con sus acciones", async () => {
-    servidor.use(http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
+  it("cada fila se resuelve ahí mismo, con confirmación y sin cambiar de página", async () => {
+    servidor.use(
+      http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])),
+      http.post(`${API}/seguimientos/5/gestion`, ok()));
     montar("/bandejas", AUX);
-    await userEvent.click(await screen.findByRole("button", { name: "Resolver" }));
-    expect(await screen.findByRole("button", { name: "Aceptó" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Sin respuesta" }));
+    expect(enviadas).toHaveLength(0);
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, no contestó" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "sin_respuesta" } }));
+    expect(screen.getByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
   });
   it("sin pendientes dice que todo está al día", async () => {
     montar("/bandejas", AUX);
@@ -324,12 +347,43 @@ describe("agenda", () => {
     expect(screen.getByRole("img", { name: /Hora actual del sistema 10:30/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Agendar cita/ })).not.toBeInTheDocument();
   });
-  it("la semana muestra un profesional a la vez y permite navegar", async () => {
+  it("el día de hoy marca la hora del sistema y las citas pasadas sin cerrar «Por cerrar»", async () => {
+    servidor.use(http.get(`${API}/agenda`, () => HttpResponse.json(agenda([cita({ acciones: ["desenlace"] }), cita({ id: 11, inicio: "2026-11-16T14:00:00-05:00", fin: "2026-11-16T15:00:00-05:00", paciente: "Luis Gómez", acciones: ["confirmar"] })]))));
+    montar("/agenda", AUX);
+    expect((await screen.findAllByRole("img", { name: /Hora actual del sistema 10:30/ })).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Por cerrar").length).toBeGreaterThan(0);
+  });
+  it("la auxiliar ve el resumen del día con sus enlaces y oculta los mensajes cuando no hay", async () => {
+    servidor.use(http.get(`${API}/resumen-dia`, () => HttpResponse.json({ citas_hoy: 5, sin_confirmar: 2, mensajes: 0, por_cerrar: 3 })));
+    montar("/agenda", AUX);
+    const r = await screen.findByRole("navigation", { name: "Resumen del día" });
+    expect(await within(r).findByRole("link", { name: "5 citas hoy" })).toHaveAttribute("href", "/agenda");
+    expect(within(r).getByRole("link", { name: "2 sin confirmar hoy y mañana" })).toHaveAttribute("href", "/bandejas?b=no-confirmadas");
+    expect(within(r).getByRole("link", { name: "3 por cerrar" })).toHaveAttribute("href", "/bandejas?b=sin-desenlace");
+    expect(within(r).queryByText(/mensaje/)).not.toBeInTheDocument();
+  });
+  it("con mensajes por responder el resumen los enlaza; el especialista no ve resumen", async () => {
+    servidor.use(http.get(`${API}/resumen-dia`, () => HttpResponse.json({ citas_hoy: 1, sin_confirmar: 0, mensajes: 4, por_cerrar: 0 })));
+    montar("/agenda", AUX);
+    expect(await screen.findByRole("link", { name: "4 mensajes por responder" })).toHaveAttribute("href", "/bandejas?b=sin-interpretar");
+  });
+  it("el especialista no ve el resumen ni la opción «Todos» en la semana", async () => {
+    montar("/agenda?vista=semana", ESP);
+    expect(await screen.findByRole("heading", { name: /Mi agenda/ })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Resumen del día" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Todos" })).not.toBeInTheDocument();
+  });
+  it("la semana muestra a todos los profesionales por defecto, permite elegir uno y navegar", async () => {
     const pedidos: string[] = [];
     servidor.use(http.get(`${API}/agenda`, ({ request }) => { pedidos.push(new URL(request.url).search); return HttpResponse.json(agenda([], { desde: "2026-11-16", hasta: "2026-11-22" })); }));
     montar("/agenda?vista=semana", AUX);
-    await waitFor(() => expect(pedidos.at(-1)).toBe("?desde=2026-11-16&hasta=2026-11-22&profesional_id=1"));
+    const filtro = await screen.findByLabelText("Profesional");
+    expect(filtro).toHaveValue("");
+    expect(within(filtro).getByRole("option", { name: "Todos" })).toBeInTheDocument();
+    await waitFor(() => expect(pedidos.at(-1)).toBe("?desde=2026-11-16&hasta=2026-11-22"));
     await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+    await waitFor(() => expect(pedidos.at(-1)).toBe("?desde=2026-11-23&hasta=2026-11-29"));
+    await userEvent.selectOptions(filtro, "Dra. Uno");
     await waitFor(() => expect(pedidos.at(-1)).toBe("?desde=2026-11-23&hasta=2026-11-29&profesional_id=1"));
   });
 });

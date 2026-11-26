@@ -11,7 +11,9 @@ import { Boton, Entrada, Hoja, Seleccion } from "@/ui/controles";
 import { Cargando, ErrorVista } from "@/ui/vistas";
 import { PanelBloqueos } from "./Bloqueos";
 import { HojaCita } from "./HojaCita";
-import { calcularColumnas, ListaDelDia, ListasAparte, Rejilla, type Col } from "./Rejilla";
+import { Leyenda } from "./Leyenda";
+import { calcularColumnas, ListaDelDia, ListasAparte, Rejilla, SemanaTodos, type Col } from "./Rejilla";
+import { ResumenDia } from "./ResumenDia";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,8 +30,8 @@ export function Agenda() {
   const citaAbierta = Number(params.get("cita")) || null;
   const activos = useMemo<Profesional[]>(() => profs.data ?? [], [profs.data]);
   const proParam = Number(params.get("pro")) || null;
-  // La auxiliar ve la semana de un profesional a la vez; el especialista siempre la suya.
-  const proFiltro = esp ? sesion.profesional_id : proParam ?? (vista === "semana" ? activos[0]?.id ?? null : null);
+  // La auxiliar ve a todos los profesionales salvo que elija uno; el especialista siempre el suyo.
+  const proFiltro = esp ? sesion.profesional_id : proParam;
 
   const desde = vista === "semana" ? lunesDe(fecha) : fecha;
   const hasta = vista === "semana" ? sumarDias(desde, 6) : fecha;
@@ -62,6 +64,8 @@ export function Agenda() {
         {!esp && <Link to="/agendar" className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-marca px-3 py-1.5 text-sm font-medium text-white"><Plus className="size-4" aria-hidden /> Agendar cita</Link>}
       </div>
 
+      {!esp && <ResumenDia />}
+
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex items-center gap-1">
           <Boton variante="secundario" pequeno aria-label={vista === "semana" ? "Semana anterior" : "Día anterior"} onClick={() => mover(-1)}><ChevronLeft className="size-4" /></Boton>
@@ -75,9 +79,10 @@ export function Agenda() {
               className={cn("px-3 py-2 text-sm font-medium", vista === v ? "bg-marca text-white" : "bg-papel hover:bg-zinc-50")}>{v === "dia" ? "Día" : "Semana"}</button>
           ))}
         </div>
+        <Leyenda />
         {!esp && (
           <Seleccion etiqueta="Profesional" value={proFiltro ?? ""} className="w-52" onChange={(e) => ir({ pro: e.target.value || null })}>
-            {vista === "dia" && <option value="">Todos</option>}
+            <option value="">Todos</option>
             {activos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </Seleccion>
         )}
@@ -90,7 +95,9 @@ export function Agenda() {
         return (
           <>
             <ListasAparte columnas={columnas.map((c) => ({ titulo: c.titulo, datos: c.datos }))} alAbrir={(id) => ir({ cita: String(id) })} />
-            {!movil ? <Rejilla cols={cols} a={a} ahora={ahora} alAbrir={(id) => ir({ cita: String(id) })} /> : (
+            {!movil ? (vista === "semana" && proFiltro === null
+              ? <SemanaTodos cols={cols} a={a} ahora={ahora} alAbrir={(id) => ir({ cita: String(id) })} />
+              : <Rejilla cols={cols} a={a} ahora={ahora} alAbrir={(id) => ir({ cita: String(id) })} />) : (
               <div className="space-y-3">
                 {vista === "semana" && (
                   <div role="group" aria-label="Día de la semana" className="flex gap-1 overflow-x-auto">
@@ -102,7 +109,7 @@ export function Agenda() {
                   </div>
                 )}
                 {columnas.filter((c) => vista === "dia" || c.fecha === diaElegido).map((c) => (
-                  <ListaDelDia key={c.clave} d={c.datos} titulo={vista === "dia" && columnas.length > 1 ? c.titulo : undefined} alAbrir={(id) => ir({ cita: String(id) })} />
+                  <ListaDelDia key={c.clave} d={c.datos} ahora={ahora} conProfesional={proFiltro === null && vista === "semana"} titulo={vista === "dia" && columnas.length > 1 ? c.titulo : undefined} alAbrir={(id) => ir({ cita: String(id) })} />
                 ))}
               </div>
             )}

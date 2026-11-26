@@ -192,6 +192,16 @@ def agendar(datos: sc.NuevaCita, conn=Depends(get_conn), u=Depends(auxiliar)):
     return sc.CitaCreada(cita_id=cid)
 
 
+@router.post("/citas/{cita_id}/confirmar", tags=["Citas"], summary="Registrar la confirmación dada por teléfono (auxiliar)",
+             response_model=sc.Ok,
+             description="Pasa la cita a confirmada con el actor auxiliar. No cancela nada ni envía mensajes. Solo antes de la hora "
+                         "de inicio y desde programada o sin confirmar (409 si no). Se deshace con la reversión del historial.")
+def confirmar(cita_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
+    permisos.cita_visible(conn, u, cita_id)
+    agenda.confirm_by_phone(conn, cita_id, user_id=u["id"])
+    return sc.Ok()
+
+
 @router.post("/citas/{cita_id}/cancelar", tags=["Citas"], summary="Cancelar una cita con su motivo (auxiliar)",
              response_model=sc.Ok, description="Mismo proceso que si cancelara el paciente: libera el cupo y abre el seguimiento.")
 def cancelar(cita_id: int, datos: sc.Cancelacion, conn=Depends(get_conn), u=Depends(auxiliar)):

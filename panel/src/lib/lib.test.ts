@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Agenda } from "@/api/tipos";
 import { columnaDia, posicion, rangoVisible, unir } from "./calendario";
 import { comportamientoDe } from "./errores";
+import { nombreCorto, profesionalCorto } from "./nombres";
+import { totalLlamadas } from "./pendientes";
 import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "./solicitudes";
 import { ahoraSistema, aIso, fechaDe, fechaHora, horaDe, lunesDe, sumarDias } from "./tiempo";
 import { agenda, cita } from "@/pruebas/servidor";
@@ -90,5 +92,20 @@ describe("solicitudes del sitio web", () => {
     expect(leerSolicitudWeb("Sitio web · Contacto · idioma es | Nombre: Ana")).toMatchObject({ tipo: "Contacto", paquete: undefined, nombre: "Ana", mensaje: undefined });
     expect(digitosWhatsApp("+1 305 555 0100")).toBe("13055550100");
     expect(digitosWhatsApp("")).toBeNull();
+  });
+});
+
+describe("llamadas pendientes", () => {
+  it("el total solo suma lo que se resuelve llamando", () => {
+    const conteo = { seguimientos: 2, contactos: 1, sin_interpretar: 3, no_confirmadas: 4, dados_de_baja: 1, sin_desenlace: 9, en_riesgo: 7, cupos_libres: 5 };
+    expect(totalLlamadas(conteo as never)).toBe(11);
+  });
+});
+
+describe("nombres cortos", () => {
+  it("deja el nombre y el primer apellido", () => {
+    expect(nombreCorto("Ana María Pérez Gómez")).toBe("Ana Pérez");
+    expect(nombreCorto("Ana Pérez")).toBe("Ana Pérez");
+    expect(profesionalCorto("Dra. Uno")).toContain("Uno");
   });
 });
