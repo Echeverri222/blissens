@@ -81,7 +81,7 @@ export function Indicadores() {
             <Tarjetita titulo="Ocupación" valor={pct(s.ocupacion)} ayuda="Minutos atendidos ÷ minutos de horario sin bloqueos" />
             <Tarjetita titulo="Cancelaciones" valor={s.cancelaciones} detalle={`${s.cancelaciones_tardias} tardías`} ayuda="Citas canceladas en el periodo" />
             <Tarjetita titulo="Cupos liberados" valor={s.cupos_liberados} ayuda="Espacios que quedaron libres por cancelaciones" />
-            <Tarjetita titulo="Cupos ocupados por oferta" valor={s.cupos_ocupados_oferta} detalle={`${s.cupos_ocupados_agendamiento} por agendamiento · ${s.cupos_vacios} vacíos`} ayuda="Cupos que otro paciente tomó al adelantar su cita" />
+            <Tarjetita titulo="Cupos llenados con la lista de espera" valor={s.cupos_ocupados_oferta} detalle={`${s.cupos_ocupados_agendamiento} por agendamiento · ${s.cupos_vacios} vacíos`} ayuda="Cupos que otro paciente tomó al adelantar su cita" />
           </div>
         )}
       </Consulta>

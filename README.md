@@ -47,7 +47,7 @@ Un clon recién hecho funciona con `make setup && make dev`.
 
 Usuarios de demostración (solo existen con datos ficticios; `make seed` los imprime): `auxiliar`,
 `especialista1` y `especialista2`, todos con la contraseña `demo-blissens`. El panel muestra a cada rol solo lo suyo:
-el especialista, *Mi agenda* y *Mi horario*; la auxiliar, *Agenda*, *Bandejas*, *Pacientes*, *Indicadores* y *Sistema*.
+el especialista, *Mi agenda* y *Mi horario*; la auxiliar, *Agenda*, *Pendientes*, *Pacientes*, *Indicadores* y *Sistema*.
 
 ### Probar la API con `curl`
 
@@ -69,7 +69,7 @@ El PRD §3.4 describe diez pasos. Resumen:
    dejarla vencer, o acéptala: el espacio que deja dispara una oferta en cadena.
 6. **+3 días**: primer seguimiento de reasignación. Agenda desde el enlace y el caso se cierra.
 7. En el panel, como especialista (*Mi agenda*), abre una cita ya iniciada y márcala atendida / no asistió.
-8. Como auxiliar, *Bandejas → En riesgo*: tratamientos activos sin cita futura.
+8. Como auxiliar, *Pendientes → Pacientes en riesgo*: tratamientos activos sin cita futura.
 9. *Indicadores → Ejecutar cierre ahora*.
 10. *Pacientes*: bitácora e historial; **Revertir** un cambio.
 

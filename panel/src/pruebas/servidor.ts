@@ -42,6 +42,7 @@ export const manejadores = (sesion: Sesion | null = AUX) => [
   http.get(`${base}/agenda`, () => HttpResponse.json(agenda())),
   http.get(`${base}/citas/:id`, () => HttpResponse.json(detalle())),
   http.get(`${base}/bandejas`, () => HttpResponse.json({ no_confirmadas: 2, seguimientos: 1, en_riesgo: 0, cupos_libres: 0, sin_desenlace: 0, sin_interpretar: 0, contactos: 0, dados_de_baja: 0 })),
+  http.get(`${base}/resumen-dia`, () => HttpResponse.json({ citas_hoy: 1, sin_confirmar: 2, mensajes: 0, por_cerrar: 0 })),
   // Listas de las bandejas, vacías por defecto: cada prueba reemplaza la que necesita.
   ...["no-confirmadas", "seguimientos", "en-riesgo", "cupos-libres", "sin-desenlace", "sin-interpretar", "contactos", "dados-de-baja"].map((r) => http.get(`${base}/bandejas/${r}`, () => HttpResponse.json([]))),
 ];

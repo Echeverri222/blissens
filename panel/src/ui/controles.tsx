@@ -61,12 +61,16 @@ export function Tarjeta({ className, ...p }: React.HTMLAttributes<HTMLDivElement
 
 const ICONOS = { calendario: CalendarClock, check: CircleCheck, pregunta: CircleHelp, doble: CheckCheck, "usuario-x": UserX, x: Ban, repetir: Repeat };
 
+export function IconoEstado({ estado, className }: { estado: Estado; className?: string }) {
+  const Icono = ICONOS[ESTADOS[estado].icono as keyof typeof ICONOS];
+  return <Icono className={cn("size-3.5 shrink-0", className)} aria-hidden />;
+}
+
 export function EtiquetaEstado({ estado, className }: { estado: Estado; className?: string }) {
   const e = ESTADOS[estado];
-  const Icono = ICONOS[e.icono as keyof typeof ICONOS];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", e.clases, className)}>
-      <Icono className="size-3.5" aria-hidden />{e.texto}
+      <IconoEstado estado={estado} />{e.texto}
     </span>
   );
 }

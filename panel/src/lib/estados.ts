@@ -1,4 +1,4 @@
-import type { Estado } from "@/api/tipos";
+import type { CitaAgenda, Estado } from "@/api/tipos";
 
 // Cada estado tiene color, texto y forma (icono) propios: nunca se comunica solo con color.
 export const ESTADOS: Record<Estado, { texto: string; clases: string; borde: string; icono: string }> = {
@@ -10,3 +10,12 @@ export const ESTADOS: Record<Estado, { texto: string; clases: string; borde: str
   cancelada: { texto: "Cancelada", clases: "bg-zinc-100 text-zinc-600 line-through", borde: "border-zinc-300", icono: "x" },
   reprogramada: { texto: "Reprogramada", clases: "bg-violet-100 text-violet-900", borde: "border-violet-500", icono: "repetir" },
 };
+
+const VIVAS: Estado[] = ["programada", "confirmada", "no_confirmada"];
+
+/** Una cita viva cuya hora ya terminó: falta registrar si el paciente asistió. */
+export const porCerrar = (c: Pick<CitaAgenda, "estado" | "fin">, ahora: Date): boolean =>
+  VIVAS.includes(c.estado) && c.fin !== null && Date.parse(c.fin) <= ahora.getTime();
+
+/** Colores de una cita ya pasada y sin cerrar: apagados (el borde conserva el color de su estado). */
+export const CLASES_POR_CERRAR = "bg-zinc-100 text-zinc-700";
