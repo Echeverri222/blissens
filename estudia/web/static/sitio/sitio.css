@@ -265,3 +265,8 @@ small.muted { color: var(--gris); }
 .panel-form:not(.panel-form--claro) form button[type=submit]:hover { background: #e4e4e7; }
 .app__negocio { margin: 0 0 .75rem; font-size: .72rem; letter-spacing: .2em; text-transform: uppercase; color: var(--gris); }
 .pie--minimo { padding: 1.5rem 0; } .pie--minimo .pie__base { margin-top: 0; padding-top: 0; border-top: 0; }
+.familia { list-style: none; margin: 0 0 1rem; padding: 0; border: 1px solid var(--linea); border-radius: 1rem; background: #fff; }
+.familia li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1.25rem; margin: 0; }
+.familia li + li { border-top: 1px solid var(--linea); }
+.familia a { font-size: .9rem; text-underline-offset: .2em; }
+.filtros .para { grid-column: 1 / -1; }

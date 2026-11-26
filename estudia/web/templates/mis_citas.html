@@ -2,11 +2,25 @@
 {% block title %}Mis citas · Blissens{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-<h1>Hola, {{ p.nombres.split()[0]|title }}</h1>
-{% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
-<h2>Mis próximas citas</h2>
+<h1>Hola, {{ p.nombres|nombre }}</h1>
+{% if aviso %}<p class="aviso" role="status">{{ aviso }}</p>{% endif %}
+{% if siguientes %}
+  <div class="tarjeta">
+    <p style="margin:0 0 .75rem"><strong>¿Alguien más de tu familia viene ese día?</strong></p>
+    <div class="acciones">
+      {% for x in siguientes.personas %}
+        <a role="button" class="outline" href="/p/{{ token }}/agendar?para={{ x.id }}&servicio={{ siguientes.servicio }}&desde={{ siguientes.desde }}">{{ x.texto }}</a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+{% if responsable %}
+  <p class="nota">{{ responsable.nombres|nombre }} también ve y gestiona tus citas.</p>
+{% endif %}
+<h2>{% if familiares %}Próximas citas de tu familia{% else %}Mis próximas citas{% endif %}</h2>
 {% for c in citas %}
   <article class="cita">
+    {% if familiares %}<small class="muted">{{ 'Tú' if c.paciente_id == p.id else c.paciente_nombres|nombre }}</small><br>{% endif %}
     <strong>{{ c.rango.lower|local|fecha if c.rango else c.dia|fecha }}{% if c.rango %} · {{ c.rango.lower|local|hora }}{% endif %}</strong><br>
     {{ c.profesional }} · {{ c.servicio }}<br>
     <small class="muted">Estado: {{ c.estado.replace('_', ' ') }}</small>
@@ -16,7 +30,30 @@
     </div>
   </article>
 {% else %}
-  <p>No tienes citas próximas.</p>
+  <p>{% if familiares %}Nadie de tu familia tiene citas próximas.{% else %}No tienes citas próximas.{% endif %}</p>
 {% endfor %}
 <a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>
+
+{% if not responsable %}
+  <h2>Mi familia</h2>
+  {% if familiares %}
+    <ul class="familia">
+      {% for f in familiares %}
+        <li>
+          <span><strong>{{ f.nombres|nombre }}</strong> {{ f.apellidos }}<br>
+            <small class="muted">{{ f.parentesco_texto }}{% if f.menor %} · Menor de edad{% endif %}</small></span>
+          <a href="/p/{{ token }}/agendar?para={{ f.id }}">Agendar</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="nota">¿Agendas también para tus hijos, tu pareja o tus padres? Agrégalos una vez y gestiona todas las citas desde aquí.</p>
+  {% endif %}
+  <a role="button" class="outline" href="/p/{{ token }}/familia/agregar">Agregar a alguien de mi familia</a>
+{% elif not menor %}
+  <form method="post" action="/p/{{ token }}/dejar-de-compartir" style="margin-top:2rem"
+        onsubmit="return confirm('{{ responsable.nombres|nombre }} dejará de ver y gestionar tus citas. ¿Continuar?')">
+    <button type="submit" class="outline secondary">Dejar de compartir mis citas</button>
+  </form>
+{% endif %}
 {% endblock %}

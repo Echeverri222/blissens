@@ -18,6 +18,7 @@ DEFAULTS = {
     "ventana_envio": ["07:00", "20:00"],
     "vigencia_enlace_dias": 30,
     "reintentos_tarea": 3,
+    "agrupar_avisos_min": 5,            # espera para juntar en un mensaje las citas que un hogar agenda seguidas
     "direccion": "Blissens Odontología, Calle 00 # 00-00, Bogotá",
     "termino_negocio": "la clínica",
     "texto_consentimiento": "Autorizo a {nombre} a tratar mis datos personales para gestionar mis citas y enviarme mensajes\n"

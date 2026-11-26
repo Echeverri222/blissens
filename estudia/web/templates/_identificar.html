@@ -22,4 +22,5 @@
       <span>{% if lang == 'en' and i.consent %}{{ i.consent.format(nombre=negocio.nombre if negocio else 'Blissens') }}{% else %}{{ consentimiento }}{% endif %}</span></label>
   {% endif %}
   <button class="boton" type="submit">{% if nuevo %}{{ i.registrar }}{% else %}{{ i.continuar }}{% endif %}</button>
+  {% if not nuevo %}<p class="nota"><small class="muted">{{ i.familia }}</small></p>{% endif %}
 </form>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Agregar a mi familia · Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="tarjeta tarjeta--angosta">
+  {% if contacto %}
+    <h1>Gracias</h1>
+    <div class="aviso" role="status">
+      <p>No pudimos agregar a esa persona de forma automática. {{ termino|capitalize }} se pondrá en contacto contigo muy pronto para ayudarte.</p>
+    </div>
+    <a role="button" class="outline" href="/p/{{ token }}">Volver a mis citas</a>
+  {% elif responsable %}
+    <h1>Agregar a mi familia</h1>
+    <p>Tu familia la gestiona {{ responsable.nombres|nombre }}. Pídele que agregue a esta persona desde su enlace.</p>
+    <a role="button" class="outline" href="/p/{{ token }}">Volver a mis citas</a>
+  {% else %}
+    <h1>Agregar a mi familia</h1>
+    <p>Agenda y gestiona sus citas desde tu enlace. Los mensajes de sus citas llegarán a tu celular.</p>
+    <form class="form" method="post" action="/p/{{ token }}/familia/agregar">
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      <label>Parentesco
+        <select name="parentesco" required>
+          <option value="" {% if not values.parentesco %}selected{% endif %} disabled>Elige…</option>
+          {% for k, v in parentescos.items() %}<option value="{{ k }}" {% if values.parentesco == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Documento de identidad
+        <input name="documento" inputmode="numeric" autocomplete="off" required value="{{ values.documento or '' }}">
+        <small class="muted">Registro civil, tarjeta de identidad o cédula.</small>
+      </label>
+      <label>Nombres <input name="nombres" autocomplete="off" required value="{{ values.nombres or '' }}"></label>
+      <label>Apellidos <input name="apellidos" autocomplete="off" value="{{ values.apellidos or '' }}"></label>
+      <label>Fecha de nacimiento <input name="nacimiento" type="date" required value="{{ values.nacimiento or '' }}"></label>
+      <label class="casilla"><input type="checkbox" name="consentimiento" value="1" required>
+        <span>Autorizo a {{ negocio.nombre if negocio else 'Blissens' }} a tratar los datos personales de esta persona para gestionar sus citas.
+          Si es menor de edad, declaro que soy su madre, padre o representante legal; si es mayor de edad, que me autorizó a agendar por ella.</span></label>
+      <button type="submit">Agregar a mi familia</button>
+    </form>
+  {% endif %}
+</div>
+{% if not contacto and not responsable %}<p style="text-align:center"><a href="/p/{{ token }}">Volver a mis citas</a></p>{% endif %}
+{% endblock %}

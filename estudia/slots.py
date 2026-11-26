@@ -44,13 +44,18 @@ def candidates(conn, cupo) -> list[dict]:
           and s.duracion_min <= %(slot_min)s
           and p.acepta_mensajes
           and c.paciente_id is distinct from (select o.paciente_id from cita o where o.id = %(origen)s)
+          -- Una oferta pendiente a la vez por hogar (el celular es compartido) y el tope semanal también es del hogar.
           and not exists (select 1 from oferta_adelanto o join cita c2 on c2.id = o.cita_id
-                          where c2.paciente_id = c.paciente_id and o.estado = 'pendiente')
+                          join paciente p2 on p2.id = c2.paciente_id
+                          where coalesce(p2.responsable_id, p2.id) = coalesce(p.responsable_id, p.id)
+                            and o.estado = 'pendiente')
           and not exists (select 1 from cita c3 where c3.paciente_id = c.paciente_id and c3.id <> c.id
                           and c3.estado = any(%(alive)s) and c3.dia = (lower(%(rango)s) at time zone current_setting('TimeZone'))::date)
           and not exists (select 1 from oferta_adelanto o2 where o2.cupo_id = %(cupo)s and o2.cita_id = c.id)
           and (select count(*) from oferta_adelanto o3 join cita c4 on c4.id = o3.cita_id
-               where c4.paciente_id = c.paciente_id and o3.enviada_en > %(now)s - interval '7 days') < %(week_max)s
+               join paciente p4 on p4.id = c4.paciente_id
+               where coalesce(p4.responsable_id, p4.id) = coalesce(p.responsable_id, p.id)
+                 and o3.enviada_en > %(now)s - interval '7 days') < %(week_max)s
         order by lower(c.rango) desc, c.id
         """,
         {"pro": cupo["profesional_id"], "alive": list(ALIVE), "rango": cupo["rango"], "slot_min": slot_min,

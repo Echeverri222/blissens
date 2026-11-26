@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import agenda, arranque, canales, clock, config, db, fmt, links, logs, messaging, settings, tasks, usuarios
+from .. import agenda, arranque, canales, clock, config, db, familia, fmt, links, logs, messaging, settings, tasks, usuarios
 from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
@@ -26,7 +26,20 @@ templates.env.filters["fecha"] = fmt.fecha
 templates.env.filters["hora"] = fmt.hora
 templates.env.filters["fecha_hora"] = fmt.fecha_hora
 templates.env.filters["dia_corto"] = lambda d: fmt.DIAS[d.weekday()][:3].capitalize()
+templates.env.filters["nombre"] = familia.primer_nombre  # primer nombre, sin fallar si viene vacío
 templates.env.filters["local"] = lambda d: d.astimezone(clock.TZ) if d else d
+
+
+def estatico(ruta: str) -> str:
+    """`/static/...` con una huella del archivo: tras un cambio, el navegador no reutiliza la copia vieja de su caché."""
+    try:
+        huella = format(int((HERE / "static" / ruta).stat().st_mtime), "x")
+    except OSError:
+        return f"/static/{ruta}"
+    return f"/static/{ruta}?v={huella}"
+
+
+templates.env.globals["estatico"] = estatico
 
 
 publico = APIRouter()
@@ -305,19 +318,106 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
 
 # ----------------------------------------------------------------- Mis citas
 
-def _appointments(conn, patient_id: int):
+def _appointments(conn, patient_ids: list[int]):
     now = clock.now(conn)
     return conn.execute(
-        "select c.*, p.nombre as profesional, s.nombre as servicio from cita c "
+        "select c.*, p.nombre as profesional, s.nombre as servicio, pa.nombres as paciente_nombres from cita c "
         "join profesional p on p.id=c.profesional_id join servicio s on s.id=c.servicio_id "
-        "where c.paciente_id=%s and c.estado = any(%s) and (c.rango is null or upper(c.rango) > %s) order by c.dia, c.rango",
-        (patient_id, list(ALIVE), now)).fetchall()
+        "join paciente pa on pa.id=c.paciente_id "
+        "where c.paciente_id = any(%s) and c.estado = any(%s) and (c.rango is null or upper(c.rango) > %s) "
+        "order by c.dia, c.rango",
+        (patient_ids, list(ALIVE), now)).fetchall()
+
+
+def _cita_del_hogar(conn, p: dict, cita_id: int, vivas: bool = True) -> dict:
+    """Una cita del paciente o de sus familiares; cualquier otra es 404."""
+    c = conn.execute("select * from cita where id=%s and paciente_id = any(%s)" + (" and estado = any(%s)" if vivas else ""),
+                     (cita_id, familia.ids_del_hogar(conn, p)) + ((list(ALIVE),) if vivas else ())).fetchone()
+    if c is None:
+        raise HTTPException(404, "Esa cita ya no está vigente")
+    return c
+
+
+def _sujeto(conn, p: dict, para: int | None) -> dict:
+    try:
+        return familia.sujeto(conn, p, para)
+    except familia.NoEsDeLaFamilia:
+        raise HTTPException(404, "Esa persona no está en tu familia") from None
+
+
+def _primer_nombre(p: dict) -> str:
+    return familia.primer_nombre(p)
+
+
+def _siguientes(conn, p: dict, familiares: list[dict], cita_id: int | None) -> dict | None:
+    """Tras agendar: botones «Agendar a X justo después» para el resto del hogar (mismo día y servicio)."""
+    if not cita_id or not familiares:
+        return None
+    c = conn.execute("select * from cita where id=%s and paciente_id = any(%s) and rango is not null",
+                     (cita_id, familia.ids_del_hogar(conn, p))).fetchone()
+    if c is None:
+        return None
+    hogar = [p] + familiares
+    # Solo quienes aún no tienen cita ese día.
+    ocupados = {r["paciente_id"] for r in conn.execute(
+        "select paciente_id from cita where paciente_id = any(%s) and dia=%s and estado = any(%s)",
+        ([x["id"] for x in hogar], c["dia"], list(ALIVE))).fetchall()}
+    otros = [{"id": x["id"], "texto": "Agendarme justo después" if x["id"] == p["id"] else
+              f"Agendar a {_primer_nombre(x)} justo después"} for x in hogar if x["id"] not in ocupados]
+    if not otros:
+        return None
+    fin = c["rango"].upper.astimezone(clock.TZ)
+    return {"personas": otros, "servicio": c["servicio_id"], "desde": fin.strftime("%Y-%m-%dT%H:%M")}
 
 
 @publico.get("/p/{token}", response_class=HTMLResponse)
-def mis_citas(request: Request, token: str, aviso: str = "", conn=Depends(conn_enlace)):
+def mis_citas(request: Request, token: str, aviso: str = "", cita: int | None = None, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    return render(request, "mis_citas.html", p=p, token=token, citas=_appointments(conn, p["id"]), aviso=aviso)
+    fams = familia.familiares(conn, p["id"])
+    responsable = familia.responsable_de(conn, p)
+    hoy = clock.now(conn).astimezone(clock.TZ).date()
+    return render(request, "mis_citas.html", p=p, token=token, citas=_appointments(conn, familia.ids_del_hogar(conn, p)),
+                  aviso=aviso, familiares=fams, responsable=responsable, siguientes=_siguientes(conn, p, fams, cita),
+                  menor=familia.es_menor(p["fecha_nacimiento"], hoy))
+
+
+@publico.get("/p/{token}/familia/agregar", response_class=HTMLResponse)
+def familia_form(request: Request, token: str, conn=Depends(conn_enlace)):
+    p = patient_from_token(conn, token)
+    return render(request, "familia.html", p=p, token=token, error=None, values={}, parentescos=familia.PARENTESCOS,
+                  responsable=familia.responsable_de(conn, p))
+
+
+@publico.post("/p/{token}/familia/agregar", response_class=HTMLResponse)
+def familia_agregar(request: Request, token: str, documento: str = Form(""), nombres: str = Form(""),
+                    apellidos: str = Form(""), nacimiento: str = Form(""), parentesco: str = Form(""),
+                    consentimiento: str = Form(""), conn=Depends(conn_enlace)):
+    p = patient_from_token(conn, token)
+    values = {"documento": documento, "nombres": nombres, "apellidos": apellidos, "nacimiento": nacimiento,
+              "parentesco": parentesco}
+    try:
+        fid, ya_estaba = familia.agregar(conn, p, documento, nombres, apellidos, nacimiento, parentesco, bool(consentimiento))
+    except familia.DatosInvalidos as e:
+        return render(request, "familia.html", p=p, token=token, error=str(e), values=values,
+                      parentescos=familia.PARENTESCOS, responsable=familia.responsable_de(conn, p), status_code=422)
+    except familia.NoSePuede:
+        return render(request, "familia.html", p=p, token=token, contacto=True, responsable=None)
+    f = conn.execute("select nombres from paciente where id=%s", (fid,)).fetchone()
+    aviso = f"{_primer_nombre(f)} ya estaba en tu familia." if ya_estaba else \
+        f"Agregamos a {_primer_nombre(f)} a tu familia. Ya puedes agendarle citas."
+    return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
+
+
+@publico.post("/p/{token}/dejar-de-compartir", response_class=HTMLResponse)
+def dejar_de_compartir(request: Request, token: str, conn=Depends(conn_enlace)):
+    p = patient_from_token(conn, token)
+    if not p["responsable_id"]:
+        return RedirectResponse(f"/p/{token}", status_code=303)
+    try:
+        familia.dejar_de_compartir(conn, p)
+    except familia.DatosInvalidos as e:
+        return RedirectResponse(f"/p/{token}?aviso=" + quote(str(e)), status_code=303)
+    return RedirectResponse(f"/p/{token}?aviso=" + quote("Listo: tus citas ya no se comparten."), status_code=303)
 
 
 def _slots(conn, professional_id, service_id):
@@ -331,15 +431,26 @@ DIAS_POR_PAGINA = 5
 HORAS_POR_PAGINA = 9
 
 
-def _vista(slots, dia=None, pag=0, hpag=0):
-    """Qué muestra la agenda a un toque: 5 días con espacios por página, el día elegido y sus horas."""
+def _vista(slots, dia=None, pag=0, hpag=0, desde: datetime | None = None):
+    """Qué muestra la agenda a un toque: 5 días con espacios por página, el día elegido y sus horas.
+
+    `desde` (agendar a un familiar justo después): abre el día y la página de horas del primer espacio a esa hora o
+    después, y lo deja preseleccionado."""
     dias = list(slots)
+    preseleccion = None
+    if desde is not None:
+        dia_d = desde.date()
+        siguiente = next((t for t in slots.get(dia_d, []) if t >= desde), None)
+        if siguiente is not None:
+            preseleccion, dia = siguiente, dia_d
+            pag = dias.index(dia_d) // DIAS_POR_PAGINA
+            hpag = slots[dia_d].index(siguiente) // HORAS_POR_PAGINA
     pag = max(0, min(pag, max(0, (len(dias) - 1) // DIAS_POR_PAGINA)))
     pagina = dias[pag * DIAS_POR_PAGINA:(pag + 1) * DIAS_POR_PAGINA]
     elegido = dia if dia in pagina else (pagina[0] if pagina else None)
     todas = slots.get(elegido, [])
     hpag = hpag if 0 <= hpag <= max(0, (len(todas) - 1) // HORAS_POR_PAGINA) else 0
-    return {"dias_pagina": pagina, "dia": elegido, "pag": pag, "hpag": hpag,
+    return {"dias_pagina": pagina, "dia": elegido, "pag": pag, "hpag": hpag, "preseleccion": preseleccion,
             "horas": todas[hpag * HORAS_POR_PAGINA:(hpag + 1) * HORAS_POR_PAGINA],
             "hpag_sig": (hpag + 1) % max(1, -(-len(todas) // HORAS_POR_PAGINA)), "hay_mas_horas": len(todas) > HORAS_POR_PAGINA,
             "hay_anterior": pag > 0, "hay_siguiente": (pag + 1) * DIAS_POR_PAGINA < len(dias)}
@@ -349,48 +460,71 @@ def _espacios_resp(request, dia=None, pag=0, hpag=0, **ctx):
     return render(request, "_espacios.html", **ctx, **_vista(ctx["slots"], dia, pag, hpag))
 
 
-def _picker_context(conn, service_id, professional_id, any_default=True):
+def _picker_context(conn, service_id, professional_id, any_default=True, desde: datetime | None = None):
     services = conn.execute("select * from servicio where autoagendable order by id").fetchall()
     pros = conn.execute("select * from profesional where activo order by id").fetchall()
+    if service_id not in [s["id"] for s in services]:
+        service_id = None
     sid = service_id or services[0]["id"]
     pid = professional_id if professional_id is not None else (0 if any_default else pros[0]["id"])
     slots = _slots(conn, pid, sid)
-    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": slots, **_vista(slots)}
+    return {"services": services, "pros": pros, "sid": sid, "pid": pid, "slots": slots, **_vista(slots, desde=desde)}
+
+
+def _hogar(conn, p: dict) -> list[dict]:
+    """Personas para «¿Para quién es la cita?»: vacío si el paciente no gestiona a nadie."""
+    fams = familia.familiares(conn, p["id"])
+    if not fams:
+        return []
+    return [{"id": p["id"], "nombre": f"{_primer_nombre(p)} (tú)"}] + [{"id": f["id"], "nombre": _primer_nombre(f)} for f in fams]
+
+
+def _desde(valor: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(valor).replace(tzinfo=clock.TZ) if valor else None
+    except ValueError:
+        return None
 
 
 @publico.get("/p/{token}/nueva", response_class=HTMLResponse)
 @publico.get("/p/{token}/agendar", response_class=HTMLResponse)
 def nueva(request: Request, token: str, servicio: int | None = None, profesional: int | None = None,
-          caso: int | None = None, conn=Depends(conn_enlace)):
+          caso: int | None = None, para: int | None = None, desde: str | None = None, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    ctx = _picker_context(conn, servicio, profesional)
+    s = _sujeto(conn, p, para)
+    ctx = _picker_context(conn, servicio, profesional, desde=_desde(desde))
     return render(request, "elegir.html", p=p, token=token, modo="nueva", cita=None, error=None,
-                  action=f"/p/{token}/agendar", **ctx)
+                  action=f"/p/{token}/agendar", hogar=_hogar(conn, p), para=s["id"], **ctx)
 
 
 @publico.get("/p/{token}/espacios", response_class=HTMLResponse)
 def espacios(request: Request, token: str, servicio: int, profesional: int = 0, cita: int | None = None,
              modo: str = "nueva", error: str | None = None, dia: str | None = None, pag: int = 0,
-             hpag: int = 0, conn=Depends(conn_enlace)):
-    patient_from_token(conn, token)
+             hpag: int = 0, para: int | None = None, conn=Depends(conn_enlace)):
+    p = patient_from_token(conn, token)
+    s = _sujeto(conn, p, para)
     slots = _slots(conn, profesional, servicio)
     d = date.fromisoformat(dia) if dia else None
     return _espacios_resp(request, dia=d, pag=pag, hpag=hpag, slots=slots, sid=servicio, pid=profesional, token=token, cita=cita,
-                          modo=modo, error=error)
+                          modo=modo, error=error, para=s["id"])
 
 
 @publico.post("/p/{token}/agendar", response_class=HTMLResponse)
 def agendar_post(request: Request, token: str, servicio: int = Form(...), profesional: int = Form(0),
-                 inicio: str = Form(...), conn=Depends(conn_enlace)):
+                 inicio: str = Form(...), para: int | None = Form(None), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    s = _sujeto(conn, p, para)
     try:
-        agenda.book(conn, p["id"], profesional or None, servicio, datetime.fromisoformat(inicio), "paciente", "paciente")
+        cita_id = agenda.book(conn, s["id"], profesional or None, servicio, datetime.fromisoformat(inicio), "paciente",
+                              "paciente")
     except agenda.SlotTaken:
         slots = _slots(conn, profesional, servicio)
-        return _espacios_resp(request, slots=slots, sid=servicio, pid=profesional, token=token, cita=None,
-                      modo="nueva", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
+        return _espacios_resp(request, slots=slots, sid=servicio, pid=profesional, token=token, cita=None, para=s["id"],
+                              modo="nueva", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
+    quien = "Tu cita" if s["id"] == p["id"] else f"La cita de {_primer_nombre(s)}"
     resp = HTMLResponse("")
-    resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote("Tu cita quedó agendada. Te enviamos la confirmación por WhatsApp.")
+    resp.headers["HX-Redirect"] = f"/p/{token}?cita={cita_id}&aviso=" + quote(
+        f"{quien} quedó agendada. Te enviamos la confirmación por WhatsApp.")
     return resp
 
 
@@ -398,10 +532,7 @@ def agendar_post(request: Request, token: str, servicio: int = Form(...), profes
 def cambiar(request: Request, token: str, cita_id: int, servicio: int | None = None, profesional: int | None = None,
             conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    c = conn.execute("select * from cita where id=%s and paciente_id=%s and estado = any(%s)",
-                     (cita_id, p["id"], list(ALIVE))).fetchone()
-    if c is None:
-        raise HTTPException(404, "Esa cita ya no está vigente")
+    c = _cita_del_hogar(conn, p, cita_id)
     ctx = _picker_context(conn, c["servicio_id"], c["profesional_id"])
     ctx["services"] = [s for s in ctx["services"] if s["id"] == c["servicio_id"]] or ctx["services"]
     if c["servicio_id"] not in [s["id"] for s in ctx["services"]]:
@@ -409,54 +540,56 @@ def cambiar(request: Request, token: str, cita_id: int, servicio: int | None = N
     ctx["slots"] = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
     ctx.update(_vista(ctx["slots"]))
     ctx["sid"], ctx["pid"] = c["servicio_id"], c["profesional_id"]
+    s = _sujeto(conn, p, c["paciente_id"])
     return render(request, "elegir.html", p=p, token=token, modo="cambiar", cita=cita_id, error=None,
-                  action=f"/p/{token}/cambiar/{cita_id}", **ctx)
+                  action=f"/p/{token}/cambiar/{cita_id}", hogar=[], para=s["id"],
+                  para_nombre=None if s["id"] == p["id"] else _primer_nombre(s), **ctx)
 
 
 @publico.post("/p/{token}/cambiar/{cita_id}", response_class=HTMLResponse)
 def cambiar_post(request: Request, token: str, cita_id: int, inicio: str = Form(...), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    c = conn.execute("select * from cita where id=%s and paciente_id=%s", (cita_id, p["id"])).fetchone()
-    if c is None:
-        raise HTTPException(404)
+    c = _cita_del_hogar(conn, p, cita_id, vivas=False)
     try:
         agenda.reschedule(conn, cita_id, datetime.fromisoformat(inicio), "paciente")
     except agenda.SlotTaken:
         slots = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
         return _espacios_resp(request, slots=slots, sid=c["servicio_id"], pid=c["profesional_id"], token=token,
-                      cita=cita_id, modo="cambiar", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
+                              cita=cita_id, modo="cambiar", para=c["paciente_id"],
+                              error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
+    s = _sujeto(conn, p, c["paciente_id"])
+    quien = "tu cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
     resp = HTMLResponse("")
-    resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote("Cambiamos la fecha de tu cita.")
+    resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote(f"Cambiamos la fecha de {quien}.")
     return resp
 
 
 @publico.get("/p/{token}/cancelar/{cita_id}", response_class=HTMLResponse)
 def cancelar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    c = conn.execute("select * from cita where id=%s and paciente_id=%s and estado = any(%s)",
-                     (cita_id, p["id"], list(ALIVE))).fetchone()
-    if c is None:
-        raise HTTPException(404, "Esa cita ya no está vigente")
+    c = _cita_del_hogar(conn, p, cita_id)
+    s = _sujeto(conn, p, c["paciente_id"])
     motivos = conn.execute("select * from motivo_cancelacion order by orden").fetchall()
-    return render(request, "cancelar.html", p=p, token=token, cita_id=cita_id, motivos=motivos)
+    return render(request, "cancelar.html", p=p, token=token, cita_id=cita_id, motivos=motivos,
+                  para_nombre=None if s["id"] == p["id"] else _primer_nombre(s))
 
 
 @publico.post("/p/{token}/cancelar/{cita_id}", response_class=HTMLResponse)
 def cancelar_post(request: Request, token: str, cita_id: int, motivo: int = Form(...), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
-    c = conn.execute("select * from cita where id=%s and paciente_id=%s", (cita_id, p["id"])).fetchone()
-    if c is None:
-        raise HTTPException(404)
+    c = _cita_del_hogar(conn, p, cita_id, vivas=False)
     agenda.cancel(conn, cita_id, "paciente", "enlace", reason_id=motivo)
-    # Tras cancelar se ofrecen espacios de inmediato.
+    # Tras cancelar se ofrecen espacios de inmediato, para la misma persona.
     ctx = _picker_context(conn, c["servicio_id"], c["profesional_id"])
     if c["servicio_id"] not in [s["id"] for s in ctx["services"]]:
         ctx["services"] = conn.execute("select * from servicio where id=%s", (c["servicio_id"],)).fetchall()
     ctx["sid"], ctx["pid"] = c["servicio_id"], c["profesional_id"]
     ctx["slots"] = agenda.available_slots(conn, c["profesional_id"], c["servicio_id"])
     ctx.update(_vista(ctx["slots"]))
+    s = _sujeto(conn, p, c["paciente_id"])
     return render(request, "elegir.html", p=p, token=token, modo="nueva", cita=None, error=None,
-                  action=f"/p/{token}/agendar", cancelada=True, **ctx)
+                  action=f"/p/{token}/agendar", cancelada=True, hogar=[], para=s["id"],
+                  para_nombre=None if s["id"] == p["id"] else _primer_nombre(s), **ctx)
 
 
 @publico.get("/correo/baja/{token}", response_class=HTMLResponse)
@@ -576,10 +709,16 @@ async def webhook_canal(tipo: str, request: Request):
         if conn.execute("select 1 from mensaje where canal=%s and id_externo=%s", (tipo, ent.id_mensaje)).fetchone():
             return {"estado": "repetido"}
         celular = normalize_phone(ent.celular)
-        pacientes = conn.execute("select id from paciente where celular=%s", (celular,)).fetchall() if celular else []
-        if len(pacientes) != 1:  # celular desconocido o compartido por varios pacientes: queda para el PRD de WhatsApp
-            return {"estado": "sin_paciente" if not pacientes else "ambiguo"}
-        messaging.receive(conn, pacientes[0]["id"], button_id=ent.boton, text=ent.texto, channel=tipo, id_externo=ent.id_mensaje)
+        # Un celular compartido por un solo hogar es del responsable: a él van los avisos agrupados (docs/prd-familia.md
+        # R9). Compartido por pacientes sin relación, sigue ambiguo (queda para el PRD de WhatsApp).
+        hogares = conn.execute("select distinct coalesce(responsable_id, id) as raiz from paciente where celular=%s",
+                               (celular,)).fetchall() if celular else []
+        if not hogares:
+            return {"estado": "sin_paciente"}
+        raiz = hogares[0]["raiz"] if len(hogares) == 1 else _hogar_del_ultimo_mensaje(conn, celular)
+        if raiz is None:
+            return {"estado": "ambiguo"}
+        messaging.receive(conn, raiz, button_id=ent.boton, text=ent.texto, channel=tipo, id_externo=ent.id_mensaje)
         conn.commit()
         return {"estado": "recibido"}
     except Exception:
@@ -587,6 +726,16 @@ async def webhook_canal(tipo: str, request: Request):
         raise
     finally:
         conn.close()
+
+
+def _hogar_del_ultimo_mensaje(conn, celular: str) -> int | None:
+    """Un celular que quedó en dos hogares (alguien dejó de compartir y conservó el número): la respuesta es del hogar
+    al que se le escribió por última vez en los últimos 7 días. Si a ninguno, sigue ambigua."""
+    r = conn.execute(
+        "select coalesce(p.responsable_id, p.id) as raiz from mensaje m join paciente p on p.id=m.paciente_id "
+        "where p.celular=%s and m.direccion='saliente' and m.estado_entrega='entregado' and m.momento > %s "
+        "order by m.momento desc, m.id desc limit 1", (celular, clock.now(conn) - timedelta(days=7))).fetchone()
+    return r["raiz"] if r else None
 
 
 def exigir_tick(request: Request, x_tick_secreto: str = Header("")) -> None:

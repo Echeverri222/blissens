@@ -79,6 +79,29 @@ function ListaPacientes<T extends object>({ titulo, ayuda, clave, fn, vacio, fil
   );
 }
 
+const PARENTESCOS: Record<string, string> = { hijo: "hijo o hija", pareja: "pareja", padre: "madre o padre", otro: "otro familiar" };
+
+/** Quién gestiona las citas de este paciente desde su enlace y de quiénes las gestiona él (docs/prd-familia.md). */
+function Familia({ f }: { f: FichaCompleta }) {
+  const { responsable, familiares, menor } = f.familia;
+  if (!responsable && familiares.length === 0 && !menor) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-sm text-tinta-suave">
+      {menor && <p><span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-tinta">Menor de edad</span></p>}
+      {responsable && (
+        <p>Sus citas las gestiona <Link to={`/pacientes/${responsable.id}`} className="font-medium text-tinta underline">{responsable.nombre}</Link>
+          {responsable.parentesco ? ` · parentesco: ${PARENTESCOS[responsable.parentesco] ?? responsable.parentesco}` : ""}</p>
+      )}
+      {familiares.length > 0 && (
+        <p>Gestiona las citas de {familiares.map((x, i) => (
+          <span key={x.id}>{i > 0 && ", "}<Link to={`/pacientes/${x.id}`} className="font-medium text-tinta underline">{x.nombre}</Link>
+            {x.parentesco ? ` (${PARENTESCOS[x.parentesco] ?? x.parentesco}${x.menor ? ", menor" : ""})` : ""}</span>
+        ))}</p>
+      )}
+    </div>
+  );
+}
+
 const APARTADOS = ["Citas e historial", "Seguimientos", "Mensajes", "Reversibles"] as const;
 
 export function Ficha() {
@@ -94,6 +117,7 @@ export function Ficha() {
             <div>
               <h1 className="text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}</h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
+              <Familia f={f} />
               {!f.paciente.acepta_mensajes && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950"><BellOff className="size-4" aria-hidden />Dado de baja de mensajes automáticos</p>
               )}

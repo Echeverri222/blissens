@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Cancelar mi cita · Blissens{% endblock %}
+{% block title %}{% if para_nombre %}Cancelar la cita de {{ para_nombre }}{% else %}Cancelar mi cita{% endif %} · Blissens{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-<h1>Cancelar mi cita</h1>
+<h1>{% if para_nombre %}Cancelar la cita de {{ para_nombre }}{% else %}Cancelar mi cita{% endif %}</h1>
 <p>Cuéntanos el motivo con un toque. Nos ayuda a mejorar.</p>
 {% for m in motivos %}
   <form method="post" action="/p/{{ token }}/cancelar/{{ cita_id }}" style="margin:0 0 .5rem">

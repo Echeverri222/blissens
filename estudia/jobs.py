@@ -9,6 +9,12 @@ def _recordatorio(conn, d, now):
     confirmations.run_reminder(conn, d["cita_id"], d["horas"], d["inicio"], now)
 
 
+@tasks.handler("avisar_agendadas")
+def _avisar_agendadas(conn, d, now):
+    from . import agenda
+    agenda.enviar_agendadas(conn, d["hogar"], d.get("direct", False), d.get("citas"))
+
+
 @tasks.handler("intento_seguimiento")
 def _intento(conn, d, now):
     followup.run_attempt(conn, d["caso_id"], d["numero"])

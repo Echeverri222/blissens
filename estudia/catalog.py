@@ -19,6 +19,11 @@ _CONF = [{"id": "conf:si:{cita_id}", "title": "Sí, asistiré"},
          {"id": "conf:no:{cita_id}", "title": "No podré ir"},
          {"id": "conf:cambiar:{cita_id}", "title": "Cambiar fecha"}]
 _AHORA_NO = [{"id": "seg:ahora_no:{caso_id}", "title": "Ahora no"}]
+# Avisos agrupados del hogar (docs/prd-familia.md §4 R9): un solo mensaje al celular compartido, dirigido al responsable.
+# `{ids}` son las citas a las que aplica el botón, separadas por guiones. No hay "No podré ir" de un toque: cancelar varias
+# citas así sería un error caro; se cancela cita por cita desde el enlace.
+_CONF_HOGAR = [{"id": "confh:si:{ids}", "title": "Sí, asistiremos"},
+               {"id": "confh:cambiar:{ids}", "title": "Cambiar o cancelar"}]
 
 PLANTILLAS = {
     "cita_agendada": ("¡Hola {nombre}! Tu cita quedó agendada para el {fecha} a las {hora} con {profesional}. "
@@ -58,6 +63,17 @@ PLANTILLAS = {
                       "que elijas otra.", "botones", []),
     "seguimiento_pausado": ("Entendido, {nombre}. No insistiremos más sobre esto. Cuando quieras retomar, "
                             "aquí estamos.", "botones", []),
+    "cita_agendada_hogar": ("¡Hola {nombre}! Te confirmamos lo que quedó agendado:\n{lista}\n"
+                            "Los esperamos en {direccion}. ¡Gracias por elegirnos!", "botones", []),
+    "recordatorio_48h_hogar": ("Hola {nombre}, te recordamos las próximas citas de tu familia:\n{lista}\n"
+                               "¿Nos confirmas la asistencia?", "botones", _CONF_HOGAR),
+    "recordatorio_24h_hogar": ("Hola {nombre}, mañana tienen cita:\n{lista}\nLos esperamos en {direccion}.",
+                               "botones", []),
+    "segundo_intento_hogar": ("Hola {nombre}, mañana tienen cita:\n{lista}\nAún nos falta la confirmación de las que "
+                              "dicen «sin confirmar». ¿Puedes responder con un toque?", "botones", _CONF_HOGAR),
+    "confirmacion_recibida_hogar": ("¡Gracias, {nombre}! Quedaron confirmadas:\n{lista}\nLos esperamos en {direccion}.",
+                                    "botones", []),
+    "cambiar_hogar": ("Claro, {nombre}. Desde aquí puedes cambiar o cancelar cada cita: {enlace}", "botones", []),
 }
 
 
