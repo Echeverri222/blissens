@@ -320,14 +320,16 @@ describe("sistema", () => {
   });
 });
 
+const SIN_PENDIENTES = { resueltos: 0, mediana_horas: null, p90_horas: null, abiertos_hoy: 0, vencidos: 0 };
 describe("indicadores", () => {
   it("vuelve a consultar con los filtros elegidos", async () => {
     const pedidos: string[] = [];
     const vacio = (ruta: string, cuerpo: unknown) => http.get(`${API}/indicadores/${ruta}`, ({ request }) => { if (ruta === "resumen") pedidos.push(new URL(request.url).search); return HttpResponse.json(cuerpo as never); });
     servidor.use(
-      vacio("resumen", { citas: 3, atendidas: 2, no_asistio: 1, atencion_efectiva: 0.5, asistencia: 0.5, inasistencia: 0.25, sin_desenlace: 0, capacidad_aplica: true, cancelaciones: 1, cancelaciones_tardias: 0, cancelaciones_recuperadas: 0, recuperacion: null, confirmacion: null, ocupacion: null, minutos_disponibles: 0, minutos_atendidos: 0, cupos_liberados: 0, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 0 }),
+      vacio("resumen", { citas: 3, atendidas: 2, no_asistio: 1, atencion_efectiva: 0.5, asistencia: 0.5, inasistencia: 0.25, sin_desenlace: 0, capacidad_aplica: true, cancelaciones: 1, cancelaciones_tardias: 0, cancelaciones_recuperadas: 0, recuperacion: null, confirmacion: null, ocupacion: null, minutos_disponibles: 0, minutos_atendidos: 0, cupos_liberados: 0, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 0, valor_perdido: 0, valor_perdido_inasistencia: 0, valor_perdido_tardias: 0, citas_sin_valor: 0, metas: {} }),
       vacio("tendencia", []), vacio("por-profesional", []), vacio("por-servicio", []), vacio("motivos", []), vacio("tiempo-entre-citas", { por_servicio: [], por_paciente_dias: null }),
-      vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("recordatorios", { con_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, sin_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, embudo: { citas: 0, con_recordatorio: 0, confirmadas: 0, atendidas: 0 } }),
+      vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("reagendamiento", { mediana_dias: null, total: 0, buckets: { mismo_dia: 0, "1_3": 0, "4_14": 0, "15_60": 0, no_reagendo: 0 } }),
+      vacio("pendientes", { cierre_citas: SIN_PENDIENTES, mensajes: SIN_PENDIENTES, seguimientos: SIN_PENDIENTES, por_usuario: [], registro_desde: "2026-11-25" }), vacio("recordatorios", { con_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, sin_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, embudo: { citas: 0, con_recordatorio: 0, confirmadas: 0, atendidas: 0 } }),
       http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, ultimo_cierre: null, configuracion: {} })));
     montar("/indicadores", AUX);
     expect(await screen.findByText("25.0 %")).toBeInTheDocument();
@@ -429,5 +431,36 @@ describe("negocios, clave temporal y administración", () => {
     await userEvent.type(screen.getByLabelText("Nombre visible"), "Nueva");
     await userEvent.click(screen.getByRole("button", { name: "Crear con contraseña temporal" }));
     expect(await screen.findByLabelText("Contraseña temporal")).toHaveTextContent("abcd-efgh-jkmn");
+  });
+
+  it("un administrador fija el valor de un servicio por fila y las metas de los indicadores", async () => {
+    const servicios = [
+      { id: 1, nombre: "Valoración", duracion_min: 60, autoagendable: true, valor: 80000 },
+      { id: 2, nombre: "Limpieza", duracion_min: 30, autoagendable: true, valor: null }];
+    servidor.use(
+      http.get(`${API}/admin/usuarios`, () => HttpResponse.json([])),
+      http.get(`${API}/servicios`, () => HttpResponse.json(servicios)),
+      http.get(`${API}/admin/metas`, () => HttpResponse.json({ inasistencia: { max: 0.15 } })),
+      http.put(`${API}/admin/servicios/:id`, async ({ request, params }) => { await registrar(request); return HttpResponse.json({ ...servicios[0], id: Number(params.id) }); }),
+      http.put(`${API}/admin/metas`, async ({ request }) => { await registrar(request); return HttpResponse.json({}); }),
+    );
+    montar("/administracion", { ...AUX, administrador: true });
+    expect(await screen.findByText(/Es un valor promedio, no una factura/)).toBeInTheDocument();
+    expect(await screen.findByText(/Guardado: .*80\.000/)).toBeInTheDocument();
+    const fila = screen.getByRole("form", { name: "Valor de Limpieza" });
+    expect(within(fila).getByRole("button", { name: "Guardar" })).toBeDisabled();           // sin cambios no hay nada que guardar
+    await userEvent.type(within(fila).getByLabelText("Limpieza"), "120000");
+    await userEvent.click(within(fila).getByRole("button", { name: "Guardar" }));
+    expect(await screen.findByText("Valor guardado")).toBeInTheDocument();
+    expect(enviadas.at(-1)).toMatchObject({ metodo: "PUT", ruta: "/api/v1/admin/servicios/2", cuerpo: { valor: 120000 } });
+
+    const metas = screen.getByRole("form", { name: "Metas de indicadores" });
+    expect(within(metas).getByLabelText("Inasistencia máxima (%)")).toHaveValue(15);
+    await userEvent.type(within(metas).getByLabelText("Asistencia mínima (%)"), "80");
+    await userEvent.clear(within(metas).getByLabelText("Inasistencia máxima (%)"));           // vacío quita la meta
+    await userEvent.type(within(metas).getByLabelText("Dinero perdido máximo ($)"), "2000000");
+    await userEvent.click(within(metas).getByRole("button", { name: "Guardar metas" }));
+    await waitFor(() => expect(enviadas.at(-1)).toMatchObject({ ruta: "/api/v1/admin/metas", cuerpo: { asistencia: { min: 0.8 }, dinero_perdido: { max: 2000000 } } }));
+    expect(enviadas.at(-1)?.cuerpo).not.toHaveProperty("inasistencia");
   });
 });

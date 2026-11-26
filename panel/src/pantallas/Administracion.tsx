@@ -2,8 +2,9 @@ import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, ApiError } from "@/api/cliente";
-import { useAccion, useProfesionales } from "@/api/consultas";
-import type { UsuarioAdmin } from "@/api/tipos";
+import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
+import type { Metas, Servicio, UsuarioAdmin } from "@/api/tipos";
+import { pesos } from "@/lib/dinero";
 import { fechaHora } from "@/lib/tiempo";
 import { useSesion } from "@/sesion/Sesion";
 import { Boton, Casilla, Confirmar, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
@@ -91,6 +92,88 @@ function Fila({ u, yo, alEmitir }: { u: UsuarioAdmin; yo: string; alEmitir: (usu
   );
 }
 
+/** Valor promedio de un servicio, en pesos. Se guarda por fila; vacío lo quita. */
+function FilaValor({ s }: { s: Servicio }) {
+  const [valor, setValor] = useState(s.valor === null ? "" : String(s.valor));
+  const m = useAccion((v: number | null) => api.admin.valorServicio(s.id, v), { ok: "Valor guardado" });
+  const nuevo = valor.trim() === "" ? null : Math.round(Number(valor));
+  const cambio = nuevo !== s.valor && (nuevo === null || (Number.isFinite(nuevo) && nuevo >= 0));
+  function enviar(e: FormEvent) { e.preventDefault(); if (cambio) m.mutate(nuevo); }
+  return (
+    <li className="px-4 py-2.5">
+      {/* Una fila compacta: nombre a la izquierda, valor en pesos a la derecha; "Guardar" solo se activa si cambió. */}
+      <form onSubmit={enviar} aria-label={`Valor de ${s.nombre}`} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label htmlFor={`valor-${s.id}`} className="min-w-0 flex-1 text-sm font-medium">{s.nombre}
+          <span className="block text-xs font-normal text-tinta-suave">{s.valor === null ? "Sin valor configurado" : `Guardado: ${pesos(s.valor)}`}</span></label>
+        <div className="flex items-center gap-2">
+          <div className="relative w-36">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-tinta-suave" aria-hidden>$</span>
+            <input id={`valor-${s.id}`} aria-label={s.nombre} type="number" inputMode="numeric" min={0} step={1000} placeholder="Sin valor" value={valor} onChange={(e) => setValor(e.target.value)}
+              className="w-full rounded-[var(--radius-control)] border border-zinc-300 bg-papel py-1.5 pl-6 pr-2 text-right text-sm tabular-nums text-tinta placeholder:text-zinc-500" />
+          </div>
+          <Boton type="submit" pequeno variante={cambio ? "primario" : "secundario"} disabled={!cambio || m.isPending}>Guardar</Boton>
+        </div>
+      </form>
+    </li>
+  );
+}
+
+function ValorServicios() {
+  const q = useServicios();
+  return (
+    <section aria-label="Valor de los servicios" className="space-y-2">
+      <h2 className="text-sm font-semibold">Valor de los servicios</h2>
+      <p className="text-sm text-tinta-suave">Se usa para estimar el dinero perdido por inasistencias y cancelaciones tardías. Es un valor promedio, no una factura.</p>
+      <Consulta q={q}>{(ss) => <Tarjeta><ul className="divide-y divide-linea">{ss.map((s) => <FilaValor key={`${s.id}-${s.valor}`} s={s} />)}</ul></Tarjeta>}</Consulta>
+    </section>
+  );
+}
+
+// Tasas: se escriben como porcentaje entero (15 = 0.15); el dinero, en pesos. Vacío quita la meta.
+const METAS_CAMPOS = [
+  { clave: "inasistencia", limite: "max", etiqueta: "Inasistencia máxima (%)", tasa: true },
+  { clave: "asistencia", limite: "min", etiqueta: "Asistencia mínima (%)", tasa: true },
+  { clave: "confirmacion", limite: "min", etiqueta: "Confirmación mínima (%)", tasa: true },
+  { clave: "dinero_perdido", limite: "max", etiqueta: "Dinero perdido máximo ($)", tasa: false },
+] as const;
+
+function MetasForm({ actuales }: { actuales: Record<string, Record<string, number>> }) {
+  const inicial = (c: (typeof METAS_CAMPOS)[number]) => { const v = actuales[c.clave]?.[c.limite]; return v === undefined ? "" : String(c.tasa ? Math.round(v * 1000) / 10 : v); };
+  const [campos, setCampos] = useState<Record<string, string>>(() => Object.fromEntries(METAS_CAMPOS.map((c) => [c.clave, inicial(c)])));
+  const m = useAccion(api.admin.fijarMetas, { ok: "Metas guardadas" });
+  function enviar(e: FormEvent) {
+    e.preventDefault();
+    const metas: Record<string, Record<string, number>> = {};
+    for (const c of METAS_CAMPOS) {
+      const v = campos[c.clave].trim();
+      if (v !== "") metas[c.clave] = { [c.limite]: c.tasa ? Number(v) / 100 : Math.round(Number(v)) };
+    }
+    m.mutate(metas as Metas);
+  }
+  return (
+    <Tarjeta className="p-4">
+      <form onSubmit={enviar} aria-label="Metas de indicadores" className="grid gap-3 sm:grid-cols-2">
+        {m.error instanceof ApiError && <div className="sm:col-span-2"><Aviso>{m.error.mensaje}</Aviso></div>}
+        {METAS_CAMPOS.map((c) => (
+          <Entrada key={c.clave} etiqueta={c.etiqueta} type="number" inputMode="decimal" min={0} max={c.tasa ? 100 : undefined} step={c.tasa ? "any" : 1000}
+            placeholder="Sin meta" value={campos[c.clave]} onChange={(e) => setCampos({ ...campos, [c.clave]: e.target.value })} />))}
+        <div className="sm:col-span-2"><Boton type="submit" disabled={m.isPending}>Guardar metas</Boton></div>
+      </form>
+    </Tarjeta>
+  );
+}
+
+function MetasSeccion() {
+  const q = useQuery({ queryKey: ["admin", "metas"], queryFn: api.admin.metas });
+  return (
+    <section aria-label="Metas de indicadores" className="space-y-2">
+      <h2 className="text-sm font-semibold">Metas de indicadores</h2>
+      <p className="text-sm text-tinta-suave">Cada meta aparece en su tarjeta de Indicadores con “Cumple” o “No cumple”. Déjala vacía para no tener meta.</p>
+      <Consulta q={q}>{(a) => <MetasForm actuales={a} />}</Consulta>
+    </section>
+  );
+}
+
 export function Administracion() {
   const { sesion } = useSesion();
   const q = useQuery({ queryKey: ["admin", "usuarios"], queryFn: api.admin.usuarios });
@@ -106,6 +189,8 @@ export function Administracion() {
           <Tarjeta><ul aria-label="Usuarios" className="divide-y divide-linea">{us.map((u) => <Fila key={u.acceso_id} u={u} yo={sesion.usuario} alEmitir={emitir} />)}</ul></Tarjeta>
         )}
       </Consulta>
+      <ValorServicios />
+      <MetasSeccion />
       {emitida && <ClaveEmitida usuario={emitida.usuario} clave={emitida.clave} alCerrar={() => setEmitida(null)} />}
     </div>
   );

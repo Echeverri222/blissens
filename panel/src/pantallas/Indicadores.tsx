@@ -6,30 +6,50 @@ import { Info } from "lucide-react";
 import { api } from "@/api/cliente";
 import { useProfesionales, useServicios } from "@/api/consultas";
 import type { FilaDimension, FiltrosIndicadores, Resumen } from "@/api/tipos";
+import { pesos } from "@/lib/dinero";
 import { fechaLarga, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
 import { Boton, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
-import { CitasPerdidas, Contador, DiaHora, ListaContador, pct, Recordatorios, TablaDimension } from "./IndicadoresDetalle";
+import { CitasPerdidas, Contador, DiaHora, ListaContador, pct, Pendientes, Reagendamiento, Recordatorios, TablaDimension } from "./IndicadoresDetalle";
 import { estadoCierre } from "./Sistema";
 
 const AZUL = "#3b9fe0";
 const SIN_SERVICIO = "No aplica al filtrar por servicio";
 
-/** Diferencia en puntos porcentuales con flecha. El color sale del significado (¿mejoró?), no de la dirección. */
-function Delta({ actual, anterior, mejorSiSube }: { actual: number | null; anterior: number | null | undefined; mejorSiSube: boolean }) {
+/** Diferencia con el periodo anterior, con flecha. El color sale del significado (¿mejoró?), no de la dirección. */
+function Delta({ actual, anterior, mejorSiSube, dinero }: { actual: number | null; anterior: number | null | undefined; mejorSiSube: boolean; dinero?: boolean }) {
   if (actual === null || anterior === null || anterior === undefined) return <p className="text-xs text-tinta-suave">Sin periodo anterior para comparar</p>;
-  const pp = (actual - anterior) * 100;
-  const igual = Math.abs(pp) < 0.05;
-  const mejora = mejorSiSube === pp > 0;
-  const flecha = igual ? "→" : pp > 0 ? "▲" : "▼";
+  const d = dinero ? actual - anterior : (actual - anterior) * 100;
+  const igual = dinero ? d === 0 : Math.abs(d) < 0.05;
+  const mejora = mejorSiSube === d > 0;
+  const flecha = igual ? "→" : d > 0 ? "▲" : "▼";
+  const cifra = dinero ? pesos(Math.abs(d)) : `${Math.abs(d).toFixed(1)} pp`;
   return (
     <p className={cn("text-xs", igual ? "text-tinta-suave" : mejora ? "text-emerald-700" : "text-rose-700")}>
-      <span aria-hidden>{flecha}</span> {igual ? "Igual" : `${pp > 0 ? "+" : "−"}${Math.abs(pp).toFixed(1)} pp`} <span className="text-tinta-suave">vs. {pct(anterior)} antes</span>
+      <span aria-hidden>{flecha}</span> {igual ? "Igual" : `${d > 0 ? "+" : "−"}${cifra}`} <span className="text-tinta-suave">vs. {dinero ? pesos(anterior) : pct(anterior)} antes</span>
     </p>
   );
 }
+
+type Limite = { tipo: "max" | "min"; limite: number };
+/** La meta del indicador, si existe, y si el valor la cumple. Sin valor no hay veredicto. */
+function Meta({ valor, meta, formato }: { valor: number | null; meta: Limite | undefined; formato: (n: number) => string }) {
+  if (!meta) return null;
+  const cumple = valor === null ? null : meta.tipo === "max" ? valor <= meta.limite : valor >= meta.limite;
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-tinta-suave">
+      <span>Meta {meta.tipo === "max" ? "≤" : "≥"} {formato(meta.limite)}</span>
+      {cumple !== null && <span className={cn("rounded-full px-2 py-0.5 font-medium", cumple ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>{cumple ? "Cumple" : "No cumple"}</span>}
+    </p>
+  );
+}
+const metaDe = (metas: Resumen["metas"], clave: string, tipo: "max" | "min"): Limite | undefined => {
+  const limite = metas[clave]?.[tipo];
+  return limite === undefined ? undefined : { tipo, limite };
+};
+const pctMeta = (n: number) => `${+(n * 100).toFixed(1)} %`;
 
 function Ayuda({ children }: { children: ReactNode }) {
   return (
@@ -40,12 +60,36 @@ function Ayuda({ children }: { children: ReactNode }) {
   );
 }
 
-function Clave({ titulo, valor, anterior, mejorSiSube, ayuda }: { titulo: string; valor: number | null; anterior: number | null | undefined; mejorSiSube: boolean; ayuda: string }) {
+function Clave({ titulo, valor, anterior, mejorSiSube, ayuda, meta }: { titulo: string; valor: number | null; anterior: number | null | undefined; mejorSiSube: boolean; ayuda: string; meta?: Limite }) {
   return (
     <Tarjeta className="p-4">
       <p className="text-sm text-tinta-suave">{titulo}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{pct(valor)}</p>
       <Delta actual={valor} anterior={anterior} mejorSiSube={mejorSiSube} />
+      <Meta valor={valor} meta={meta} formato={pctMeta} />
+      <Ayuda>{ayuda}</Ayuda>
+    </Tarjeta>
+  );
+}
+
+/** Dinero perdido: sin valores de servicio no hay cifra que mostrar, y se explica cómo configurarlos. */
+function DineroPerdido({ s, sinValores, administra, meta }: { s: Resumen; sinValores: boolean; administra: boolean; meta?: Limite }) {
+  const ayuda = "Inasistencias + cancelaciones tardías que no se reagendaron, al valor promedio de cada servicio.";
+  return (
+    <Tarjeta className="p-4">
+      <p className="text-sm text-tinta-suave">Dinero perdido</p>
+      {sinValores ? (<>
+        <p className="mt-1 text-xl font-semibold sm:text-2xl">Sin valores</p>
+        <p className="text-xs text-tinta-suave">{administra
+          ? <>Configura el valor de cada servicio en <Link to="/administracion" className="underline">Administración</Link></>
+          : "Pide a quien administra que configure el valor de cada servicio en Administración"}</p>
+      </>) : (<>
+        <p className="mt-1 break-words text-xl font-semibold tabular-nums sm:text-2xl">{pesos(s.valor_perdido)}</p>
+        <Delta actual={s.valor_perdido} anterior={s.anterior?.valor_perdido} mejorSiSube={false} dinero />
+        <p className="text-xs text-tinta-suave">{pesos(s.valor_perdido_inasistencia)} por inasistencias · {pesos(s.valor_perdido_tardias)} por cancelaciones tardías</p>
+        <Meta valor={s.valor_perdido} meta={meta} formato={pesos} />
+        {s.citas_sin_valor > 0 && <p className="mt-1 text-xs text-tinta-suave">{s.citas_sin_valor} {s.citas_sin_valor === 1 ? "cita sin valor configurado no se cuenta" : "citas sin valor configurado no se cuentan"}</p>}
+      </>)}
       <Ayuda>{ayuda}</Ayuda>
     </Tarjeta>
   );
@@ -76,7 +120,7 @@ function rango(p: Preset, hoy: string): [string, string] {
 type Pendiente = { fecha: string; sin: number; datos: boolean };
 
 export function Indicadores() {
-  const { hoy } = useSesion();
+  const { hoy, sesion } = useSesion();
   const [desde, setDesde] = useState(rango("Últimos 30 días", hoy)[0]);
   const [hasta, setHasta] = useState(hoy);
   const [pro, setPro] = useState("");
@@ -132,10 +176,11 @@ export function Indicadores() {
           {s.sin_desenlace > 0 && (
             <Aviso tipo="aviso">Hay {s.sin_desenlace} citas pasadas sin desenlace en este periodo; las cifras de esos días están incompletas.{" "}
               <Link to="/bandejas?b=sin-desenlace" className="font-medium underline">Cerrarlas</Link></Aviso>)}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
-            <Clave titulo="Inasistencia" valor={s.inasistencia} anterior={s.anterior?.inasistencia} mejorSiSube={false} ayuda="No asistió ÷ (atendidas + no asistió). Menos es mejor." />
-            <Clave titulo="Asistencia" valor={s.asistencia} anterior={s.anterior?.asistencia} mejorSiSube ayuda="Atendidas ÷ (atendidas + no asistió + canceladas). No cuenta las reprogramadas ni las que aún no tienen desenlace." />
-            <Clave titulo="Confirmación" valor={s.confirmacion} anterior={s.anterior?.confirmacion} mejorSiSube ayuda="Citas que el paciente confirmó ÷ citas con recordatorio enviado." />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
+            <DineroPerdido s={s} sinValores={!!servs.data && servs.data.every((x) => x.valor === null)} administra={sesion.administrador} meta={metaDe(s.metas, "dinero_perdido", "max")} />
+            <Clave titulo="Inasistencia" valor={s.inasistencia} anterior={s.anterior?.inasistencia} mejorSiSube={false} meta={metaDe(s.metas, "inasistencia", "max")} ayuda="No asistió ÷ (atendidas + no asistió). Menos es mejor." />
+            <Clave titulo="Asistencia" valor={s.asistencia} anterior={s.anterior?.asistencia} mejorSiSube meta={metaDe(s.metas, "asistencia", "min")} ayuda="Atendidas ÷ (atendidas + no asistió + canceladas). No cuenta las reprogramadas ni las que aún no tienen desenlace." />
+            <Clave titulo="Confirmación" valor={s.confirmacion} anterior={s.anterior?.confirmacion} mejorSiSube meta={metaDe(s.metas, "confirmacion", "min")} ayuda="Citas que el paciente confirmó ÷ citas con recordatorio enviado." />
           </div>
           {s.desde_anterior && <p className="-mt-3 text-xs text-tinta-suave">Comparado con el periodo anterior: {s.desde_anterior} a {s.hasta_anterior}.</p>}
 
@@ -148,13 +193,15 @@ export function Indicadores() {
             </Link>
           </section>
 
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+          {/* Una tabla por fila: con 7 columnas no caben dos lado a lado sin cortar "Perdido". */}
+          <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
             <Consulta q={porPro}>{(d) => <TablaDimension titulo="Por profesional" columna="Profesional" filas={d} alAbrir={(r) => setFila({ dim: "profesional", fila: r })} />}</Consulta>
             <Consulta q={porSrv}>{(d) => <TablaDimension titulo="Por servicio" columna="Servicio" filas={d} alAbrir={(r) => setFila({ dim: "servicio", fila: r })} />}</Consulta>
           </div>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <Recordatorios f={f} fallidos={fallidos} />
-            <DiaHora f={f} />
+            <Pendientes f={f} />
+            <div className="lg:col-span-2"><DiaHora f={f} /></div>
           </div>
 
           <details className="rounded-[var(--radius-tarjeta)] border border-linea bg-papel p-4">
@@ -175,6 +222,7 @@ export function Indicadores() {
                   </Tarjeta>);
               }}</Consulta>
 
+              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 [&>*]:min-w-0">
               <Consulta q={motivos}>{(d) => (
                 <Tarjeta className="p-4">
                   <h3 className="mb-3 text-sm font-semibold">Motivos de cancelación</h3>
@@ -185,11 +233,13 @@ export function Indicadores() {
                         <div className="mt-1 h-2 rounded bg-zinc-100"><div className="h-2 rounded bg-sky-500" style={{ width: `${(m.cancelaciones / d[0].cancelaciones) * 100}%` }} /></div>
                       </li>))}</ul>)}
                 </Tarjeta>)}</Consulta>
+              <Reagendamiento f={f} />
+              </div>
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <Cifra titulo="Ocupación" valor={pct(s.ocupacion)} aplica={s.capacidad_aplica} ayuda="Minutos atendidos ÷ minutos de horario sin bloqueos." />
                 <Cifra titulo="Cancelaciones" valor={s.cancelaciones} detalle={`${s.cancelaciones_tardias} tardías`} ayuda="Citas canceladas en el periodo." />
-                <Cifra titulo="Canceladas que se reagendaron" valor={pct(s.recuperacion)} ayuda="Cancelaciones que terminaron en una cita nueva ÷ total de cancelaciones." />
+                <Cifra titulo="Cambiadas de fecha al cancelar" valor={pct(s.recuperacion)} ayuda="Citas del periodo que se movieron a otra fecha en el mismo trámite ÷ citas canceladas del periodo. Quién volvió a agendar después se ve en «Después de cancelar, ¿cuánto tardan en volver?»." />
                 <Cifra titulo="Cupos liberados por cancelaciones" valor={s.cupos_liberados} aplica={s.capacidad_aplica} ayuda="Espacios que quedaron libres cuando se canceló una cita." />
                 <Cifra titulo="…tomados por otro paciente" valor={s.cupos_ocupados_oferta} aplica={s.capacidad_aplica} detalle={`${s.cupos_ocupados_agendamiento} por agendamiento`} ayuda="Cupos liberados que otro paciente tomó al adelantar su cita desde la lista de espera." />
                 <Cifra titulo="…quedaron vacíos" valor={s.cupos_vacios} aplica={s.capacidad_aplica} ayuda="Cupos liberados que nadie ocupó." />

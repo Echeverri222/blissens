@@ -93,6 +93,7 @@ class ServicioOut(Salida):
     nombre: str
     duracion_min: int
     autoagendable: bool
+    valor: int | None = Field(None, description="Valor promedio en pesos; `null` si no se ha configurado.")
 
 
 class MotivoOut(Salida):
@@ -493,12 +494,74 @@ class ResumenBase(Salida):
     cupos_ocupados_oferta: int | None
     cupos_ocupados_agendamiento: int | None
     cupos_vacios: int | None
+    valor_perdido: int = Field(description="Pesos perdidos: inasistencias + cancelaciones tardías no reagendadas, al valor de cada servicio.")
+    valor_perdido_inasistencia: int
+    valor_perdido_tardias: int
+    citas_sin_valor: int = Field(description="Citas perdidas cuyo servicio no tiene valor configurado: no suman al dinero perdido.")
+
+
+class MetaMinima(Entrada):
+    min: float = Field(ge=0, le=1)
+
+
+class MetaMaxima(Entrada):
+    max: float = Field(ge=0, le=1)
+
+
+class MetaDinero(Entrada):
+    max: int = Field(ge=0, le=10**12)
+
+
+class Metas(Entrada):
+    """Metas de los indicadores; todas son opcionales. Tasas entre 0 y 1; el dinero en pesos."""
+    inasistencia: MetaMaxima | None = None
+    asistencia: MetaMinima | None = None
+    confirmacion: MetaMinima | None = None
+    dinero_perdido: MetaDinero | None = None
 
 
 class ResumenOut(ResumenBase):
+    metas: dict[str, dict[str, float]] = Field(description="Metas vigentes, p. ej. `{\"inasistencia\": {\"max\": 0.15}}`; solo las que existen.")
     desde_anterior: date | None = Field(None, description="Solo con `comparar=true`.")
     hasta_anterior: date | None = None
     anterior: ResumenBase | None = Field(None, description="Mismas cifras del periodo anterior (igual duración, termina el día antes de `desde`).")
+
+
+class ResumenTiempos(Salida):
+    resueltos: int
+    mediana_horas: float | None
+    p90_horas: float | None
+    abiertos_hoy: int
+    vencidos: int = Field(description="Abiertos hoy con más de 48 h (desenlaces y mensajes) o 7 días (seguimientos).")
+
+
+class PendientesUsuario(Salida):
+    usuario_id: int | None
+    usuario: str | None = Field(description="`null`: no se registró quién resolvió (antes de `registro_desde`).")
+    resueltos: int
+    mediana_horas: float | None
+
+
+class PendientesOut(Salida):
+    cierre_citas: ResumenTiempos
+    mensajes: ResumenTiempos
+    seguimientos: ResumenTiempos
+    por_usuario: list[PendientesUsuario]
+    registro_desde: date = Field(description="Desde esta fecha se registra quién resuelve cada pendiente.")
+
+
+class BucketsReagendamiento(Salida):
+    mismo_dia: int
+    d1_3: int = Field(alias="1_3")
+    d4_14: int = Field(alias="4_14")
+    d15_60: int = Field(alias="15_60")
+    no_reagendo: int
+
+
+class ReagendamientoOut(Salida):
+    mediana_dias: float | None = Field(description="Entre quienes volvieron a agendar.")
+    total: int = Field(description="Cancelaciones del periodo.")
+    buckets: BucketsReagendamiento
 
 
 class PuntoTendencia(Salida):
@@ -518,6 +581,7 @@ class FilaDimension(Salida):
     no_asistio: int
     canceladas: int
     inasistencia: float | None
+    valor_perdido: int = Field(description="Pesos perdidos en el periodo (ver `valor_perdido` del resumen).")
 
 
 class FaltasRepetidasOut(Salida):
@@ -626,6 +690,10 @@ class UsuarioAdmin(Salida):
     profesional_id: int | None
     ultimo_acceso: Momento | None
     bloqueado: bool
+
+
+class ValorServicio(Entrada):
+    valor: int | None = Field(ge=0, lt=10**12, description="Pesos; `null` quita el valor.")
 
 
 class NuevoUsuario(Entrada):

@@ -5,7 +5,7 @@ import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
-  SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
+  SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -65,6 +65,9 @@ export const api = {
     desactivar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/desactivar`),
     activar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/activar`),
     claveTemporal: (id: number) => post<UsuarioConClave>(`/admin/usuarios/${id}/clave-temporal`),
+    valorServicio: (id: number, valor: number | null) => pedir<Servicio>("PUT", `/admin/servicios/${id}`, { cuerpo: { valor } }),
+    metas: () => get<Record<string, Record<string, number>>>("/admin/metas"),
+    fijarMetas: (m: Metas) => pedir<Record<string, Record<string, number>>>("PUT", "/admin/metas", { cuerpo: m }),
   },
   catalogos: {
     profesionales: () => get<Profesional[]>("/profesionales"),
@@ -122,6 +125,8 @@ export const api = {
     faltasRepetidas: (f: FiltrosIndicadores) => get<FaltaRepetida[]>("/indicadores/faltas-repetidas", f),
     citasPerdidas: (f: FiltrosIndicadores) => get<CitaPerdida[]>("/indicadores/citas-perdidas", f),
     recordatorios: (f: FiltrosIndicadores) => get<Recordatorios>("/indicadores/recordatorios", f),
+    pendientes: (f: FiltrosIndicadores) => get<Pendientes>("/indicadores/pendientes", f),
+    reagendamiento: (f: FiltrosIndicadores) => get<Reagendamiento>("/indicadores/reagendamiento", f),
     diaHora: (f: FiltrosIndicadores) => get<CeldaDiaHora[]>("/indicadores/dia-hora", f),
     cierre: () => post<Cierre>("/indicadores/cierre"),
   },
