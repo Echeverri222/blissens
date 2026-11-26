@@ -27,3 +27,5 @@ Vocabulario del dominio de Estud-IA. El código y los documentos usan estos tér
 | **Parentesco** | Relación del familiar con su responsable: `hijo`, `pareja`, `padre` (madre o padre) u `otro`. |
 | **Consentimiento por** | Quién autorizó tratar los datos del paciente: vacío si fue él mismo; el responsable si lo agregó (como representante legal de un menor, o con permiso del adulto). |
 | **Cupo, oferta, caso de seguimiento, recuperación** | Ver `requirements.md` y el PRD #1. |
+| **Confirmación por teléfono** | Confirmar una cita futura (`programada` o `no_confirmada`) porque el paciente lo dijo en una llamada: la registra la auxiliar con «Confirmó». Pasa la cita a `confirmada` con detalle «Confirmada por teléfono», no envía mensajes y se puede deshacer. |
+| **Pendientes de hoy** | La pestaña «Qué hacer hoy» de Pendientes: lo que recepción resuelve hoy, en dos grupos. **Llamadas**: seguimientos, contactos, mensajes sin interpretar, citas sin confirmar (hoy y mañana) y dados de baja; su total es el contador del menú. **Trámites**: lo que se cierra en pantalla (citas por cerrar), sin llamar. |

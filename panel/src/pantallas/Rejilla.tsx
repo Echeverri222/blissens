@@ -1,10 +1,12 @@
+import { useEffect, useRef } from "react";
 import { CalendarOff } from "lucide-react";
 import type { Agenda, CitaAgenda } from "@/api/tipos";
 import { columnaDia, posicion, rangoVisible, type ColumnaDia } from "@/lib/calendario";
-import { ESTADOS } from "@/lib/estados";
+import { CLASES_POR_CERRAR, ESTADOS, porCerrar } from "@/lib/estados";
+import { nombreCorto, profesionalCorto } from "@/lib/nombres";
 import { hhmm, horaDe, minutosDelDia } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { EtiquetaEstado } from "@/ui/controles";
+import { EtiquetaEstado, IconoEstado } from "@/ui/controles";
 
 export interface Col { clave: string; titulo: string; subtitulo?: string; fecha: string; profesionalId: number | null; hoy?: boolean }
 const PX_HORA = 60;
@@ -14,8 +16,11 @@ export function calcularColumnas(cols: Col[], a: Agenda) {
 }
 
 /** Rejilla de horas (escritorio): una columna por profesional (día) o por día (semana). */
-export function Rejilla({ cols, a, ahora, alAbrir }: { cols: Col[]; a: Agenda; ahora: Date; alAbrir: (id: number) => void }) {
+export function Rejilla({ cols, a, ahora, alAbrir, desplazar }: { cols: Col[]; a: Agenda; ahora: Date; alAbrir: (id: number) => void; desplazar?: boolean }) {
   const columnas = calcularColumnas(cols, a);
+  const ancla = useRef<HTMLDivElement>(null);
+  // Al abrir el día de hoy, la vista arranca una hora antes de la hora actual (solo la primera vez).
+  useEffect(() => { if (desplazar) ancla.current?.scrollIntoView?.({ block: "start" }); }, [desplazar]);
   const visible = rangoVisible(columnas.map((c) => c.datos));
   const alto = ((visible.hasta - visible.desde) / 60) * PX_HORA;
   const horas = Array.from({ length: (visible.hasta - visible.desde) / 60 + 1 }, (_, i) => visible.desde + i * 60);
@@ -49,8 +54,12 @@ export function Rejilla({ cols, a, ahora, alAbrir }: { cols: Col[]; a: Agenda; a
             })}
             {c.datos.citas.map(({ cita, ...t }) => {
               const p = posicion(t, visible);
-              return p && <CajaDeCita key={cita.id} cita={cita} estilo={{ top: `${p.arriba}%`, height: `${p.alto}%` }} alAbrir={alAbrir} compacta={(p.alto / 100) * alto < 44} />;
+              return p && <CajaDeCita key={cita.id} cita={cita} ahora={ahora} estilo={{ top: `${p.arriba}%`, height: `${p.alto}%` }} alAbrir={alAbrir} compacta={(p.alto / 100) * alto < 44} />;
             })}
+            {c.hoy && desplazar && c.clave === columnas.find((x) => x.hoy)?.clave && (
+              <div ref={ancla} aria-hidden className="pointer-events-none absolute inset-x-0 scroll-mt-36"
+                style={{ top: Math.max(0, ((minAhora - 60 - visible.desde) / 60) * PX_HORA), height: 1 }} />
+            )}
             {c.hoy && minAhora >= visible.desde && minAhora <= visible.hasta && (
               <div role="img" aria-label={`Hora actual del sistema ${horaDe(ahora)}`} className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-rose-600"
                 style={{ top: ((minAhora - visible.desde) / 60) * PX_HORA }}><span className="absolute -left-1 -top-1.5 size-2.5 rounded-full bg-rose-600" /></div>
@@ -82,23 +91,66 @@ function Fondo({ d, visible }: { d: ColumnaDia; visible: { desde: number; hasta:
   );
 }
 
-function CajaDeCita({ cita, estilo, alAbrir, compacta }: { cita: CitaAgenda; estilo: React.CSSProperties; alAbrir: (id: number) => void; compacta?: boolean }) {
+function CajaDeCita({ cita, ahora, estilo, alAbrir, compacta }: { cita: CitaAgenda; ahora: Date; estilo: React.CSSProperties; alAbrir: (id: number) => void; compacta?: boolean }) {
   const e = ESTADOS[cita.estado];
+  const cerrar = porCerrar(cita, ahora);
   return (
-    <button type="button" onClick={() => alAbrir(cita.id)} style={estilo}
-      aria-label={`${horaDe(cita.inicio!)} ${cita.paciente}, ${cita.servicio}, ${e.texto}`}
-      className={cn("absolute inset-x-1 z-[2] overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs shadow-sm hover:brightness-95", e.clases, e.borde)}>
-      <span className="block truncate font-semibold">{horaDe(cita.inicio!)} {cita.paciente}</span>
+    <button type="button" onClick={() => alAbrir(cita.id)} style={estilo} title={cita.paciente}
+      aria-label={`${horaDe(cita.inicio!)} ${cita.paciente}, ${cita.servicio}, ${e.texto}${cerrar ? ", por cerrar" : ""}`}
+      className={cn("absolute inset-x-1 z-[2] overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs shadow-sm hover:brightness-95", cerrar ? CLASES_POR_CERRAR : e.clases, e.borde)}>
+      <span className="flex items-center gap-1 font-semibold"><span className="tabular-nums">{horaDe(cita.inicio!)}</span><IconoEstado estado={cita.estado} />
+        {compacta && <span className="min-w-0 truncate">{nombreCorto(cita.paciente)}</span>}
+        {cerrar && <EtiquetaPorCerrar />}</span>
+      {!compacta && <span className="block font-semibold leading-tight">{nombreCorto(cita.paciente)}</span>}
       {!compacta && <span className="block truncate">{cita.servicio}</span>}
-      {!compacta && <EtiquetaEstado estado={cita.estado} className="mt-0.5 !bg-white/60" />}
+      {!compacta && !cerrar && <EtiquetaEstado estado={cita.estado} className="mt-0.5 !bg-white/60" />}
     </button>
   );
 }
 
+/** Cita pasada que sigue viva: la tarjeta (que abre la hoja de la cita) es donde se registra el desenlace. */
+function EtiquetaPorCerrar() {
+  return <span className="ml-auto shrink-0 rounded-full border border-zinc-500 bg-white px-1.5 text-xs font-medium text-zinc-900">Por cerrar</span>;
+}
+
+/** Semana de todos los profesionales: una columna por día y las citas apiladas por hora (no caben en una rejilla de horas sin pisarse). */
+export function SemanaTodos({ cols, a, ahora, alAbrir }: { cols: Col[]; a: Agenda; ahora: Date; alAbrir: (id: number) => void }) {
+  const columnas = calcularColumnas(cols, a);
+  return (
+    <div className="overflow-x-auto rounded-[var(--radius-tarjeta)] border border-linea bg-papel" role="region" aria-label="Calendario de la semana">
+      <div className="grid min-w-[56rem]" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(8rem, 1fr))` }}>
+        {columnas.map((c) => (
+          <div key={c.clave} aria-label={`${c.titulo} ${c.subtitulo ?? ""}`} className={cn("min-h-40 border-l border-linea first:border-l-0", c.hoy && "bg-sky-50")}>
+            <p className="border-b border-linea px-2 py-2 text-center text-sm font-semibold capitalize">{c.titulo} <span className="font-normal text-tinta-suave">{c.subtitulo}</span></p>
+            <ul className="space-y-1 p-1">
+              {c.datos.citas.length === 0 && <li className="px-1 py-2 text-center text-xs text-tinta-suave">Sin citas</li>}
+              {c.datos.citas.map(({ cita }) => {
+                const e = ESTADOS[cita.estado];
+                const cerrar = porCerrar(cita, ahora);
+                return (
+                  <li key={cita.id}>
+                    <button type="button" onClick={() => alAbrir(cita.id)} title={cita.paciente}
+                      aria-label={`${horaDe(cita.inicio!)} ${cita.paciente}, ${cita.servicio}, ${profesionalCorto(cita.profesional)}, ${e.texto}${cerrar ? ", por cerrar" : ""}`}
+                      className={cn("w-full rounded-md border-l-4 px-1.5 py-1 text-left text-xs shadow-sm hover:brightness-95", cerrar ? CLASES_POR_CERRAR : e.clases, e.borde)}>
+                      <span className="flex items-center gap-1 font-semibold"><span className="tabular-nums">{horaDe(cita.inicio!)}</span><IconoEstado estado={cita.estado} />{cerrar && <EtiquetaPorCerrar />}</span>
+                      <span className="block font-semibold leading-tight">{nombreCorto(cita.paciente)}</span>
+                      <span className="block leading-tight">{profesionalCorto(cita.profesional)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Lista cronológica de un día (celular, y el modo de lectura simple). */
-export function ListaDelDia({ d, titulo, alAbrir }: { d: ColumnaDia; titulo?: string; alAbrir: (id: number) => void }) {
+export function ListaDelDia({ d, titulo, ahora, conProfesional, alAbrir }: { d: ColumnaDia; titulo?: string; ahora: Date; conProfesional?: boolean; alAbrir: (id: number) => void }) {
   const items = [
-    ...d.citas.map((c) => ({ desde: c.desde, nodo: <FilaCita key={`c${c.cita.id}`} cita={c.cita} alAbrir={alAbrir} /> })),
+    ...d.citas.map((c) => ({ desde: c.desde, nodo: <FilaCita key={`c${c.cita.id}`} cita={c.cita} ahora={ahora} conProfesional={conProfesional} alAbrir={alAbrir} /> })),
     ...d.bloqueos.map((b) => ({ desde: b.desde, nodo: (
       <li key={`b${b.ids.join("-")}`} className="flex items-center gap-2 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm">
         <CalendarOff className="size-4 shrink-0" aria-hidden />
@@ -118,15 +170,17 @@ export function ListaDelDia({ d, titulo, alAbrir }: { d: ColumnaDia; titulo?: st
   );
 }
 
-function FilaCita({ cita, alAbrir }: { cita: CitaAgenda; alAbrir: (id: number) => void }) {
+function FilaCita({ cita, ahora, conProfesional, alAbrir }: { cita: CitaAgenda; ahora: Date; conProfesional?: boolean; alAbrir: (id: number) => void }) {
   const e = ESTADOS[cita.estado];
+  const cerrar = porCerrar(cita, ahora);
   return (
     <li>
-      <button type="button" onClick={() => alAbrir(cita.id)} className={cn("flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left text-sm shadow-sm", e.clases, e.borde)}
-        aria-label={`${horaDe(cita.inicio!)} ${cita.paciente}, ${cita.servicio}, ${e.texto}`}>
+      <button type="button" onClick={() => alAbrir(cita.id)} className={cn("flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left text-sm shadow-sm", cerrar ? CLASES_POR_CERRAR : e.clases, e.borde)}
+        aria-label={`${horaDe(cita.inicio!)} ${cita.paciente}, ${cita.servicio}, ${e.texto}${cerrar ? ", por cerrar" : ""}`}>
         <span className="w-12 shrink-0 font-semibold tabular-nums">{horaDe(cita.inicio!)}</span>
-        <span className="min-w-0 flex-1"><span className="block truncate font-medium">{cita.paciente}</span><span className="block truncate text-xs">{cita.servicio}</span></span>
-        <EtiquetaEstado estado={cita.estado} className="!bg-white/60" />
+        <span className="min-w-0 flex-1"><span className="block truncate font-medium">{cita.paciente}</span>
+          <span className="block truncate text-xs">{cita.servicio}{conProfesional ? ` · ${profesionalCorto(cita.profesional)}` : ""}</span></span>
+        {cerrar ? <EtiquetaPorCerrar /> : <EtiquetaEstado estado={cita.estado} className="!bg-white/60" />}
       </button>
     </li>
   );

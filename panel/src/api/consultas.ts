@@ -20,6 +20,9 @@ export const useCita = (id: number | null) =>
 export const useConteoBandejas = (activo = true) =>
   useQuery({ queryKey: ["bandejas", "conteo"], queryFn: api.bandejas.conteo, refetchInterval: CADA_MINUTO, enabled: activo });
 
+export const useResumenDia = (activo = true) =>
+  useQuery({ queryKey: ["bandejas", "resumen-dia"], queryFn: api.resumenDia, refetchInterval: CADA_MINUTO, enabled: activo });
+
 /**
  * Una acción que modifica. Tras el éxito se vuelve a consultar todo; los errores siguen la tabla de `errores.ts`:
  * los de formulario se dejan en `error` para mostrarlos junto al formulario, el resto se avisan.

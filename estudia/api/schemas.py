@@ -15,7 +15,7 @@ def _iso(d: datetime) -> str:
 Momento = Annotated[datetime, PlainSerializer(_iso, return_type=str, when_used="json")]
 Estado = Literal["programada", "confirmada", "no_confirmada", "cancelada", "reprogramada", "atendida", "no_asistio"]
 Actor = Literal["paciente", "auxiliar", "especialista", "sistema"]
-Accion = Literal["desenlace", "cancelar", "cambiar_fecha"]
+Accion = Literal["desenlace", "confirmar", "cancelar", "cambiar_fecha"]
 
 
 class Entrada(BaseModel):
@@ -377,13 +377,24 @@ class ConteoBandejas(Salida):
     dados_de_baja: int
 
 
+class ResumenDiaOut(Salida):
+    citas_hoy: int = Field(description="Citas vivas de hoy, de todos los profesionales")
+    sin_confirmar: int = Field(description="Citas programadas o sin confirmar que empiezan desde ahora hasta el fin de mañana")
+    mensajes: int = Field(description="Mensajes entrantes por responder")
+    por_cerrar: int = Field(description="Citas pasadas sin desenlace")
+
+
 class NoConfirmadaOut(Salida):
     cita_id: int
+    estado: Literal["programada", "no_confirmada"] = Field(
+        description="`no_confirmada`: «Sin confirmar»; `programada` (de hoy o mañana): «Sin respuesta aún»")
     inicio: Momento
     profesional: str
     paciente_id: int
     paciente: str
     celular: str | None
+    recordatorio_enviado: bool
+    recordatorio_en: Momento | None = Field(None, description="Cuándo salió el último recordatorio, si se registró la hora")
 
 
 class SeguimientoOut(Salida):

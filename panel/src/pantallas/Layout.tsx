@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Activity, ArrowLeftRight, CalendarDays, ClipboardList, ExternalLink, KeyRound, LogOut, Menu, Settings, ShieldBan, UserCog, Users, X } from "lucide-react";
 import { api } from "@/api/cliente";
 import { useAccion, useConteoBandejas } from "@/api/consultas";
 import type { Rol } from "@/api/tipos";
+import { totalLlamadas } from "@/lib/pendientes";
 import { cn } from "@/lib/utils";
 import { fechaHora } from "@/lib/tiempo";
 import { rolDe, useSesion } from "@/sesion/Sesion";
@@ -22,7 +23,7 @@ export const SECCIONES: Record<Rol, Seccion[]> = {
   ],
   auxiliar: [
     { a: "/agenda", texto: "Agenda", icono: CalendarDays },
-    { a: "/bandejas", texto: "Bandejas", icono: ClipboardList, conteo: true },
+    { a: "/bandejas", texto: "Pendientes", icono: ClipboardList, conteo: true },
     { a: "/pacientes", texto: "Pacientes", icono: Users },
     { a: "/indicadores", texto: "Indicadores", icono: Activity },
     { a: "/sistema", texto: "Sistema", icono: Settings },
@@ -33,7 +34,7 @@ const ADMINISTRACION: Seccion = { a: "/administracion", texto: "Administración"
 
 function Enlaces({ rol, administrador, alNavegar, vertical }: { rol: Rol; administrador?: boolean; alNavegar?: () => void; vertical?: boolean }) {
   const q = useConteoBandejas(rol === "auxiliar");
-  const total = q.data ? Object.values(q.data).reduce((a, b) => a + b, 0) : 0;
+  const total = q.data ? totalLlamadas(q.data) : 0;
   return (
     <>
       {[...SECCIONES[rol], ...(administrador ? [ADMINISTRACION] : [])].map(({ a, texto, icono: Icono, conteo }) => (
@@ -117,6 +118,7 @@ export function Layout(): ReactNode {
   const rol = rolDe(sesion);
   const esp = rol === "especialista";
   const marca = sesion.negocio?.nombre ?? "Estud-IA";
+  useEffect(() => { document.title = sesion.negocio ? `${sesion.negocio.nombre} · Panel` : "Panel"; }, [sesion.negocio]);
   return (
     <div className="flex min-h-dvh">
       <aside className="hidden w-60 shrink-0 flex-col bg-marca p-3 text-white md:flex">

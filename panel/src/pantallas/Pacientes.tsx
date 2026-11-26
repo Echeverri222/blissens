@@ -102,7 +102,7 @@ function Familia({ f }: { f: FichaCompleta }) {
   );
 }
 
-const APARTADOS = ["Citas e historial", "Seguimientos", "Mensajes", "Reversibles"] as const;
+const APARTADOS = ["Citas e historial", "Seguimientos", "Mensajes", "Se pueden deshacer"] as const;
 
 export function Ficha() {
   const id = Number(useParams().id);
@@ -134,7 +134,7 @@ export function Ficha() {
             {apartado === "Citas e historial" && <CitasEHistorial f={f} />}
             {apartado === "Seguimientos" && <Seguimientos f={f} />}
             {apartado === "Mensajes" && <Mensajes f={f} />}
-            {apartado === "Reversibles" && <Reversibles f={f} />}
+            {apartado === "Se pueden deshacer" && <Reversibles f={f} />}
           </div>
         </div>
       )}
@@ -171,7 +171,7 @@ function Seguimientos({ f }: { f: FichaCompleta }) {
   return (
     <div className="space-y-3">{f.casos.map((c) => (
       <Tarjeta key={c.id} className="p-4 text-sm">
-        <p className="font-medium">{c.tipo.replace(/_/g, " ")} · {c.estado}{c.escalado && " · escalado"}</p>
+        <p className="font-medium">{c.tipo.replace(/_/g, " ")} · {c.estado}{c.escalado && " · necesita llamada"}</p>
         <p className="text-tinta-suave">Abierto {fechaHora(c.abierto_en)}{c.cerrado_en ? ` · cerrado ${fechaHora(c.cerrado_en)}` : ""}</p>
         {c.intentos.length > 0 && <ul className="mt-2 list-inside list-disc">{c.intentos.map((i) => <li key={i.numero}>Intento {i.numero} por {i.canal}: {(i.resultado ?? "pendiente").replace(/_/g, " ")} ({fechaHora(i.momento)})</li>)}</ul>}
       </Tarjeta>))}</div>
