@@ -5,7 +5,7 @@ import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
-  SinInterpretar, Sistema, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
+  SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -101,6 +101,7 @@ export const api = {
     noConfirmadas: () => get<NoConfirmada[]>("/bandejas/no-confirmadas"),
     seguimientos: () => get<Seguimiento[]>("/bandejas/seguimientos"),
     enRiesgo: () => get<EnRiesgo[]>("/bandejas/en-riesgo"),
+    enRiesgoFiltrado: (f: Pick<FiltrosIndicadores, "profesional_id" | "servicio_id">) => get<EnRiesgo[]>("/bandejas/en-riesgo", f),
     cuposLibres: () => get<CupoLibre[]>("/bandejas/cupos-libres"),
     sinDesenlace: () => get<SinDesenlace[]>("/bandejas/sin-desenlace"),
     sinInterpretar: () => get<SinInterpretar[]>("/bandejas/sin-interpretar"),
@@ -112,12 +113,16 @@ export const api = {
     gestionarContacto: (id: number) => post<{ ok: boolean }>(`/contactos/${id}/gestionar`),
   },
   indicadores: {
-    resumen: (f: FiltrosIndicadores) => get<Resumen>("/indicadores/resumen", f),
+    resumen: (f: FiltrosIndicadores, comparar = false) => get<Resumen>("/indicadores/resumen", { ...f, comparar: comparar ? "true" : undefined }),
     tendencia: (f: FiltrosIndicadores, agrupar: "dia" | "semana" = "semana") => get<PuntoTendencia[]>("/indicadores/tendencia", { ...f, agrupar }),
     porProfesional: (f: FiltrosIndicadores) => get<FilaDimension[]>("/indicadores/por-profesional", f),
     porServicio: (f: FiltrosIndicadores) => get<FilaDimension[]>("/indicadores/por-servicio", f),
     motivos: (f: FiltrosIndicadores) => get<MotivoIndicador[]>("/indicadores/motivos", f),
     tiempoEntreCitas: (f: FiltrosIndicadores) => get<TiempoEntreCitas>("/indicadores/tiempo-entre-citas", f),
+    faltasRepetidas: (f: FiltrosIndicadores) => get<FaltaRepetida[]>("/indicadores/faltas-repetidas", f),
+    citasPerdidas: (f: FiltrosIndicadores) => get<CitaPerdida[]>("/indicadores/citas-perdidas", f),
+    recordatorios: (f: FiltrosIndicadores) => get<Recordatorios>("/indicadores/recordatorios", f),
+    diaHora: (f: FiltrosIndicadores) => get<CeldaDiaHora[]>("/indicadores/dia-hora", f),
     cierre: () => post<Cierre>("/indicadores/cierre"),
   },
   resumenDia: () => get<ResumenDia>("/resumen-dia"),

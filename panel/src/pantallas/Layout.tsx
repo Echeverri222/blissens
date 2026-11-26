@@ -7,7 +7,7 @@ import { useAccion, useConteoBandejas } from "@/api/consultas";
 import type { Rol } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
 import { cn } from "@/lib/utils";
-import { fechaHora } from "@/lib/tiempo";
+import { fechaHora, horaDe } from "@/lib/tiempo";
 import { rolDe, useSesion } from "@/sesion/Sesion";
 import { Aviso } from "@/ui/vistas";
 import { Boton, Entrada } from "@/ui/controles";
@@ -130,13 +130,17 @@ export function Layout(): ReactNode {
         )}
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-linea bg-papel/95 px-4 py-2 backdrop-blur">
+        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-linea bg-papel/95 px-4 py-2 backdrop-blur sm:gap-3">
           {!esp && movil && <button aria-label="Abrir menú" onClick={() => setMenu(true)} className="rounded-md p-1.5 hover:bg-zinc-100 md:hidden"><Menu className="size-5" /></button>}
-          <div className="md:hidden"><Distintivo nombre={marca} /></div>
-          <div className="ml-auto flex items-center gap-3">
-            <p className="text-right text-xs text-tinta-suave" aria-label="Hora del sistema">
-              <span className="block">Hora del sistema</span><b className="text-sm text-tinta">{fechaHora(ahora)}</b></p>
-            {sesion.modo_demo && <span className="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-950">Modo demo</span>}
+          <div className="min-w-0 md:hidden"><Distintivo nombre={marca} /></div>
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            {/* En el celular solo la hora: la fecha completa no cabe junto a la marca. */}
+            <p className="whitespace-nowrap text-right text-xs text-tinta-suave" aria-label="Hora del sistema">
+              <span className="hidden sm:block">Hora del sistema</span>
+              <b className="hidden text-sm text-tinta sm:inline">{fechaHora(ahora)}</b>
+              <b className="text-sm text-tinta sm:hidden">{horaDe(ahora)}</b></p>
+            {sesion.modo_demo && <span className="whitespace-nowrap rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-950">
+              <span className="hidden sm:inline">Modo demo</span><span className="sm:hidden" aria-hidden>Demo</span></span>}
             <MenuCuenta />
           </div>
         </header>

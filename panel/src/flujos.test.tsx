@@ -325,8 +325,9 @@ describe("indicadores", () => {
     const pedidos: string[] = [];
     const vacio = (ruta: string, cuerpo: unknown) => http.get(`${API}/indicadores/${ruta}`, ({ request }) => { if (ruta === "resumen") pedidos.push(new URL(request.url).search); return HttpResponse.json(cuerpo as never); });
     servidor.use(
-      vacio("resumen", { citas: 3, atendidas: 2, no_asistio: 1, atencion_efectiva: 0.5, inasistencia: 0.25, cancelaciones: 1, cancelaciones_tardias: 0, cancelaciones_recuperadas: 0, recuperacion: null, confirmacion: null, ocupacion: null, minutos_disponibles: 0, minutos_atendidos: 0, cupos_liberados: 0, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 0 }),
+      vacio("resumen", { citas: 3, atendidas: 2, no_asistio: 1, atencion_efectiva: 0.5, asistencia: 0.5, inasistencia: 0.25, sin_desenlace: 0, capacidad_aplica: true, cancelaciones: 1, cancelaciones_tardias: 0, cancelaciones_recuperadas: 0, recuperacion: null, confirmacion: null, ocupacion: null, minutos_disponibles: 0, minutos_atendidos: 0, cupos_liberados: 0, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 0 }),
       vacio("tendencia", []), vacio("por-profesional", []), vacio("por-servicio", []), vacio("motivos", []), vacio("tiempo-entre-citas", { por_servicio: [], por_paciente_dias: null }),
+      vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("recordatorios", { con_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, sin_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, embudo: { citas: 0, con_recordatorio: 0, confirmadas: 0, atendidas: 0 } }),
       http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, ultimo_cierre: null, configuracion: {} })));
     montar("/indicadores", AUX);
     expect(await screen.findByText("25.0 %")).toBeInTheDocument();
@@ -334,7 +335,7 @@ describe("indicadores", () => {
     await waitFor(() => expect(pedidos.at(-1)).toContain("profesional_id=2"));
     await userEvent.selectOptions(screen.getByLabelText("Servicio"), "Valoración");
     await waitFor(() => expect(pedidos.at(-1)).toMatch(/profesional_id=2.*servicio_id=1|servicio_id=1.*profesional_id=2/));
-    expect(pedidos[0]).toContain("desde=2026-09-17");
+    expect(pedidos[0]).toContain("desde=2026-10-18");   // por defecto: últimos 30 días
   });
 });
 

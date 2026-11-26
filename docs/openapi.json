@@ -2819,16 +2819,50 @@
         ],
         "summary": "Pacientes con tratamiento a medias",
         "operationId": "en_riesgo_api_v1_bandejas_en_riesgo_get",
+        "parameters": [
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/EnRiesgoOut"
                   },
-                  "type": "array",
                   "title": "Response En Riesgo Api V1 Bandejas En Riesgo Get"
                 }
               }
@@ -3616,6 +3650,18 @@
         "summary": "Indicadores del periodo",
         "operationId": "resumen_api_v1_indicadores_resumen_get",
         "parameters": [
+          {
+            "name": "comparar",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Añade `anterior`: las mismas cifras del periodo previo de igual duración.",
+              "default": false,
+              "title": "Comparar"
+            },
+            "description": "Añade `anterior`: las mismas cifras del periodo previo de igual duración."
+          },
           {
             "name": "desde",
             "in": "query",
@@ -4462,6 +4508,615 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TiempoEntreCitas"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/faltas-repetidas": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Pacientes con 2 o más inasistencias en el periodo",
+        "operationId": "faltas_repetidas_api_v1_indicadores_faltas_repetidas_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FaltasRepetidasOut"
+                  },
+                  "title": "Response Faltas Repetidas Api V1 Indicadores Faltas Repetidas Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/citas-perdidas": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Citas del periodo con inasistencia o cancelación tardía",
+        "description": "El detalle detrás de las cifras por profesional o servicio: usa `profesional_id` o `servicio_id`.",
+        "operationId": "citas_perdidas_api_v1_indicadores_citas_perdidas_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CitaPerdidaOut"
+                  },
+                  "title": "Response Citas Perdidas Api V1 Indicadores Citas Perdidas Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/recordatorios": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Inasistencia con y sin recordatorio, y embudo",
+        "operationId": "recordatorios_api_v1_indicadores_recordatorios_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordatoriosOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/dia-hora": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Atendidas y no asistió por día de la semana y hora",
+        "operationId": "dia_hora_api_v1_indicadores_dia_hora_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CeldaDiaHora"
+                  },
+                  "title": "Response Dia Hora Api V1 Indicadores Dia Hora Get"
                 }
               }
             }
@@ -7474,6 +8129,35 @@
         ],
         "title": "CasoOut"
       },
+      "CeldaDiaHora": {
+        "properties": {
+          "dia_semana": {
+            "type": "integer",
+            "title": "Dia Semana",
+            "description": "0 = lunes … 6 = domingo"
+          },
+          "hora": {
+            "type": "integer",
+            "title": "Hora"
+          },
+          "atendidas": {
+            "type": "integer",
+            "title": "Atendidas"
+          },
+          "no_asistio": {
+            "type": "integer",
+            "title": "No Asistio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dia_semana",
+          "hora",
+          "atendidas",
+          "no_asistio"
+        ],
+        "title": "CeldaDiaHora"
+      },
       "CierreOut": {
         "properties": {
           "dias": {
@@ -7868,6 +8552,91 @@
         ],
         "title": "CitaFicha"
       },
+      "CitaPerdidaOut": {
+        "properties": {
+          "cita_id": {
+            "type": "integer",
+            "title": "Cita Id"
+          },
+          "dia": {
+            "type": "string",
+            "format": "date",
+            "title": "Dia"
+          },
+          "inicio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inicio"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "type": "string",
+            "title": "Paciente"
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "cancelacion_tardia": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelacion Tardia"
+          },
+          "reagendada": {
+            "type": "boolean",
+            "title": "Reagendada"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cita_id",
+          "dia",
+          "inicio",
+          "estado",
+          "paciente_id",
+          "paciente",
+          "profesional",
+          "servicio",
+          "motivo",
+          "cancelacion_tardia",
+          "reagendada"
+        ],
+        "title": "CitaPerdidaOut"
+      },
       "ConsentimientoCorreo": {
         "properties": {
           "correo": {
@@ -8122,6 +8891,34 @@
         ],
         "title": "ElegirNegocio"
       },
+      "EmbudoRecordatorios": {
+        "properties": {
+          "citas": {
+            "type": "integer",
+            "title": "Citas"
+          },
+          "con_recordatorio": {
+            "type": "integer",
+            "title": "Con Recordatorio"
+          },
+          "confirmadas": {
+            "type": "integer",
+            "title": "Confirmadas"
+          },
+          "atendidas": {
+            "type": "integer",
+            "title": "Atendidas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "citas",
+          "con_recordatorio",
+          "confirmadas",
+          "atendidas"
+        ],
+        "title": "EmbudoRecordatorios"
+      },
       "EnRiesgoOut": {
         "properties": {
           "tratamiento_id": {
@@ -8155,6 +8952,28 @@
               }
             ],
             "title": "Caso Id"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "servicio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servicio"
           }
         },
         "type": "object",
@@ -8164,7 +8983,9 @@
           "paciente",
           "ultima_cita",
           "dias_sin_cita",
-          "caso_id"
+          "caso_id",
+          "celular",
+          "servicio"
         ],
         "title": "EnRiesgoOut"
       },
@@ -8250,6 +9071,52 @@
           "dias"
         ],
         "title": "EspaciosOut"
+      },
+      "FaltasRepetidasOut": {
+        "properties": {
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "type": "string",
+            "title": "Paciente"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "faltas": {
+            "type": "integer",
+            "title": "Faltas"
+          },
+          "ultima_falta": {
+            "type": "string",
+            "format": "date",
+            "title": "Ultima Falta"
+          },
+          "tiene_cita_futura": {
+            "type": "boolean",
+            "title": "Tiene Cita Futura"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paciente_id",
+          "paciente",
+          "celular",
+          "faltas",
+          "ultima_falta",
+          "tiene_cita_futura"
+        ],
+        "title": "FaltasRepetidasOut"
       },
       "FamiliaOut": {
         "properties": {
@@ -8433,6 +9300,10 @@
       },
       "FilaDimension": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "nombre": {
             "type": "string",
             "title": "Nombre"
@@ -8449,6 +9320,10 @@
             "type": "integer",
             "title": "No Asistio"
           },
+          "canceladas": {
+            "type": "integer",
+            "title": "Canceladas"
+          },
           "inasistencia": {
             "anyOf": [
               {
@@ -8463,10 +9338,12 @@
         },
         "type": "object",
         "required": [
+          "id",
           "nombre",
           "citas",
           "atendidas",
           "no_asistio",
+          "canceladas",
           "inasistencia"
         ],
         "title": "FilaDimension"
@@ -8523,6 +9400,36 @@
           "resultado"
         ],
         "title": "Gestion"
+      },
+      "GrupoRecordatorio": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "no_asistio": {
+            "type": "integer",
+            "title": "No Asistio"
+          },
+          "inasistencia": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inasistencia"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "no_asistio",
+          "inasistencia"
+        ],
+        "title": "GrupoRecordatorio"
       },
       "HTTPValidationError": {
         "properties": {
@@ -9104,6 +10011,10 @@
             "type": "integer",
             "title": "No Asistio"
           },
+          "sin_desenlace": {
+            "type": "integer",
+            "title": "Sin Desenlace"
+          },
           "inasistencia": {
             "anyOf": [
               {
@@ -9122,9 +10033,30 @@
           "citas",
           "atendidas",
           "no_asistio",
+          "sin_desenlace",
           "inasistencia"
         ],
         "title": "PuntoTendencia"
+      },
+      "RecordatoriosOut": {
+        "properties": {
+          "con_recordatorio": {
+            "$ref": "#/components/schemas/GrupoRecordatorio"
+          },
+          "sin_recordatorio": {
+            "$ref": "#/components/schemas/GrupoRecordatorio"
+          },
+          "embudo": {
+            "$ref": "#/components/schemas/EmbudoRecordatorios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "con_recordatorio",
+          "sin_recordatorio",
+          "embudo"
+        ],
+        "title": "RecordatoriosOut"
       },
       "ResponsableOut": {
         "properties": {
@@ -9156,6 +10088,195 @@
           "parentesco"
         ],
         "title": "ResponsableOut"
+      },
+      "ResumenBase": {
+        "properties": {
+          "citas": {
+            "type": "integer",
+            "title": "Citas"
+          },
+          "atendidas": {
+            "type": "integer",
+            "title": "Atendidas"
+          },
+          "no_asistio": {
+            "type": "integer",
+            "title": "No Asistio"
+          },
+          "atencion_efectiva": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atencion Efectiva",
+            "description": "Obsoleto: atendidas ÷ todas las citas. Usa `asistencia`."
+          },
+          "asistencia": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asistencia",
+            "description": "Atendidas ÷ (atendidas + no asistió + canceladas)."
+          },
+          "inasistencia": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inasistencia"
+          },
+          "cancelaciones": {
+            "type": "integer",
+            "title": "Cancelaciones"
+          },
+          "cancelaciones_tardias": {
+            "type": "integer",
+            "title": "Cancelaciones Tardias"
+          },
+          "cancelaciones_recuperadas": {
+            "type": "integer",
+            "title": "Cancelaciones Recuperadas"
+          },
+          "recuperacion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recuperacion"
+          },
+          "confirmacion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmacion"
+          },
+          "sin_desenlace": {
+            "type": "integer",
+            "title": "Sin Desenlace",
+            "description": "Citas pasadas del rango que siguen programadas, confirmadas o sin confirmar."
+          },
+          "capacidad_aplica": {
+            "type": "boolean",
+            "title": "Capacidad Aplica",
+            "description": "False con un servicio elegido: ocupación y cupos no se consolidan por servicio."
+          },
+          "ocupacion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocupacion"
+          },
+          "minutos_disponibles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutos Disponibles"
+          },
+          "minutos_atendidos": {
+            "type": "integer",
+            "title": "Minutos Atendidos"
+          },
+          "cupos_liberados": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cupos Liberados"
+          },
+          "cupos_ocupados_oferta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cupos Ocupados Oferta"
+          },
+          "cupos_ocupados_agendamiento": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cupos Ocupados Agendamiento"
+          },
+          "cupos_vacios": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cupos Vacios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "citas",
+          "atendidas",
+          "no_asistio",
+          "atencion_efectiva",
+          "asistencia",
+          "inasistencia",
+          "cancelaciones",
+          "cancelaciones_tardias",
+          "cancelaciones_recuperadas",
+          "recuperacion",
+          "confirmacion",
+          "sin_desenlace",
+          "capacidad_aplica",
+          "ocupacion",
+          "minutos_disponibles",
+          "minutos_atendidos",
+          "cupos_liberados",
+          "cupos_ocupados_oferta",
+          "cupos_ocupados_agendamiento",
+          "cupos_vacios"
+        ],
+        "title": "ResumenBase"
       },
       "ResumenDiaOut": {
         "properties": {
@@ -9212,7 +10333,20 @@
                 "type": "null"
               }
             ],
-            "title": "Atencion Efectiva"
+            "title": "Atencion Efectiva",
+            "description": "Obsoleto: atendidas ÷ todas las citas. Usa `asistencia`."
+          },
+          "asistencia": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asistencia",
+            "description": "Atendidas ÷ (atendidas + no asistió + canceladas)."
           },
           "inasistencia": {
             "anyOf": [
@@ -9259,6 +10393,16 @@
             ],
             "title": "Confirmacion"
           },
+          "sin_desenlace": {
+            "type": "integer",
+            "title": "Sin Desenlace",
+            "description": "Citas pasadas del rango que siguen programadas, confirmadas o sin confirmar."
+          },
+          "capacidad_aplica": {
+            "type": "boolean",
+            "title": "Capacidad Aplica",
+            "description": "False con un servicio elegido: ocupación y cupos no se consolidan por servicio."
+          },
           "ocupacion": {
             "anyOf": [
               {
@@ -9271,7 +10415,14 @@
             "title": "Ocupacion"
           },
           "minutos_disponibles": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Minutos Disponibles"
           },
           "minutos_atendidos": {
@@ -9279,20 +10430,84 @@
             "title": "Minutos Atendidos"
           },
           "cupos_liberados": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Cupos Liberados"
           },
           "cupos_ocupados_oferta": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Cupos Ocupados Oferta"
           },
           "cupos_ocupados_agendamiento": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Cupos Ocupados Agendamiento"
           },
           "cupos_vacios": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Cupos Vacios"
+          },
+          "desde_anterior": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desde Anterior",
+            "description": "Solo con `comparar=true`."
+          },
+          "hasta_anterior": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hasta Anterior"
+          },
+          "anterior": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumenBase"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mismas cifras del periodo anterior (igual duración, termina el día antes de `desde`)."
           }
         },
         "type": "object",
@@ -9301,12 +10516,15 @@
           "atendidas",
           "no_asistio",
           "atencion_efectiva",
+          "asistencia",
           "inasistencia",
           "cancelaciones",
           "cancelaciones_tardias",
           "cancelaciones_recuperadas",
           "recuperacion",
           "confirmacion",
+          "sin_desenlace",
+          "capacidad_aplica",
           "ocupacion",
           "minutos_disponibles",
           "minutos_atendidos",

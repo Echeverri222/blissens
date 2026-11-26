@@ -58,9 +58,13 @@ def run_daily(conn, now: datetime) -> dict | None:
     """Una vez por día: detección de pacientes en riesgo y cierre de indicadores de los días pendientes."""
     today = now.date()
     last = config.get(conn, "ultimo_diario")
-    if last and datetime.fromisoformat(last).date() >= today:
+    last_day = datetime.fromisoformat(last).date() if last else None
+    if last_day and last_day > today:
+        # Un cierre fechado en el futuro (el reloj simulado retrocedió) bloquearía el cierre hasta alcanzar esa fecha.
+        last_day = today - timedelta(days=1)
+    if last_day and last_day >= today:
         return None
-    first = datetime.fromisoformat(last).date() if last else today - timedelta(days=1)
+    first = last_day or today - timedelta(days=1)
     first = max(first, today - timedelta(days=60))
     closed = indicators.close_range(conn, first, today - timedelta(days=1)) if first <= today - timedelta(days=1) else 0
     opened = recovery.detect(conn, now)

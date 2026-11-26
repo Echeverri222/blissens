@@ -50,6 +50,23 @@ def test_daily_run_detects_and_is_executed_once_per_day(conn):
     assert tasks.cycle(conn)["diario"] is not None
 
 
+def test_at_risk_filters_by_professional_and_service(conn):
+    pro1, _, t1 = treatment_with_last_visit(conn, 40)
+    pro2, _, t2 = treatment_with_last_visit(conn, 50)
+    otro = conn.execute("select id from servicio where id <> %s order by id limit 1", (svc(conn),)).fetchone()["id"]
+    assert [r["tratamiento_id"] for r in recovery.at_risk(conn, profesional_id=pro1)] == [t1]
+    assert [r["tratamiento_id"] for r in recovery.at_risk(conn, profesional_id=pro2)] == [t2]
+    assert {r["tratamiento_id"] for r in recovery.at_risk(conn, servicio_id=svc(conn))} == {t1, t2}
+    assert recovery.at_risk(conn, servicio_id=otro) == []
+
+
+def test_daily_run_recovers_when_last_close_is_in_the_future(conn):
+    """Si el reloj simulado retrocedió, un `ultimo_diario` futuro no debe bloquear el cierre diario."""
+    from estudia import config
+    config.set_(conn, "ultimo_diario", (NOW + timedelta(days=5)).date().isoformat())
+    assert tasks.cycle(conn)["diario"] is not None
+
+
 def test_failing_task_is_retried_then_marked_failed_and_visible(conn):
     def boom(conn_, d, now):
         raise RuntimeError("falla de prueba")
