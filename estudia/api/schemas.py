@@ -417,6 +417,8 @@ class EnRiesgoOut(Salida):
     ultima_cita: date
     dias_sin_cita: int
     caso_id: int | None
+    celular: str | None
+    servicio: str | None
 
 
 class CupoLibreOut(Salida):
@@ -470,24 +472,33 @@ class Gestion(Entrada):
 
 # ----------------------------------------------------------------- indicadores
 
-class ResumenOut(Salida):
+class ResumenBase(Salida):
     citas: int
     atendidas: int
     no_asistio: int
-    atencion_efectiva: float | None
+    atencion_efectiva: float | None = Field(description="Obsoleto: atendidas ÷ todas las citas. Usa `asistencia`.")
+    asistencia: float | None = Field(description="Atendidas ÷ (atendidas + no asistió + canceladas).")
     inasistencia: float | None
     cancelaciones: int
     cancelaciones_tardias: int
     cancelaciones_recuperadas: int
     recuperacion: float | None
     confirmacion: float | None
+    sin_desenlace: int = Field(description="Citas pasadas del rango que siguen programadas, confirmadas o sin confirmar.")
+    capacidad_aplica: bool = Field(description="False con un servicio elegido: ocupación y cupos no se consolidan por servicio.")
     ocupacion: float | None
-    minutos_disponibles: int
+    minutos_disponibles: int | None
     minutos_atendidos: int
-    cupos_liberados: int
-    cupos_ocupados_oferta: int
-    cupos_ocupados_agendamiento: int
-    cupos_vacios: int
+    cupos_liberados: int | None
+    cupos_ocupados_oferta: int | None
+    cupos_ocupados_agendamiento: int | None
+    cupos_vacios: int | None
+
+
+class ResumenOut(ResumenBase):
+    desde_anterior: date | None = Field(None, description="Solo con `comparar=true`.")
+    hasta_anterior: date | None = None
+    anterior: ResumenBase | None = Field(None, description="Mismas cifras del periodo anterior (igual duración, termina el día antes de `desde`).")
 
 
 class PuntoTendencia(Salida):
@@ -495,15 +506,67 @@ class PuntoTendencia(Salida):
     citas: int
     atendidas: int
     no_asistio: int
+    sin_desenlace: int
     inasistencia: float | None
 
 
 class FilaDimension(Salida):
+    id: int
     nombre: str
     citas: int
     atendidas: int
     no_asistio: int
+    canceladas: int
     inasistencia: float | None
+
+
+class FaltasRepetidasOut(Salida):
+    paciente_id: int
+    paciente: str
+    celular: str | None
+    faltas: int
+    ultima_falta: date
+    tiene_cita_futura: bool
+
+
+class CitaPerdidaOut(Salida):
+    cita_id: int
+    dia: date
+    inicio: Momento | None
+    estado: str
+    paciente_id: int
+    paciente: str
+    profesional: str
+    servicio: str
+    motivo: str | None
+    cancelacion_tardia: bool | None
+    reagendada: bool
+
+
+class GrupoRecordatorio(Salida):
+    n: int
+    no_asistio: int
+    inasistencia: float | None
+
+
+class EmbudoRecordatorios(Salida):
+    citas: int
+    con_recordatorio: int
+    confirmadas: int
+    atendidas: int
+
+
+class RecordatoriosOut(Salida):
+    con_recordatorio: GrupoRecordatorio
+    sin_recordatorio: GrupoRecordatorio
+    embudo: EmbudoRecordatorios
+
+
+class CeldaDiaHora(Salida):
+    dia_semana: int = Field(description="0 = lunes … 6 = domingo")
+    hora: int
+    atendidas: int
+    no_asistio: int
 
 
 class MotivoIndicador(Salida):

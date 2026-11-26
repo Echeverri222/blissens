@@ -67,8 +67,8 @@ def seguimientos(conn):
         "where cs.estado='abierto' or (cs.estado='agotado' and cs.escalado) order by cs.escalado desc, cs.abierto_en").fetchall()
 
 
-def en_riesgo(conn):
-    return recovery.at_risk(conn)
+def en_riesgo(conn, profesional_id: int | None = None, servicio_id: int | None = None):
+    return recovery.at_risk(conn, profesional_id=profesional_id, servicio_id=servicio_id)
 
 
 def cupos_libres(conn):

@@ -87,8 +87,9 @@ def seguimientos(conn=Depends(get_conn), u=Depends(auxiliar)):
 
 @router.get("/bandejas/en-riesgo", tags=["Bandejas"], summary="Pacientes con tratamiento a medias",
             response_model=list[sc.EnRiesgoOut])
-def en_riesgo(conn=Depends(get_conn), u=Depends(auxiliar)):
-    return [_nombre(r) for r in bandejas.en_riesgo(conn)]
+def en_riesgo(profesional_id: int | None = None, servicio_id: int | None = None, conn=Depends(get_conn),
+              u=Depends(auxiliar)):
+    return [_nombre(r) for r in bandejas.en_riesgo(conn, profesional_id, servicio_id)]
 
 
 @router.get("/bandejas/cupos-libres", tags=["Bandejas"], summary="Cupos liberados abiertos o en oferta",
@@ -164,8 +165,9 @@ def filtros(desde: date | None = None, hasta: date | None = None, profesional_id
 
 
 @router.get("/indicadores/resumen", tags=["Indicadores"], summary="Indicadores del periodo", response_model=sc.ResumenOut)
-def resumen(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
-    return indicators.summary(conn, f)
+def resumen(comparar: bool = Query(False, description="Añade `anterior`: las mismas cifras del periodo previo de igual duración."),
+            conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.summary(conn, f, comparar)
 
 
 @router.get("/indicadores/tendencia", tags=["Indicadores"], summary="Tendencia de inasistencia por día o semana",
@@ -200,6 +202,32 @@ def tiempo_entre_citas(conn=Depends(get_conn), f=Depends(filtros), u=Depends(aux
                                por_paciente_dias=indicators.time_between_patient(conn, f))
 
 
+@router.get("/indicadores/faltas-repetidas", tags=["Indicadores"], summary="Pacientes con 2 o más inasistencias en el periodo",
+            response_model=list[sc.FaltasRepetidasOut])
+def faltas_repetidas(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.repeat_no_shows(conn, f)
+
+
+@router.get("/indicadores/citas-perdidas", tags=["Indicadores"],
+            summary="Citas del periodo con inasistencia o cancelación tardía",
+            description="El detalle detrás de las cifras por profesional o servicio: usa `profesional_id` o `servicio_id`.",
+            response_model=list[sc.CitaPerdidaOut])
+def citas_perdidas(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.missed_appointments(conn, f)
+
+
+@router.get("/indicadores/recordatorios", tags=["Indicadores"], summary="Inasistencia con y sin recordatorio, y embudo",
+            response_model=sc.RecordatoriosOut)
+def recordatorios(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.reminders(conn, f)
+
+
+@router.get("/indicadores/dia-hora", tags=["Indicadores"], summary="Atendidas y no asistió por día de la semana y hora",
+            response_model=list[sc.CeldaDiaHora])
+def dia_hora(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.weekday_hour(conn, f)
+
+
 @router.post("/indicadores/cierre", tags=["Indicadores"], summary="Ejecutar el cierre de todo el historial",
              response_model=sc.CierreOut, description="Idempotente: repetirlo reemplaza los hechos diarios sin duplicar.")
 def cierre(conn=Depends(get_conn), u=Depends(auxiliar)):
@@ -212,5 +240,7 @@ def cierre(conn=Depends(get_conn), u=Depends(auxiliar)):
 @router.get("/sistema", tags=["Sistema"], summary="Tareas, último cierre y configuración vigente",
             response_model=sc.SistemaOut)
 def sistema(conn=Depends(get_conn), u=Depends(auxiliar)):
+    # Un cierre fechado en el futuro (reloj simulado que retrocedió) no se muestra: el máximo es hoy.
+    ultimo, hoy = config.get(conn, "ultimo_diario"), clock.now(conn).date().isoformat()
     return sc.SistemaOut(tareas_fallidas=bandejas.tareas_fallidas(conn), tareas_pendientes=bandejas.pending_tasks(conn),
-                         ultimo_cierre=config.get(conn, "ultimo_diario"), configuracion=config.effective(conn))
+                         ultimo_cierre=min(ultimo, hoy) if ultimo else None, configuracion=config.effective(conn))

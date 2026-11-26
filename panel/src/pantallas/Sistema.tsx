@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
-import { api } from "@/api/cliente";
+import { api, ApiError } from "@/api/cliente";
+import { useAccion } from "@/api/consultas";
 import { fechaHora, fechaLarga } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
-import { Tarjeta } from "@/ui/controles";
-import { Consulta } from "@/ui/vistas";
+import { Confirmar, Tarjeta } from "@/ui/controles";
+import { Aviso, Consulta } from "@/ui/vistas";
 
 type Estado = "bien" | "atencion" | "mal";
 const ESTILO: Record<Estado, { clases: string; icono: typeof CheckCircle2 }> = {
@@ -41,13 +42,14 @@ export function estadoCierre(ultimo: string | null, hoy: string): { estado: Esta
 export function Sistema() {
   const { hoy } = useSesion();
   const q = useQuery({ queryKey: ["sistema"], queryFn: api.sistema });
+  const cierre = useAccion(api.indicadores.cierre, { ok: (r) => `Cierre ejecutado (${r.dias} días)` });
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <h1 className="text-xl font-semibold">Sistema</h1>
       <Consulta q={q}>
         {(s) => {
           const fallidas = s.tareas_fallidas.length;
-          const cierre = estadoCierre(s.ultimo_cierre, hoy);
+          const estadoDelCierre = estadoCierre(s.ultimo_cierre, hoy);
           return (<>
             <section aria-label="Estado" className="grid gap-3 md:grid-cols-2">
               <Semaforo estado={fallidas === 0 ? "bien" : "mal"} titulo={fallidas === 0 ? "Los mensajes automáticos funcionan" : `${fallidas} ${fallidas === 1 ? "tarea falló" : "tareas fallaron"}`}>
@@ -55,7 +57,14 @@ export function Sistema() {
                   ? "Recordatorios, seguimientos y correos salen cuando les toca."
                   : "El sistema no pudo enviar algo. Revisa la lista de abajo y atiende a esos pacientes por teléfono."}
               </Semaforo>
-              <Semaforo estado={cierre.estado} titulo={cierre.titulo}>{cierre.detalle}</Semaforo>
+              <Semaforo estado={estadoDelCierre.estado} titulo={estadoDelCierre.titulo}>{estadoDelCierre.detalle}</Semaforo>
+            </section>
+            <section aria-label="Cierre diario" className="space-y-2">
+              <Tarjeta className="flex flex-wrap items-center gap-3 p-4">
+                <p className="mr-auto text-sm">Último cierre diario: <b>{s.ultimo_cierre ?? "nunca"}</b></p>
+                <Confirmar variante="secundario" pequeno deshabilitado={cierre.isPending} etiqueta="Ejecutar cierre ahora" pregunta="Se recalculan los indicadores de los días pendientes. Puede tardar unos segundos." alConfirmar={() => cierre.mutate(undefined)} />
+              </Tarjeta>
+              {cierre.error instanceof ApiError && <Aviso>{cierre.error.mensaje}</Aviso>}
             </section>
             {fallidas > 0 && (
               <section aria-label="Tareas fallidas" className="space-y-2">

@@ -501,7 +501,9 @@ def test_follow_up_action_and_indicators_match_the_domain(mundo, conn):
     q = f"?desde={f['desde']}&hasta={f['hasta']}"
     conn.rollback()
     r = mundo.aux.get(f"{API}/indicadores/resumen{q}").json()
-    assert r == json.loads(json.dumps(indicators.summary(conn, f))) and r["no_asistio"] == 1
+    dominio = json.loads(json.dumps(indicators.summary(conn, f)))
+    assert {k: r[k] for k in dominio} == dominio and r["no_asistio"] == 1
+    assert r["anterior"] is None  # sin `comparar` no se calcula el periodo anterior
     assert mundo.aux.get(f"{API}/indicadores/tendencia{q}").json()[0]["no_asistio"] == 1
     sem = mundo.aux.get(f"{API}/indicadores/tendencia{q}&agrupar=semana").json()
     assert sum(p["no_asistio"] for p in sem) == 1

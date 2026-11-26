@@ -99,3 +99,110 @@ def test_slot_facts_in_daily_close(conn):
     indicators.close_day(conn, DAY)
     s = indicators.summary(conn, filt())
     assert s["cupos_liberados"] == 1 and s["cupos_vacios"] == 1
+
+
+# ----- Indicadores accionables (docs/prd-indicadores.md) -----
+
+def test_asistencia_excludes_rescheduled_and_unresolved(conn):
+    pro, a = dataset(conn)                                   # 3 atendidas, 1 no asistió, 1 cancelada, 1 reprogramada
+    raw(conn, a, pro, "11:00", "programada")                  # sin desenlace: no cuenta en asistencia
+    indicators.close_day(conn, DAY)
+    s = indicators.summary(conn, filt())
+    assert s["asistencia"] == 3 / 5                            # atendidas ÷ (atendidas + no asistió + canceladas)
+    assert s["atencion_efectiva"] == 3 / 7                     # la cifra obsoleta no cambia
+    assert s["sin_desenlace"] == 1
+
+
+def test_sin_desenlace_per_week_in_trend(conn):
+    pro, a = dataset(conn)
+    raw(conn, a, pro, "11:00", "confirmada")
+    indicators.close_day(conn, DAY)
+    sem = indicators.weekly_trend(conn, filt())
+    assert sem[0]["sin_desenlace"] == 1 and indicators.trend(conn, filt())[0]["sin_desenlace"] == 1
+
+
+def test_summary_compares_with_previous_period(conn):
+    pro, a = dataset(conn)
+    ant = DAY - timedelta(days=1)
+    raw(conn, a, pro, "08:00", "atendida", day=ant)
+    raw(conn, a, pro, "08:30", "no_asistio", day=ant)
+    raw(conn, a, pro, "09:00", "no_asistio", day=ant)
+    indicators.close_day(conn, DAY)
+    indicators.close_day(conn, ant)
+    s = indicators.summary(conn, filt(), comparar=True)
+    assert (s["desde_anterior"], s["hasta_anterior"]) == (ant, ant)   # igual duración, termina el día antes
+    assert s["inasistencia"] == 1 / 4 and s["anterior"]["inasistencia"] == 2 / 3
+    assert "anterior" not in indicators.summary(conn, filt())
+    p = indicators.period_before({"desde": date(2026, 11, 1), "hasta": date(2026, 11, 10)})
+    assert (p["desde"], p["hasta"]) == (date(2026, 10, 22), date(2026, 10, 31))
+
+
+def test_repeat_no_shows(conn):
+    pro, a = make_pro(conn), make_patient(conn)
+    b = make_patient(conn, "Luis", "Gómez")
+    for hh in ("08:00", "08:30"):
+        raw(conn, a, pro, hh, "no_asistio")
+    raw(conn, b, pro, "09:00", "no_asistio")
+    raw(conn, a, pro, "10:00", "programada", day=DAY + timedelta(days=30))  # cita futura de a
+    rows = indicators.repeat_no_shows(conn, filt())
+    assert [(r["paciente_id"], r["faltas"], r["tiene_cita_futura"]) for r in rows] == [(a, 2, True)]
+    assert indicators.repeat_no_shows(conn, {**filt(), "servicio_id": svc(conn, "Limpieza")}) == []
+
+
+def test_missed_appointments_flags_rebooked(conn):
+    pro, a = make_pro(conn), make_patient(conn)
+    f = raw(conn, a, pro, "08:00", "no_asistio")
+    tarde = raw(conn, a, pro, "09:00", "cancelada")
+    cancel(conn, tarde, "Viaje", True)
+    temprano = raw(conn, a, pro, "10:00", "cancelada")
+    cancel(conn, temprano, "Salud", False)                    # cancelación a tiempo: no cuenta como perdida
+    raw(conn, a, pro, "11:00", "programada", day=DAY + timedelta(days=7))  # volvió a agendar el mismo servicio
+    rows = {r["cita_id"]: r for r in indicators.missed_appointments(conn, filt())}
+    assert set(rows) == {f, tarde}
+    assert rows[f]["estado"] == "no_asistio" and rows[f]["reagendada"] is True
+    assert rows[tarde]["motivo"] == "Viaje" and rows[tarde]["cancelacion_tardia"] is True
+    assert indicators.missed_appointments(conn, {**filt(), "profesional_id": make_pro(conn, "Dr. Otro")}) == []
+
+
+def test_reminders_compare_and_funnel(conn):
+    pro, a = dataset(conn)                                     # con recordatorio: 3 atendidas + 1 no asistió
+    raw(conn, a, pro, "11:00", "atendida")
+    raw(conn, a, pro, "11:30", "no_asistio")
+    indicators.close_day(conn, DAY)
+    r = indicators.reminders(conn, filt())
+    assert r["con_recordatorio"] == {"n": 4, "no_asistio": 1, "inasistencia": 1 / 4}
+    assert r["sin_recordatorio"] == {"n": 2, "no_asistio": 1, "inasistencia": 1 / 2}
+    assert r["embudo"] == {"citas": 8, "con_recordatorio": 4, "confirmadas": 3, "atendidas": 4}
+
+
+def test_weekday_hour_uses_local_time(conn):
+    pro, a = make_pro(conn), make_patient(conn)
+    raw(conn, a, pro, "08:00", "atendida")
+    raw(conn, a, pro, "08:30", "no_asistio")
+    raw(conn, a, pro, "09:00", "no_asistio")
+    raw(conn, a, pro, "10:00", "cancelada")                    # no cuenta
+    celdas = {(c["dia_semana"], c["hora"]): c for c in indicators.weekday_hour(conn, filt())}
+    assert celdas[(1, 8)]["atendidas"] == 1 and celdas[(1, 8)]["no_asistio"] == 1   # martes = 1
+    assert celdas[(1, 9)]["no_asistio"] == 1 and (1, 10) not in celdas
+
+
+def test_service_filter_applies_to_time_between_patient(conn):
+    pro, a = make_pro(conn), make_patient(conn)
+    for d, s in ((DAY - timedelta(days=30), "Valoración o revisión"), (DAY - timedelta(days=20), "Valoración o revisión"),
+                 (DAY - timedelta(days=19), "Limpieza"), (DAY, "Valoración o revisión")):
+        raw(conn, a, pro, "08:00", "atendida", day=d, service=s)
+    f = {"desde": DAY - timedelta(days=60), "hasta": DAY}
+    assert indicators.time_between_patient(conn, {**f, "servicio_id": svc(conn)}) == 15.0
+    assert indicators.time_between_patient(conn, f) == (10 + 1 + 19) / 3
+    pro2 = make_pro(conn, "Dr. Otro")
+    assert indicators.time_between_patient(conn, {**f, "profesional_id": pro2}) is None
+
+
+def test_capacity_and_slots_do_not_apply_when_filtering_by_service(conn):
+    dataset(conn)
+    indicators.close_day(conn, DAY)
+    s = indicators.summary(conn, {**filt(), "servicio_id": svc(conn)})
+    assert s["capacidad_aplica"] is False
+    assert s["ocupacion"] is None and s["minutos_disponibles"] is None and s["cupos_liberados"] is None
+    assert s["cupos_vacios"] is None and s["citas"] == 6
+    assert indicators.summary(conn, filt())["capacidad_aplica"] is True
