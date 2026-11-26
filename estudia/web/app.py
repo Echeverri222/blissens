@@ -376,7 +376,9 @@ def mis_citas(request: Request, token: str, aviso: str = "", cita: int | None = 
     fams = familia.familiares(conn, p["id"])
     responsable = familia.responsable_de(conn, p)
     hoy = clock.now(conn).astimezone(clock.TZ).date()
-    return render(request, "mis_citas.html", p=p, token=token, citas=_appointments(conn, familia.ids_del_hogar(conn, p)),
+    # El acceso al asistente solo existe si sus rutas están registradas y el negocio lo encendió para los pacientes.
+    asistente = bool(request.app.state.asistente) and bool(config.get(conn, "asistente_pacientes"))
+    return render(request, "mis_citas.html", p=p, token=token, asistente=asistente, citas=_appointments(conn, familia.ids_del_hogar(conn, p)),
                   aviso=aviso, familiares=fams, responsable=responsable, siguientes=_siguientes(conn, p, fams, cita),
                   menor=familia.es_menor(p["fecha_nacimiento"], hoy))
 
@@ -759,16 +761,28 @@ def salud(conn=Depends(get_conn)):
     return {"ok": True}
 
 
-def crear_app(entorno: str | None = None) -> FastAPI:
-    """Construye la aplicación del entorno: lo que ese entorno no permite NO se registra como ruta (PRD #4, D7)."""
+def crear_app(entorno: str | None = None, asistente: bool | None = None) -> FastAPI:
+    """Construye la aplicación del entorno: lo que ese entorno no permite NO se registra como ruta (PRD #4, D7).
+
+    `asistente`: sin la clave de la API (`ANTHROPIC_API_KEY`) las rutas del asistente no existen. El generador del esquema
+    OpenAPI lo pide siempre (`True`) para que el contrato las incluya.
+    """
     entorno = entorno or settings.ENTORNO
+    if asistente is None:
+        asistente = bool(settings.ANTHROPIC_API_KEY)
     if entorno != "local" and not os.environ.get("PYTEST_CURRENT_TEST"):
         arranque.exigir(entorno)
     app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas")
     app.state.entorno = entorno
+    app.state.asistente = bool(asistente)
     registrar_errores(app)
     logs.instalar(app)
     app.include_router(api_router)
+    if asistente:
+        from ..api.asistente import router as asistente_router
+        app.include_router(asistente_router)
+        from .asistente_paciente import router as asistente_paciente_router
+        app.include_router(asistente_paciente_router)
     app.include_router(panel_router)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(publico)

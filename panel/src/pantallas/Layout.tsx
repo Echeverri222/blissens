@@ -13,6 +13,7 @@ import { Aviso } from "@/ui/vistas";
 import { Boton, Entrada } from "@/ui/controles";
 import { ApiError } from "@/api/cliente";
 import { Distintivo } from "./Marca";
+import { Asistente } from "./Asistente";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 
 interface Seccion { a: string; texto: string; icono: typeof Menu; conteo?: boolean }
@@ -141,6 +142,7 @@ export function Layout(): ReactNode {
               <b className="text-sm text-tinta sm:hidden">{horaDe(ahora)}</b></p>
             {sesion.modo_demo && <span className="whitespace-nowrap rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-950">
               <span className="hidden sm:inline">Modo demo</span><span className="sm:hidden" aria-hidden>Demo</span></span>}
+            <Asistente />
             <MenuCuenta />
           </div>
         </header>

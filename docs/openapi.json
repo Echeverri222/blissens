@@ -6490,6 +6490,213 @@
         }
       }
     },
+    "/api/v1/asistente/estado": {
+      "get": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "¿Puede este usuario usar el asistente?",
+        "description": "`disponible` es falso si el negocio no lo encendió para el equipo. El panel oculta el acceso en ese caso.",
+        "operationId": "estado_api_v1_asistente_estado_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsistenteEstadoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Asistente apagado para este negocio, o el rol no lo usa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La conversación no existe o no es de este usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/asistente/mensajes": {
+      "post": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "Enviar un mensaje al asistente",
+        "description": "Hasta 1 000 caracteres. Sin `conversacion_id` abre una conversación. Un tope, un fallo del modelo o un mensaje que tarda más de 45 s responden 200 con un texto fijo y sin `propuestas`. Las `propuestas` no se ejecutan: el panel las confirma con los endpoints que ya existen.",
+        "operationId": "enviar_api_v1_asistente_mensajes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsistenteMensajeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsistenteRespuestaOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Asistente apagado para este negocio, o el rol no lo usa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La conversación no existe o no es de este usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/asistente/conversaciones/{conversacion_id}": {
+      "get": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "Una conversación propia, para mostrarla de nuevo",
+        "description": "Solo las del propio usuario y negocio; cualquier otra es 404, como una que no existe.",
+        "operationId": "conversacion_propia_api_v1_asistente_conversaciones__conversacion_id__get",
+        "parameters": [
+          {
+            "name": "conversacion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversacion Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsistenteConversacionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Asistente apagado para este negocio, o el rol no lo usa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La conversación no existe o no es de este usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/n/{nombre}/agendar": {
       "get": {
         "summary": "Agendar",
@@ -8009,6 +8216,150 @@
           "cupos_liberados"
         ],
         "title": "AgendaOut"
+      },
+      "AsistenteConversacionOut": {
+        "properties": {
+          "conversacion_id": {
+            "type": "integer",
+            "title": "Conversacion Id"
+          },
+          "mensajes": {
+            "items": {
+              "$ref": "#/components/schemas/AsistenteTurnoOut"
+            },
+            "type": "array",
+            "title": "Mensajes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversacion_id",
+          "mensajes"
+        ],
+        "title": "AsistenteConversacionOut"
+      },
+      "AsistenteEstadoOut": {
+        "properties": {
+          "disponible": {
+            "type": "boolean",
+            "title": "Disponible",
+            "description": "El negocio encendió el asistente para el equipo (y hay clave de la API)"
+          },
+          "perfil": {
+            "type": "string",
+            "enum": [
+              "auxiliar",
+              "especialista"
+            ],
+            "title": "Perfil"
+          },
+          "mensajes_restantes": {
+            "type": "integer",
+            "title": "Mensajes Restantes",
+            "description": "Mensajes que le quedan hoy a este usuario"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disponible",
+          "perfil",
+          "mensajes_restantes"
+        ],
+        "title": "AsistenteEstadoOut"
+      },
+      "AsistenteMensajeIn": {
+        "properties": {
+          "conversacion_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversacion Id",
+            "description": "Continúa esa conversación; sin él se abre una nueva"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Texto"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "texto"
+        ],
+        "title": "AsistenteMensajeIn"
+      },
+      "AsistenteRespuestaOut": {
+        "properties": {
+          "conversacion_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversacion Id",
+            "description": "Null solo si se respondió con una respuesta fija sin abrir conversación"
+          },
+          "respuesta": {
+            "type": "string",
+            "title": "Respuesta",
+            "description": "Texto plano con saltos de línea"
+          },
+          "propuestas": {
+            "items": {
+              "$ref": "#/components/schemas/PropuestaOut"
+            },
+            "type": "array",
+            "title": "Propuestas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversacion_id",
+          "respuesta",
+          "propuestas"
+        ],
+        "title": "AsistenteRespuestaOut"
+      },
+      "AsistenteTurnoOut": {
+        "properties": {
+          "rol": {
+            "type": "string",
+            "enum": [
+              "usuario",
+              "asistente"
+            ],
+            "title": "Rol"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          },
+          "propuestas": {
+            "items": {
+              "$ref": "#/components/schemas/PropuestaOut"
+            },
+            "type": "array",
+            "title": "Propuestas",
+            "description": "Solo en turnos del asistente: las que preparó en ese turno"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rol",
+          "texto",
+          "propuestas"
+        ],
+        "title": "AsistenteTurnoOut"
       },
       "BajaOut": {
         "properties": {
@@ -10799,6 +11150,40 @@
           "especialidad"
         ],
         "title": "ProfesionalOut"
+      },
+      "PropuestaOut": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "agendar",
+              "cambiar_fecha",
+              "cancelar",
+              "confirmar_telefono",
+              "desenlace",
+              "bloqueo"
+            ],
+            "title": "Tipo"
+          },
+          "parametros": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parametros",
+            "description": "Lo que lleva el endpoint existente que la ejecuta, ya con sus ids"
+          },
+          "resumen": {
+            "type": "string",
+            "title": "Resumen",
+            "description": "Una línea para la tarjeta de confirmación"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "parametros",
+          "resumen"
+        ],
+        "title": "PropuestaOut"
       },
       "PuntoTendencia": {
         "properties": {

@@ -7,8 +7,9 @@ ARCHIVO = settings.ROOT / "docs" / "openapi.json"
 
 
 def esquema() -> dict:
-    from ..web.app import app
-    return json.loads(json.dumps(app.openapi()))
+    from ..web.app import crear_app
+    # Siempre con las rutas del asistente: en producción solo existen con clave, pero el contrato (y los tipos del panel) las incluyen.
+    return json.loads(json.dumps(crear_app("local", asistente=True).openapi()))
 
 
 def main() -> None:

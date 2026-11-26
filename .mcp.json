@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "estudia": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "estudia.asistente.mcp"],
+      "env": {"ENTORNO": "local"}
+    }
+  }
+}

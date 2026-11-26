@@ -33,6 +33,9 @@
   <p>{% if familiares %}Nadie de tu familia tiene citas próximas.{% else %}No tienes citas próximas.{% endif %}</p>
 {% endfor %}
 <a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>
+{% if asistente %}
+  <a role="button" class="outline" href="/p/{{ token }}/asistente">Preguntarle al asistente</a>
+{% endif %}
 
 {% if not responsable %}
   <h2>Mi familia</h2>

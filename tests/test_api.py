@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from estudia import agenda, bandejas, clock, indicators, usuarios
 from estudia.api.esquema import ARCHIVO, esquema
-from estudia.web.app import app
+from estudia.web.app import app, crear_app
 
 from .conftest import NOW, at, book, button, make_patient, make_pro, press, status, svc
 
@@ -50,7 +50,7 @@ def motivo_id(conn):
 # ------------------------------------------------------------------ 1. Ninguna ruta queda abierta
 
 def test_every_api_route_requires_a_session():
-    anon = nuevo_cliente()
+    anon = TestClient(crear_app("local", asistente=True), follow_redirects=False)  # el esquema incluye las rutas del asistente
     n = 0
     for path, ops in esquema()["paths"].items():
         if not path.startswith(API):

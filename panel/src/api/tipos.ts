@@ -55,3 +55,6 @@ export type NuevoBloqueo = S["NuevoBloqueo"];
 export type ResultadoGestion = S["Gestion"]["resultado"];
 export type Desenlace = S["Desenlace"]["desenlace"];
 export type FiltrosIndicadores = { desde?: string; hasta?: string; profesional_id?: number; servicio_id?: number };
+export type AsistenteEstado = S["AsistenteEstadoOut"];
+export type AsistenteRespuesta = S["AsistenteRespuestaOut"];
+export type Propuesta = S["PropuestaOut"];

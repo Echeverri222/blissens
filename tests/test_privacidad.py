@@ -87,3 +87,45 @@ def test_el_registro_estructurado_no_lleva_datos_personales(conn, capsys):
     assert ficha["negocio"] == 1 and ficha["usuario"] and ficha["estado"] == 200 and ficha["ms"] >= 0
     texto = json.dumps(lineas)
     assert "Zzz" not in texto and f"pacientes/{pid}\"" not in texto
+
+
+def _conversacion(conn, pa, hace_dias=0):
+    ultima = clock.now(conn) - timedelta(days=hace_dias)
+    cid = conn.execute("insert into asistente_conversacion(perfil, paciente_id, creada_en, ultima_en) values ('paciente',%s,%s,%s) "
+                       "returning id", (pa, ultima, ultima)).fetchone()["id"]
+    conn.execute("insert into asistente_mensaje(conversacion_id, rol, contenido, creado_en) values (%s,'user',%s,%s)",
+                 (cid, json.dumps([{"type": "text", "text": "hola"}]), ultima))
+    return cid
+
+
+def test_asistente_exportar_incluye_las_conversaciones_y_anonimizar_las_borra_y_limpia_el_consentimiento(conn):
+    pa = make_patient(conn, "Ana", "Pérez", doc="123456")
+    otra = make_patient(conn, "Luis", "Gómez", doc="654321")
+    conn.execute("update paciente set acepta_asistente=true, consentimiento_asistente_en=now(), consentimiento_asistente_por=%s "
+                 "where id=%s", (pa, pa))
+    _conversacion(conn, pa)
+    _conversacion(conn, otra)
+    conn.commit()
+    ex = privacidad.exportar_paciente(conn, pa)
+    assert len(ex["asistente"]) == 1 and "hola" in json.dumps(ex["asistente"], ensure_ascii=False)
+    json.dumps(ex, default=str)
+    privacidad.anonimizar_paciente(conn, pa)
+    p = conn.execute("select * from paciente where id=%s", (pa,)).fetchone()
+    assert p["acepta_asistente"] is False and p["consentimiento_asistente_en"] is None and p["consentimiento_asistente_por"] is None
+    assert conn.execute("select count(*) n from asistente_conversacion where paciente_id=%s", (pa,)).fetchone()["n"] == 0
+    assert conn.execute("select count(*) n from asistente_conversacion where paciente_id=%s", (otra,)).fetchone()["n"] == 1
+    assert conn.execute("select count(*) n from asistente_mensaje").fetchone()["n"] == 1  # los mensajes se fueron en cascada
+
+
+def test_asistente_la_depuracion_borra_por_retencion_asistente_dias_y_solo_informa_si_borro(conn):
+    pa = make_patient(conn)
+    vieja, reciente = _conversacion(conn, pa, 40), _conversacion(conn, pa, 10)
+    conn.commit()
+    assert privacidad.depurar(conn) == {"asistente": 1}  # 30 días por defecto
+    ids = [r["id"] for r in conn.execute("select id from asistente_conversacion")]
+    assert ids == [reciente] and vieja not in ids
+    assert conn.execute("select count(*) n from asistente_mensaje").fetchone()["n"] == 1
+    assert privacidad.depurar(conn) == {}
+    config.set_(conn, "retencion_asistente_dias", 5)
+    assert privacidad.depurar(conn) == {"asistente": 1}
+    assert conn.execute("select count(*) n from asistente_conversacion").fetchone()["n"] == 0

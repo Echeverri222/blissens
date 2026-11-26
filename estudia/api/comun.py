@@ -105,13 +105,35 @@ def usuario_sin_negocio(request: Request, conn=Depends(get_conn)) -> dict:
     return u
 
 
-def usuario_actual(u: dict = Depends(usuario_sin_negocio)) -> dict:
-    """Sesión válida con un negocio activo, ya fijado en la conexión: de él sale todo lo que la base deja ver."""
+def _con_negocio(u: dict) -> dict:
     if u["negocio_id"] is None:
         raise ApiError(409, "negocio_requerido", "Elige el negocio con el que vas a trabajar.")
     if u["debe_cambiar_clave"]:
         raise ApiError(403, "cambio_de_clave_requerido", "Debes cambiar tu contraseña temporal para continuar.")
     return u
+
+
+def usuario_actual(u: dict = Depends(usuario_sin_negocio)) -> dict:
+    """Sesión válida con un negocio activo, ya fijado en la conexión: de él sale todo lo que la base deja ver."""
+    return _con_negocio(u)
+
+
+def usuario_sin_conexion(request: Request) -> dict:
+    """Lo mismo que `usuario_actual`, pero la conexión que valida la sesión se abre y se cierra aquí mismo: la ruta que la usa
+    no retiene ninguna conexión mientras espera (por ejemplo, la respuesta de un modelo). No fija nada en el estado de la petición
+    salvo lo que necesita el registro."""
+    token = request.cookies.get(COOKIE)
+    conn = db.connect(negocio=None)
+    try:
+        u = usuarios.usuario_de_sesion(conn, token)
+        conn.commit()
+    finally:
+        conn.close()
+    if u is None:
+        raise ApiError(401, "no_autenticado", "Inicia sesión para continuar.")
+    request.state.token = token
+    request.state.usuario_id, request.state.negocio_id = u["id"], u["negocio_id"]
+    return _con_negocio(u)
 
 
 def administrador(u: dict = Depends(usuario_actual)) -> dict:

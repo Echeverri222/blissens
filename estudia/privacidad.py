@@ -27,8 +27,20 @@ def exportar_paciente(conn, paciente_id: int) -> dict:
                              (paciente_id,)).fetchall(),
         "accesos": conn.execute("select momento, accion, usuario_id, peticion from auditoria_acceso where paciente_id=%s "
                                 "order by id", (paciente_id,)).fetchall(),
+        "asistente": _conversaciones_del_asistente(conn, paciente_id),
     }
     return json.loads(json.dumps({**r, **extra}, default=str))
+
+
+def _conversaciones_del_asistente(conn, paciente_id: int) -> list[dict]:
+    """Las conversaciones que este paciente tuvo con el asistente, con cada turno tal como se guardó."""
+    out = []
+    for c in conn.execute("select id, perfil, creada_en, ultima_en from asistente_conversacion where paciente_id=%s order by id",
+                          (paciente_id,)).fetchall():
+        c["mensajes"] = conn.execute("select rol, contenido, tokens_entrada, tokens_salida, creado_en from asistente_mensaje "
+                                     "where conversacion_id=%s order by id", (c["id"],)).fetchall()
+        out.append(c)
+    return out
 
 
 def anonimizar_paciente(conn, paciente_id: int) -> None:
@@ -39,6 +51,10 @@ def anonimizar_paciente(conn, paciente_id: int) -> None:
         "update paciente set nombres=%s, apellidos='', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
         "external_id=null, acepta_mensajes=false, acepta_correo=false, consentimiento_correo_en=null where id=%s", (ANONIMO, paciente_id))
     conn.execute("update mensaje set texto='[eliminado]', botones='[]'::jsonb, respuesta=null where paciente_id=%s", (paciente_id,))
+    # El asistente: sus conversaciones se borran (con sus mensajes) y el consentimiento se retira, también el que dio por otros.
+    conn.execute("delete from asistente_conversacion where paciente_id=%s", (paciente_id,))
+    conn.execute("update paciente set acepta_asistente=false, consentimiento_asistente_en=null, consentimiento_asistente_por=null "
+                 "where id=%s or consentimiento_asistente_por=%s", (paciente_id, paciente_id))
     # La familia se deshace: el anonimizado deja de gestionar y de ser gestionado (docs/prd-familia.md, R8).
     conn.execute("update paciente set responsable_id=null, parentesco=null where id=%s or responsable_id=%s",
                  (paciente_id, paciente_id))
@@ -59,6 +75,11 @@ def depurar(conn) -> dict:
     if d:
         out["tareas"] = conn.execute("delete from tarea_programada where estado in ('hecha','fallida') and ejecutar_en < %s",
                                      (_antes_de(conn, d),)).rowcount
+    d = config.get(conn, "retencion_asistente_dias")
+    if d:
+        borradas = conn.execute("delete from asistente_conversacion where ultima_en < %s", (_antes_de(conn, d),)).rowcount
+        if borradas:
+            out["asistente"] = borradas
     return out
 
 

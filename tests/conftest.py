@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 # Las pruebas usan una base separada; se fija antes de importar el paquete. La suite corre con el ROL DE APLICACIÓN
 # (sujeto a RLS); el rol de administración solo migra y vacía la base entre pruebas.
 os.environ["ENTORNO"] = "local"
+# Ninguna prueba llama a la API de Claude: aunque `.env` traiga la clave, aquí queda vacía (las pruebas del asistente la fingen
+# en `settings` y usan un cliente falso).
+os.environ["ANTHROPIC_API_KEY"] = ""
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql://estudia_app:estudia_app@127.0.0.1:5433/estudia_test")
 os.environ["DATABASE_URL_ADMIN"] = os.environ.get(

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Asistente de citas · Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block head %}<noscript><style>.solo-js { display: none; }</style></noscript>{% endblock %}
+{% block content %}
+<h1>Asistente de citas</h1>
+{% if aviso %}<p class="aviso" role="status">{{ aviso }}</p>{% endif %}
+{% if fase == 'consentimiento' %}
+  <div class="tarjeta">
+    {% if consent.por_responsable %}
+      <p>{{ consent.responsable.nombres|nombre }} decide si tu familia usa el asistente. Pídele que lo active desde su enlace.</p>
+      <p>Mientras tanto puedes seguir usando esta página con normalidad.</p>
+    {% else %}
+      <p>{{ texto_consentimiento }}</p>
+      <form method="post" action="/p/{{ token }}/asistente/consentimiento" class="acciones">
+        <button type="submit" name="accion" value="aceptar">Aceptar y continuar</button>
+        <button type="submit" name="accion" value="rechazar" class="outline secondary">No, gracias</button>
+      </form>
+    {% endif %}
+  </div>
+  <p><a href="/p/{{ token }}">Volver a mis citas</a></p>
+{% else %}
+  <p class="nota">Soy un asistente de inteligencia artificial y puedo equivocarme. Solo te ayudo con tus citas en {{ negocio.nombre }}.
+    Si es una urgencia o algo de salud, llama a {{ termino }}.</p>
+  <div class="chat">
+    <div id="mensajes" class="chat__mensajes" aria-live="polite">
+      {% include "_asistente_mensajes.html" %}
+    </div>
+    <div id="chat-error" role="alert">{% if error %}<p class="error">{{ error }}</p>{% endif %}</div>
+    <form id="chat-form" method="post" action="/p/{{ token }}/asistente" hx-post="/p/{{ token }}/asistente" hx-target="#mensajes"
+          hx-swap="beforeend" hx-indicator="#escribiendo" hx-disabled-elt="#chat-form button, #chat-form textarea"
+          hx-on::after-request="if (event.detail.successful) this.querySelector('textarea').value = ''">
+      <input type="hidden" id="conversacion" name="conversacion" value="{{ conversacion_id or '' }}">
+      <div class="guiados">
+        <button type="submit" name="guiado" value="cita" class="outline" formnovalidate>{{ guiados.cita }}</button>
+        <button type="submit" name="guiado" value="agendar" class="outline" formnovalidate>Agendar</button>
+        <button type="submit" name="guiado" value="cambiar" class="outline" formnovalidate>Cambiar una cita</button>
+        <button type="submit" name="guiado" value="cancelar" class="outline" formnovalidate>Cancelar una cita</button>
+      </div>
+      <label for="texto">O escribe tu pregunta</label>
+      <textarea id="texto" name="texto" rows="2" maxlength="300" required></textarea>
+      <button type="submit">Enviar</button>
+      <p id="escribiendo" class="htmx-indicator nota" role="status">Escribiendo…</p>
+    </form>
+    <form method="post" action="/p/{{ token }}/contacto" hx-post="/p/{{ token }}/contacto" hx-target="this" hx-swap="outerHTML">
+      <button type="submit" class="outline secondary">Que me llamen</button>
+    </form>
+  </div>
+  <p><a href="/p/{{ token }}">Volver a mis citas</a></p>
+  {% if not consent.por_responsable %}
+    <form method="post" action="/p/{{ token }}/asistente/consentimiento" style="margin-top:2rem"
+          onsubmit="return confirm('El asistente dejará de funcionar para ti y tu familia. ¿Continuar?')">
+      <input type="hidden" name="accion" value="retirar">
+      <button type="submit" class="outline secondary">Retirar mi autorización del asistente</button>
+    </form>
+  {% endif %}
+{% endif %}
+{% endblock %}

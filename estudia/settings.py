@@ -33,3 +33,7 @@ TICK_SECRETO = os.environ.get("TICK_SECRETO", "")
 # Contraseña del rol de aplicación: solo se fija sola en local; en otros entornos la pone el operador.
 CLAVE_ROL_APP = os.environ.get("CLAVE_ROL_APP", "estudia_app" if ENTORNO == "local" else "")
 DATOS_REALES_DIR = ROOT / os.environ.get("DATOS_REALES_DIR", "datos_reales")
+# Asistente (docs/prd-asistente.md): sin clave, sus rutas no se registran. El modelo de los pacientes puede ser otro (PRD §12, Q2).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ASISTENTE_MODELO = os.environ.get("ASISTENTE_MODELO", "claude-opus-5-5")
+ASISTENTE_MODELO_PACIENTE = os.environ.get("ASISTENTE_MODELO_PACIENTE", "") or ASISTENTE_MODELO

@@ -5,7 +5,7 @@ import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   NuevoPaciente, PacienteResumen, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
-  SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento,
+  SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
 const BASE = "/api/v1";
@@ -129,6 +129,10 @@ export const api = {
     reagendamiento: (f: FiltrosIndicadores) => get<Reagendamiento>("/indicadores/reagendamiento", f),
     diaHora: (f: FiltrosIndicadores) => get<CeldaDiaHora[]>("/indicadores/dia-hora", f),
     cierre: () => post<Cierre>("/indicadores/cierre"),
+  },
+  asistente: {
+    estado: () => get<AsistenteEstado>("/asistente/estado"),
+    enviar: (texto: string, conversacion_id: number | null) => post<AsistenteRespuesta>("/asistente/mensajes", { texto, conversacion_id }),
   },
   resumenDia: () => get<ResumenDia>("/resumen-dia"),
   sistema: () => get<Sistema>("/sistema"),

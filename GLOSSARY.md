@@ -26,6 +26,12 @@ Vocabulario del dominio de Estud-IA. El código y los documentos usan estos tér
 | **Hogar** | El responsable y sus familiares (un paciente sin familia es un hogar de uno). Comparten celular, así que sus avisos automáticos salen agrupados: un mensaje por evento, dirigido al responsable, con una línea por cita. |
 | **Parentesco** | Relación del familiar con su responsable: `hijo`, `pareja`, `padre` (madre o padre) u `otro`. |
 | **Consentimiento por** | Quién autorizó tratar los datos del paciente: vacío si fue él mismo; el responsable si lo agregó (como representante legal de un menor, o con permiso del adulto). |
+| **Asistente** | La función conversacional: responde preguntas con herramientas y prepara propuestas. No es un chat abierto ni escribe en la base. Ver `docs/prd-asistente.md` y ADR 0009. |
+| **Herramienta** | Una operación con nombre y entradas tipadas del catálogo del asistente (`estudia/asistente/`). Es de `lectura` o de `propuesta`. |
+| **Actor** | Quién le habla al asistente: un usuario con su acceso, o un paciente identificado por su enlace personal. Lo arma el servidor, nunca el modelo. |
+| **Perfil** | El conjunto de herramientas que recibe un actor: `paciente`, `especialista`, `auxiliar` u `operador`. No da más de lo que el panel o el enlace ya permiten. |
+| **Propuesta** | Una acción que el asistente preparó y no ejecutó: tipo, parámetros y un resumen. La persona la confirma o la descarta; al confirmar corre por la ruta que ya existía. |
+| **Operador (perfil)** | La sesión local de quien desarrolla, por el servidor MCP. Solo existe en el entorno `local`. |
 | **Cupo, oferta, caso de seguimiento, recuperación** | Ver `requirements.md` y el PRD #1. |
 | **Confirmación por teléfono** | Confirmar una cita futura (`programada` o `no_confirmada`) porque el paciente lo dijo en una llamada: la registra la auxiliar con «Confirmó». Pasa la cita a `confirmada` con detalle «Confirmada por teléfono», no envía mensajes y se puede deshacer. |
 | **Pendientes de hoy** | La pestaña «Qué hacer hoy» de Pendientes: lo que recepción resuelve hoy, en dos grupos. **Llamadas**: seguimientos, contactos, mensajes sin interpretar, citas sin confirmar (hoy y mañana) y dados de baja; su total es el contador del menú. **Trámites**: lo que se cierra en pantalla (citas por cerrar), sin llamar. |
