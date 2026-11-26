@@ -292,6 +292,14 @@ def mark_outcome(conn, cita_id: int, outcome: str, actor: str = "auxiliar", user
         followup.open_case(conn, "inasistencia", c["paciente_id"], cita_id=cita_id)
 
 
+def confirm_by_phone(conn, cita_id: int, user_id: int | None = None) -> None:
+    """La auxiliar registra la confirmación que el paciente dio por teléfono: no cancela nada ni escribe al paciente."""
+    c = conn.execute("select rango from cita where id=%s", (cita_id,)).fetchone()
+    if c is not None and c["rango"] is not None and clock.now(conn) >= c["rango"].lower:
+        raise lifecycle.InvalidTransition("Esa cita ya empezó: registra su desenlace")
+    lifecycle.transition(conn, cita_id, "confirmada", "auxiliar", "Confirmada por teléfono", user_id=user_id)
+
+
 def revert(conn, historial_id: int, actor: str = "auxiliar", user_id: int | None = None) -> int:
     """Revertir es un evento nuevo que compensa al anterior; nunca borra historial (RNF-07)."""
     h = conn.execute("select * from historial_estado where id=%s", (historial_id,)).fetchone()

@@ -1,5 +1,5 @@
 """Bandejas de la auxiliar: listas de trabajo derivadas con consultas (no hay tabla de alertas)."""
-from datetime import date
+from datetime import date, datetime, time, timedelta
 
 from . import clock, recovery
 from .lifecycle import ALIVE
@@ -15,12 +15,46 @@ def today_agenda(conn, day: date | None = None, professional_id: int | None = No
         "and c.estado <> 'reprogramada' order by pr.nombre, lower(c.rango)", (day, professional_id, professional_id)).fetchall()
 
 
+def fin_de_manana(conn) -> datetime:
+    """Medianoche que cierra el día de mañana, en la zona del negocio."""
+    ahora = clock.now(conn)
+    return datetime.combine(ahora.date() + timedelta(days=2), time.min, tzinfo=ahora.tzinfo)
+
+
+def _recordatorio(datos: dict) -> tuple[bool, datetime | None]:
+    """(¿se envió recordatorio?, cuándo). `recordatorio_en` lo deja `confirmations`; las citas antiguas solo traen la bandera."""
+    en = datos.get("recordatorio_en")
+    return bool(en or datos.get("recordatorio_enviado")), datetime.fromisoformat(en) if isinstance(en, str) else None
+
+
 def no_confirmadas(conn):
-    return conn.execute(
-        "select c.id, lower(c.rango) as inicio, pr.nombre as profesional, p.id as paciente_id, "
-        "p.nombres || ' ' || p.apellidos as paciente, p.celular from cita c join profesional pr on pr.id=c.profesional_id "
-        "join paciente p on p.id=c.paciente_id where c.estado='no_confirmada' and c.rango is not null "
-        "and lower(c.rango) > %s order by lower(c.rango)", (clock.now(conn),)).fetchall()
+    """Citas sin confirmación que aún no empiezan: las `no_confirmada` y las `programada` de hoy y mañana (sin respuesta aún).
+
+    Primero las `no_confirmada` de cada día, por hora. Los pacientes dados de baja van en `dados_de_baja`."""
+    filas = conn.execute(
+        "select c.id, c.estado, lower(c.rango) as inicio, pr.nombre as profesional, p.id as paciente_id, "
+        "p.nombres || ' ' || p.apellidos as paciente, p.celular, c.datos_origen from cita c "
+        "join profesional pr on pr.id=c.profesional_id join paciente p on p.id=c.paciente_id "
+        "where c.rango is not null and lower(c.rango) > %s and p.acepta_mensajes "
+        "and (c.estado='no_confirmada' or (c.estado='programada' and lower(c.rango) < %s))",
+        (clock.now(conn), fin_de_manana(conn))).fetchall()
+    out = []
+    for r in filas:
+        enviado, cuando = _recordatorio(r.pop("datos_origen"))
+        out.append({**r, "recordatorio_enviado": enviado, "recordatorio_en": cuando})
+    zona = clock.tz(conn)
+    return sorted(out, key=lambda r: (r["inicio"].astimezone(zona).date(), r["estado"] != "no_confirmada", r["inicio"]))
+
+
+def resumen_dia(conn) -> dict:
+    """Los cuatro contadores de la franja superior de la agenda de la auxiliar."""
+    ahora = clock.now(conn)
+    limite = fin_de_manana(conn)
+    return {
+        "citas_hoy": conn.execute("select count(*) as n from cita where dia=%s and estado = any(%s)",
+                                  (ahora.date(), list(ALIVE))).fetchone()["n"],
+        "sin_confirmar": sum(1 for r in no_confirmadas(conn) if r["inicio"] < limite),
+        "mensajes": len(sin_interpretar(conn)), "por_cerrar": len(sin_desenlace(conn))}
 
 
 def seguimientos(conn):

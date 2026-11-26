@@ -70,6 +70,7 @@ def test_every_api_route_requires_a_session():
 
 SOLO_AUXILIAR = [
     ("post", "/citas", {"paciente_id": 1, "profesional_id": 1, "servicio_id": 1, "inicio": "2026-12-01T09:00:00-05:00"}),
+    ("post", "/citas/1/confirmar", None), ("get", "/resumen-dia", None),
     ("post", "/citas/1/cancelar", {"motivo_id": 1}),
     ("post", "/citas/1/cambiar-fecha", {"inicio": "2026-12-01T09:00:00-05:00"}),
     ("get", "/espacios?profesional_id=1&servicio_id=1", None),

@@ -38,7 +38,8 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
 
     pros = []
     for esp in ("Odontología general", "Ortodoncia"):
-        nombre = f"{rnd.choice(['Dra.', 'Dr.'])} {fake.first_name()} {fake.last_name()}"
+        mujer = rnd.random() < 0.5
+        nombre = f"{'Dra.' if mujer else 'Dr.'} {fake.first_name_female() if mujer else fake.first_name_male()} {fake.last_name()}"
         pid = conn.execute("insert into profesional(nombre, especialidad) values (%s,%s) returning id",
                            (nombre, esp)).fetchone()["id"]
         catalog.default_hours(conn, pid)
@@ -182,6 +183,13 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
         for pid, svc, start in scenario_future(pro, (1, 2), 4):
             cid = make_appt(pid, pro, svc, start, "no_confirmada")
             conn.execute("update cita set datos_origen = '{\"recordatorio_enviado\": true}' where id=%s", (cid,))
+    # Programadas de mañana con el recordatorio de 48 h ya enviado: la tarea de 24 h las pasará a «sin confirmar».
+    for pro in pros:
+        for pid, svc, start in scenario_future(pro, (1, 1), 2):
+            cid = make_appt(pid, pro, svc, start, "programada")
+            conn.execute("update cita set datos_origen = %s::jsonb where id=%s",
+                         (json.dumps({"recordatorio_enviado": True, "recordatorio_en": (now - timedelta(hours=3)).isoformat()}), cid))
+            agenda._schedule_reminders(conn, cid, start, now)
     # Cancelaciones recientes con caso abierto y cupo libre.
     for pro in pros:
         for pid, svc, start in scenario_future(pro, (3, 9), 3):

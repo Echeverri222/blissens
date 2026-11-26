@@ -1179,6 +1179,99 @@
         }
       }
     },
+    "/api/v1/citas/{cita_id}/confirmar": {
+      "post": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Registrar la confirmación dada por teléfono (auxiliar)",
+        "description": "Pasa la cita a confirmada con el actor auxiliar. No cancela nada ni envía mensajes. Solo antes de la hora de inicio y desde programada o sin confirmar (409 si no). Se deshace con la reversión del historial.",
+        "operationId": "confirmar_api_v1_citas__cita_id__confirmar_post",
+        "parameters": [
+          {
+            "name": "cita_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Cita Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/citas/{cita_id}/cancelar": {
       "post": {
         "tags": [
@@ -2467,12 +2560,94 @@
         }
       }
     },
+    "/api/v1/resumen-dia": {
+      "get": {
+        "tags": [
+          "Bandejas"
+        ],
+        "summary": "Contadores de la franja superior de la agenda",
+        "operationId": "resumen_dia_api_v1_resumen_dia_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenDiaOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/bandejas/no-confirmadas": {
       "get": {
         "tags": [
           "Bandejas"
         ],
         "summary": "Citas próximas sin confirmación",
+        "description": "Las `no_confirmada` y, hasta el fin de mañana, las `programada` que aún no respondieron. Los pacientes dados de baja se listan en `dados-de-baja`.",
         "operationId": "no_confirmadas_api_v1_bandejas_no_confirmadas_get",
         "responses": {
           "200": {
@@ -7436,6 +7611,7 @@
               "type": "string",
               "enum": [
                 "desenlace",
+                "confirmar",
                 "cancelar",
                 "cambiar_fecha"
               ]
@@ -7546,6 +7722,7 @@
               "type": "string",
               "enum": [
                 "desenlace",
+                "confirmar",
                 "cancelar",
                 "cambiar_fecha"
               ]
@@ -8568,6 +8745,15 @@
             "type": "integer",
             "title": "Cita Id"
           },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "programada",
+              "no_confirmada"
+            ],
+            "title": "Estado",
+            "description": "`no_confirmada`: «Sin confirmar»; `programada` (de hoy o mañana): «Sin respuesta aún»"
+          },
           "inicio": {
             "type": "string",
             "title": "Inicio"
@@ -8594,16 +8780,34 @@
               }
             ],
             "title": "Celular"
+          },
+          "recordatorio_enviado": {
+            "type": "boolean",
+            "title": "Recordatorio Enviado"
+          },
+          "recordatorio_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recordatorio En",
+            "description": "Cuándo salió el último recordatorio, si se registró la hora"
           }
         },
         "type": "object",
         "required": [
           "cita_id",
+          "estado",
           "inicio",
           "profesional",
           "paciente_id",
           "paciente",
-          "celular"
+          "celular",
+          "recordatorio_enviado"
         ],
         "title": "NoConfirmadaOut"
       },
@@ -8952,6 +9156,38 @@
           "parentesco"
         ],
         "title": "ResponsableOut"
+      },
+      "ResumenDiaOut": {
+        "properties": {
+          "citas_hoy": {
+            "type": "integer",
+            "title": "Citas Hoy",
+            "description": "Citas vivas de hoy, de todos los profesionales"
+          },
+          "sin_confirmar": {
+            "type": "integer",
+            "title": "Sin Confirmar",
+            "description": "Citas programadas o sin confirmar que empiezan desde ahora hasta el fin de mañana"
+          },
+          "mensajes": {
+            "type": "integer",
+            "title": "Mensajes",
+            "description": "Mensajes entrantes por responder"
+          },
+          "por_cerrar": {
+            "type": "integer",
+            "title": "Por Cerrar",
+            "description": "Citas pasadas sin desenlace"
+          }
+        },
+        "type": "object",
+        "required": [
+          "citas_hoy",
+          "sin_confirmar",
+          "mensajes",
+          "por_cerrar"
+        ],
+        "title": "ResumenDiaOut"
       },
       "ResumenOut": {
         "properties": {

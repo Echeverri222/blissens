@@ -63,6 +63,8 @@ def acciones_cita(usuario: dict, estado: str, inicio, ahora) -> list[str]:
     if inicio is None or ahora >= inicio:
         acciones.append("desenlace")
     if es_auxiliar(usuario) and inicio is not None and ahora < inicio:
+        if estado in ("programada", "no_confirmada"):
+            acciones.append("confirmar")
         acciones += ["cancelar", "cambiar_fecha"]
     return acciones
 

@@ -11,6 +11,12 @@ def _payload(conn, cita_id: int) -> dict:
     return d
 
 
+def _enviado(conn) -> dict:
+    """Marca de que el paciente recibió un recordatorio y cuándo (`recordatorio_en`): la bandeja de la auxiliar lo muestra.
+    Es aparte de `recordatorio_<h>h`, que guarda la hora de inicio con la que salió el aviso agrupado del hogar."""
+    return {"recordatorio_enviado": True, "recordatorio_en": clock.now(conn).isoformat()}
+
+
 def _marca(horas: int) -> str:
     return f"recordatorio_{horas}h"
 
@@ -23,7 +29,7 @@ def _ya_avisada(c: dict, horas: int) -> bool:
 
 def _marcar(conn, citas: list[dict], horas: int, enviado: bool = False) -> None:
     for g in citas:
-        extra = {_marca(horas): g["rango"].lower.isoformat(), **({"recordatorio_enviado": True} if enviado else {})}
+        extra = {_marca(horas): g["rango"].lower.isoformat(), **(_enviado(conn) if enviado else {})}
         conn.execute("update cita set datos_origen = datos_origen || %s::jsonb where id=%s", (json.dumps(extra), g["id"]))
 
 
@@ -83,7 +89,7 @@ def _recordar_una(conn, c: dict, horas: int) -> None:
     if horas == first and horas != last:
         if c["estado"] == "programada":
             messaging.send(conn, c["paciente_id"], "recordatorio_48h", data, entity=("cita", cita_id))
-            conn.execute("update cita set datos_origen = datos_origen || '{\"recordatorio_enviado\": true}' where id=%s", (cita_id,))
+            conn.execute("update cita set datos_origen = datos_origen || %s::jsonb where id=%s", (json.dumps(_enviado(conn)), cita_id))
     else:
         correo.enviar(conn, c["paciente_id"], "recordatorio", cita_id)  # el correo avisa; no pide confirmar
         if c["estado"] == "confirmada":
@@ -92,7 +98,7 @@ def _recordar_una(conn, c: dict, horas: int) -> None:
             if c["estado"] == "programada":
                 lifecycle.transition(conn, cita_id, "no_confirmada", "sistema", "Sin respuesta al recordatorio")
             messaging.send(conn, c["paciente_id"], "segundo_intento", data, entity=("cita", cita_id))
-            conn.execute("update cita set datos_origen = datos_origen || '{\"recordatorio_enviado\": true}' where id=%s", (cita_id,))
+            conn.execute("update cita set datos_origen = datos_origen || %s::jsonb where id=%s", (json.dumps(_enviado(conn)), cita_id))
 
 
 def process_response(conn, patient_id: int, answer: str, cita_id: int) -> None:

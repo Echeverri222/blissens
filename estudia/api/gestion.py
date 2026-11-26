@@ -65,7 +65,15 @@ def conteo(conn=Depends(get_conn), u=Depends(auxiliar)):
         contactos=len(bandejas.contactos_pendientes(conn)), dados_de_baja=len(bandejas.dados_de_baja(conn)))
 
 
+@router.get("/resumen-dia", tags=["Bandejas"], summary="Contadores de la franja superior de la agenda",
+            response_model=sc.ResumenDiaOut)
+def resumen_dia(conn=Depends(get_conn), u=Depends(auxiliar)):
+    return bandejas.resumen_dia(conn)
+
+
 @router.get("/bandejas/no-confirmadas", tags=["Bandejas"], summary="Citas próximas sin confirmación",
+            description="Las `no_confirmada` y, hasta el fin de mañana, las `programada` que aún no respondieron. "
+                        "Los pacientes dados de baja se listan en `dados-de-baja`.",
             response_model=list[sc.NoConfirmadaOut])
 def no_confirmadas(conn=Depends(get_conn), u=Depends(auxiliar)):
     return [{**r, "cita_id": r["id"]} for r in bandejas.no_confirmadas(conn)]
