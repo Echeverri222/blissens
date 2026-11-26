@@ -17,3 +17,5 @@ panel/playwright-report/
 # Exportaciones y copias con datos: nunca se versionan
 exportaciones/
 respaldos/
+# Estado local de la CLI de Supabase (referencia del proyecto y URL del pooler)
+supabase/.temp/

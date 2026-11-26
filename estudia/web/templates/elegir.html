@@ -3,13 +3,21 @@
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 {% if cancelada %}
-  <p class="aviso">Tu cita quedó cancelada. ¿Quieres elegir otro espacio ahora mismo?</p>
+  <p class="aviso">{% if para_nombre %}La cita de {{ para_nombre }}{% else %}Tu cita{% endif %} quedó cancelada. ¿Quieres elegir otro espacio ahora mismo?</p>
 {% endif %}
 <div class="tarjeta">
   <h1>{% if modo == 'cambiar' %}Cambiar fecha{% else %}Elige tu espacio{% endif %}</h1>
+  {% if para_nombre %}<p class="nota" style="margin-top:0">Cita de <strong>{{ para_nombre }}</strong></p>{% endif %}
   <form id="filtros" class="filtros" hx-get="/p/{{ token }}/espacios" hx-target="#espacios" hx-trigger="change">
     <input type="hidden" name="modo" value="{{ modo }}">
     {% if cita %}<input type="hidden" name="cita" value="{{ cita }}">{% endif %}
+    {% if hogar %}
+    <label class="para">¿Para quién es la cita?
+      <select name="para">
+        {% for x in hogar %}<option value="{{ x.id }}" {% if x.id == para %}selected{% endif %}>{{ x.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    {% elif para %}<input type="hidden" name="para" value="{{ para }}">{% endif %}
     <label>Tipo de cita
       <select name="servicio">
         {% for s in services %}<option value="{{ s.id }}" {% if s.id == sid %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}

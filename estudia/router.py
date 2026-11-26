@@ -8,6 +8,12 @@ def _conf(conn, patient_id, parts, mid):
     confirmations.process_response(conn, patient_id, answer, cita_id)
 
 
+@messaging.route("confh")
+def _confh(conn, patient_id, parts, mid):
+    answer, ids = parts[0], [int(x) for x in parts[1].split("-") if x.isdigit()]
+    confirmations.process_household(conn, patient_id, answer, ids)
+
+
 @messaging.route("motivo")
 def _motivo(conn, patient_id, parts, mid):
     cancel_id, reason_id = int(parts[0]), int(parts[1])

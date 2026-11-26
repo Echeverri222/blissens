@@ -39,6 +39,9 @@ def anonimizar_paciente(conn, paciente_id: int) -> None:
         "update paciente set nombres=%s, apellidos='', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
         "external_id=null, acepta_mensajes=false, acepta_correo=false, consentimiento_correo_en=null where id=%s", (ANONIMO, paciente_id))
     conn.execute("update mensaje set texto='[eliminado]', botones='[]'::jsonb, respuesta=null where paciente_id=%s", (paciente_id,))
+    # La familia se deshace: el anonimizado deja de gestionar y de ser gestionado (docs/prd-familia.md, R8).
+    conn.execute("update paciente set responsable_id=null, parentesco=null where id=%s or responsable_id=%s",
+                 (paciente_id, paciente_id))
 
 
 def _antes_de(conn, dias):

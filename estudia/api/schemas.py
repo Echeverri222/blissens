@@ -335,8 +335,29 @@ class MensajeOut(Salida):
     momento: Momento
 
 
+class ResponsableOut(Salida):
+    id: int
+    nombre: str
+    parentesco: str | None = Field(description="Parentesco de este paciente con su responsable")
+
+
+class FamiliarOut(Salida):
+    id: int
+    nombre: str
+    parentesco: str | None
+    menor: bool
+
+
+class FamiliaOut(Salida):
+    """Quién gestiona las citas de este paciente desde su enlace, y de quiénes las gestiona él (docs/prd-familia.md)."""
+    responsable: ResponsableOut | None
+    familiares: list[FamiliarOut]
+    menor: bool
+
+
 class FichaCompleta(Salida):
     paciente: FichaPaciente
+    familia: FamiliaOut
     citas: list[CitaFicha]
     historial: list[CambioFicha]
     casos: list[CasoOut]

@@ -40,8 +40,28 @@ def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, t
     return caso
 
 
+SEGUIMIENTO = sorted(set(FIRST_TEMPLATE.values()) | set(RETRY_TEMPLATE.values()))
+HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR = 20
+
+
 def send_attempt(conn, caso_id: int, template: str) -> None:
     caso = conn.execute("select * from caso_seguimiento where id=%s", (caso_id,)).fetchone()
+    from . import familia
+    _, ids = familia.hogar(conn, caso["paciente_id"])
+    now = clock.now(conn)
+    ultimo = conn.execute(
+        "select max(momento) as m from mensaje where paciente_id = any(%s) and direccion='saliente' and plantilla = any(%s) "
+        "and estado_entrega <> 'omitido' and momento > %s",
+        (ids, SEGUIMIENTO, now - timedelta(hours=HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR))).fetchone()["m"] if len(ids) > 1 else None
+    if ultimo:
+        # El celular del hogar ya recibió un seguimiento hace poco. Este intento no salió, así que no cuenta como
+        # intento: se borra y se reprograma para cuando se cumpla la espera (uno a la vez por celular).
+        abierto = conn.execute("delete from intento where id = (select id from intento where caso_id=%s and "
+                               "resultado is null and canal='automatico' order by numero desc limit 1) returning numero",
+                               (caso_id,)).fetchone()
+        tasks.schedule(conn, "intento_seguimiento", ultimo + timedelta(hours=HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR),
+                       {"caso_id": caso_id, "numero": abierto["numero"] if abierto else 1, "reprogramado": True})
+        return
     data = {"caso_id": caso_id, "enlace": messaging.patient_link(conn, caso["paciente_id"], f"/agendar?caso={caso_id}")}
     if caso["cita_id"]:
         from .agenda import _info
@@ -54,6 +74,9 @@ def run_attempt(conn, caso_id: int, numero: int) -> None:
     caso = conn.execute("select * from caso_seguimiento where id=%s for update", (caso_id,)).fetchone()
     if caso["estado"] != "abierto":
         return
+    if conn.execute("select 1 from intento where caso_id=%s and numero >= %s and canal='automatico'",
+                    (caso_id, numero)).fetchone():
+        return  # un intento reprogramado que la cadencia ya alcanzó
     now = clock.now(conn)
     conn.execute("update intento set resultado='sin_respuesta' where caso_id=%s and resultado is null", (caso_id,))
     conn.execute("insert into intento(caso_id, numero, canal, momento) values (%s,%s,'automatico',%s)",

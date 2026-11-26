@@ -5331,6 +5331,146 @@
               "default": "",
               "title": "Aviso"
             }
+          },
+          {
+            "name": "cita",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cita"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/p/{token}/familia/agregar": {
+      "get": {
+        "summary": "Familia Form",
+        "operationId": "familia_form_p__token__familia_agregar_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Familia Agregar",
+        "operationId": "familia_agregar_p__token__familia_agregar_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_familia_agregar_p__token__familia_agregar_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/p/{token}/dejar-de-compartir": {
+      "post": {
+        "summary": "Dejar De Compartir",
+        "operationId": "dejar_de_compartir_p__token__dejar_de_compartir_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
           }
         ],
         "responses": {
@@ -5417,6 +5557,38 @@
                 }
               ],
               "title": "Caso"
+            }
+          },
+          {
+            "name": "para",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Para"
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
             }
           }
         ],
@@ -5551,6 +5723,38 @@
                 }
               ],
               "title": "Caso"
+            }
+          },
+          {
+            "name": "para",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Para"
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
             }
           }
         ],
@@ -5687,6 +5891,22 @@
               "type": "integer",
               "default": 0,
               "title": "Hpag"
+            }
+          },
+          {
+            "name": "para",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Para"
             }
           }
         ],
@@ -6471,6 +6691,17 @@
           "inicio": {
             "type": "string",
             "title": "Inicio"
+          },
+          "para": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para"
           }
         },
         "type": "object",
@@ -6523,6 +6754,42 @@
           "motivo"
         ],
         "title": "Body_cancelar_post_p__token__cancelar__cita_id__post"
+      },
+      "Body_familia_agregar_p__token__familia_agregar_post": {
+        "properties": {
+          "documento": {
+            "type": "string",
+            "title": "Documento",
+            "default": ""
+          },
+          "nombres": {
+            "type": "string",
+            "title": "Nombres",
+            "default": ""
+          },
+          "apellidos": {
+            "type": "string",
+            "title": "Apellidos",
+            "default": ""
+          },
+          "nacimiento": {
+            "type": "string",
+            "title": "Nacimiento",
+            "default": ""
+          },
+          "parentesco": {
+            "type": "string",
+            "title": "Parentesco",
+            "default": ""
+          },
+          "consentimiento": {
+            "type": "string",
+            "title": "Consentimiento",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_familia_agregar_p__token__familia_agregar_post"
       },
       "Body_identificar_agendar_identificar_post": {
         "properties": {
@@ -7807,10 +8074,81 @@
         ],
         "title": "EspaciosOut"
       },
+      "FamiliaOut": {
+        "properties": {
+          "responsable": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResponsableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "familiares": {
+            "items": {
+              "$ref": "#/components/schemas/FamiliarOut"
+            },
+            "type": "array",
+            "title": "Familiares"
+          },
+          "menor": {
+            "type": "boolean",
+            "title": "Menor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "responsable",
+          "familiares",
+          "menor"
+        ],
+        "title": "FamiliaOut",
+        "description": "Quién gestiona las citas de este paciente desde su enlace, y de quiénes las gestiona él (docs/prd-familia.md)."
+      },
+      "FamiliarOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "parentesco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parentesco"
+          },
+          "menor": {
+            "type": "boolean",
+            "title": "Menor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "parentesco",
+          "menor"
+        ],
+        "title": "FamiliarOut"
+      },
       "FichaCompleta": {
         "properties": {
           "paciente": {
             "$ref": "#/components/schemas/FichaPaciente"
+          },
+          "familia": {
+            "$ref": "#/components/schemas/FamiliaOut"
           },
           "citas": {
             "items": {
@@ -7844,6 +8182,7 @@
         "type": "object",
         "required": [
           "paciente",
+          "familia",
           "citas",
           "historial",
           "casos",
@@ -8582,6 +8921,37 @@
           "inasistencia"
         ],
         "title": "PuntoTendencia"
+      },
+      "ResponsableOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "parentesco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parentesco",
+            "description": "Parentesco de este paciente con su responsable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "parentesco"
+        ],
+        "title": "ResponsableOut"
       },
       "ResumenOut": {
         "properties": {

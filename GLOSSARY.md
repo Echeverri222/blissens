@@ -21,4 +21,9 @@ Vocabulario del dominio de Estud-IA. El código y los documentos usan estos tér
 | **Anonimizar** | Quitar lo que identifica a un paciente conservando los hechos de sus citas para los indicadores. |
 | **Correo de cita** | Uno de los tres correos que el sistema envía: agendada, recordatorio de 24 h y cancelada. Complementa a WhatsApp; no pide confirmar ni lleva servicio ni datos clínicos. |
 | **Consentimiento de correo** | Autorización del paciente para recibir correos (`acepta_correo`). Independiente de `acepta_mensajes`: la baja de uno no toca al otro. |
+| **Responsable** | Paciente que gestiona las citas de sus familiares desde su propio enlace (agendar, ver, cambiar, cancelar). No puede ser a su vez familiar de nadie: un solo nivel. Ver `docs/prd-familia.md`. |
+| **Familiar** | Paciente con `responsable_id`. Conserva su ficha, su documento y su enlace; usa el celular del responsable, así los mensajes del hogar llegan a un solo teléfono. Si es mayor de edad puede *dejar de compartir*. |
+| **Hogar** | El responsable y sus familiares (un paciente sin familia es un hogar de uno). Comparten celular, así que sus avisos automáticos salen agrupados: un mensaje por evento, dirigido al responsable, con una línea por cita. |
+| **Parentesco** | Relación del familiar con su responsable: `hijo`, `pareja`, `padre` (madre o padre) u `otro`. |
+| **Consentimiento por** | Quién autorizó tratar los datos del paciente: vacío si fue él mismo; el responsable si lo agregó (como representante legal de un menor, o con permiso del adulto). |
 | **Cupo, oferta, caso de seguimiento, recuperación** | Ver `requirements.md` y el PRD #1. |

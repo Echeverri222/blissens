@@ -126,7 +126,9 @@ ES = {
               "consent": None,  # en español se usa el texto configurado del negocio (`texto_consentimiento`)
               "sin_auto": "No pudimos continuar de forma automática. {termino} se pondrá en contacto contigo muy pronto "
                           "para ayudarte a agendar.",
-              "volver": "Volver", "gracias": "Gracias"},
+              "volver": "Volver", "gracias": "Gracias",
+              "familia": "¿Vas a agendar para tus hijos u otros familiares? Regístrate tú primero y agrégalos desde "
+                         "Mis citas."},
     "pie": {"horario": "Horario", "direccion": "Dirección", "contacto": "Contacto", "derechos": "Todos los derechos reservados.",
             "politica": "Política de tratamiento de datos", "equipo": "Acceso equipo", "inicio": "Ir al inicio", "siguenos": "Síguenos"},
     "barra": "Agendar cita", "idioma_aria": "Cambiar idioma a inglés",
@@ -237,7 +239,9 @@ EN = {
               "consent": "I authorize {nombre} to process my personal data to manage my appointments and send me "
                          "messages about them.",
               "sin_auto": "We could not continue automatically. {termino} will contact you very soon to help you book.",
-              "volver": "Back", "gracias": "Thank you"},
+              "volver": "Back", "gracias": "Thank you",
+              "familia": "Booking for your children or other relatives? Register yourself first, then add them from "
+                         "My appointments."},
     "pie": {"horario": "Schedule", "direccion": "Address", "contacto": "Contact", "derechos": "All rights reserved.",
             "politica": "Data processing policy", "equipo": "Staff access", "inicio": "Go to home", "siguenos": "Follow us"},
     "barra": "Book appointment", "idioma_aria": "Switch language to Spanish",

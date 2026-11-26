@@ -43,7 +43,11 @@ def patient_link(conn, patient_id: int, path: str = "") -> str:
 def render(conn, key: str, data: dict, options: list[dict] | None = None):
     tpl = conn.execute("select * from plantilla where clave=%s", (key,)).fetchone()
     if tpl is None:
-        raise MessageError(f"Plantilla desconocida: {key}")
+        from .catalog import PLANTILLAS  # un negocio creado antes de que existiera la plantilla usa la del producto
+        if key not in PLANTILLAS:
+            raise MessageError(f"Plantilla desconocida: {key}")
+        texto, tipo, botones = PLANTILLAS[key]
+        tpl = {"texto": texto, "tipo": tipo, "botones": botones}
     text = tpl["texto"].format(**data)
     if options is None:
         options = [{"id": b["id"].format(**data), "title": b["title"]} for b in tpl["botones"]]
@@ -63,12 +67,17 @@ def next_opening(conn, now: datetime) -> datetime:
     return opening if opening > now else opening + timedelta(days=1)
 
 
+def _primer(nombres: str | None) -> str:
+    partes = (nombres or "").split()
+    return partes[0].title() if partes else ""
+
+
 def send(conn, patient_id: int, key: str, data: dict | None = None, *, direct: bool = False,
          entity: tuple[str, int] | None = None, options: list[dict] | None = None) -> int | None:
     """Envía una plantilla. `direct`: respuesta a una acción del paciente (sale siempre)."""
     p = conn.execute("select * from paciente where id=%s", (patient_id,)).fetchone()
     now = clock.now(conn)
-    data = {"nombre": p["nombres"].split()[0].title(), "direccion": config.get(conn, "direccion"), **(data or {})}
+    data = {"nombre": _primer(p["nombres"]), "direccion": config.get(conn, "direccion"), **(data or {})}
     text, tipo, opts = render(conn, key, data, options)
     estado, momento = "entregado", now
     if not direct and not p["acepta_mensajes"]:
@@ -88,6 +97,23 @@ def send(conn, patient_id: int, key: str, data: dict | None = None, *, direct: b
     return row["id"]
 
 
+def lista_de_citas(conn, citas: list[dict], raiz_id: int, marcar: set[int] = frozenset()) -> str:
+    """Una línea por cita para los avisos agrupados del hogar: quién, cuándo y con quién."""
+    from . import familia, fmt
+    lineas = []
+    for c in sorted(citas, key=lambda c: (c["rango"].lower, c["id"])):  # solo citas con hora
+        r = conn.execute("select p.nombres, pr.nombre as profesional from paciente p, profesional pr "
+                         "where p.id=%s and pr.id=%s", (c["paciente_id"], c["profesional_id"])).fetchone()
+        quien = "Tú" if c["paciente_id"] == raiz_id else (familia.primer_nombre(r) or "Tu familiar")
+        cuando = fmt.fecha_hora(c["rango"].lower.astimezone(clock.TZ)) if c["rango"] else fmt.fecha(c["dia"])
+        lineas.append(f"• {quien}: {cuando}, con {r['profesional']}{' (sin confirmar)' if c['id'] in marcar else ''}")
+    return "\n".join(lineas)
+
+
+def ids_de_boton(citas: list[dict]) -> str:
+    return "-".join(str(c["id"]) for c in citas)
+
+
 def normalize_word(t: str) -> str:
     return re.sub(r"[^a-záéíóúñ]", "", t.strip().lower())
 
@@ -95,16 +121,20 @@ def normalize_word(t: str) -> str:
 def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | None = None,
             channel: str = "simulado", id_externo: str | None = None) -> int:
     """Procesa un mensaje entrante (respuesta de botón/lista o texto libre)."""
-    from . import router  # noqa: F401  (registra rutas)
+    from . import familia, router  # noqa: F401  (router registra rutas)
 
     now = clock.now(conn)
     shown = text or ""
     if button_id:
-        for m in conn.execute("select id, botones from mensaje where paciente_id=%s and direccion='saliente' "
-                              "order by id desc limit 60", (patient_id,)):
+        # El celular es del hogar: el botón puede ser de un mensaje que se le envió a un familiar. La respuesta queda
+        # registrada en quien recibió ese mensaje.
+        hogar = familia.hogar(conn, patient_id)[1]
+        for m in conn.execute("select id, paciente_id, botones from mensaje where paciente_id = any(%s) "
+                              "and direccion='saliente' order by id desc limit 60", (hogar,)):
             for b in m["botones"]:
                 if b["id"] == button_id:
                     shown = b["title"]
+                    patient_id = m["paciente_id"]
                     conn.execute("update mensaje set respuesta=%s where id=%s", (button_id, m["id"]))
                     break
             else:
@@ -123,7 +153,9 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
         else:
             fn(conn, patient_id, parts, mid)
     elif normalize_word(shown) == "baja":
-        conn.execute("update paciente set acepta_mensajes=false where id=%s", (patient_id,))
+        # el celular es del hogar: la baja vale para todos sus miembros
+        conn.execute("update paciente set acepta_mensajes=false where id = any(%s)",
+                     (familia.hogar(conn, patient_id)[1],))
         conn.execute("update mensaje set gestionado=true where id=%s", (mid,))
         send(conn, patient_id, "baja_confirmada", direct=True)
     else:

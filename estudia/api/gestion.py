@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
-from .. import bandejas, clock, config, correo, followup, indicators, lifecycle, pacientes, permisos
+from .. import bandejas, clock, config, correo, familia, followup, indicators, lifecycle, pacientes, permisos
 from . import schemas as sc
 from .comun import ApiError, auditar, auxiliar, get_conn, inicio, solo_json
 
@@ -44,7 +44,8 @@ def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     r = bandejas.patient_record(conn, paciente_id)
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return sc.FichaCompleta(
-        paciente=r["paciente"], citas=[{**c, "inicio": inicio(c)} for c in r["citas"]],
+        paciente=r["paciente"], familia=familia.resumen(conn, paciente_id),
+        citas=[{**c, "inicio": inicio(c)} for c in r["citas"]],
         historial=[{**h, "reversible": permisos.puede_revertir(u, h, estados[h["cita_id"]])} for h in r["historial"]],
         casos=[{**c, "intentos": c["intentos"] or []} for c in r["casos"]], mensajes=r["mensajes"])
 

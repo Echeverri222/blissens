@@ -116,7 +116,7 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
     """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces).
 
     `professional_id=None` es «cualquier especialista»: se asigna uno solo entre los que tienen libre ese espacio."""
-    from . import correo, followup, messaging
+    from . import followup
 
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
@@ -150,11 +150,54 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
     _schedule_reminders(conn, cid, start, now)
     followup.resolve_on_booking(conn, patient_id, cid)
     if notify:
-        p = _info(conn, cid)
         # Solo sale a quien está dado de baja si él mismo hizo el trámite (respuesta a su acción).
-        messaging.send(conn, patient_id, "cita_agendada", p, direct=(actor == "paciente"), entity=("cita", cid))
-        correo.enviar(conn, patient_id, "agendada", cid, direct=(actor == "paciente"))
+        avisar_agendada(conn, patient_id, cid, direct=(actor == "paciente"))
     return cid
+
+
+def avisar_agendada(conn, patient_id: int, cita_id: int, direct: bool) -> None:
+    """Aviso de cita agendada. Un hogar con celular compartido no recibe un mensaje por cita: las que agenda seguidas
+    salen juntas en un solo mensaje, unos minutos después de la última (tarea `avisar_agendadas`)."""
+    from . import correo, familia, messaging
+
+    raiz, ids = familia.hogar(conn, patient_id)
+    if len(ids) == 1:
+        messaging.send(conn, patient_id, "cita_agendada", _info(conn, cita_id), direct=direct, entity=("cita", cita_id))
+    correo.enviar(conn, patient_id, "agendada", cita_id, direct=direct)  # el correo va a la dirección de cada paciente
+    if len(ids) == 1:
+        return
+    conn.execute("update cita set datos_origen = datos_origen || '{\"aviso_pendiente\": true}' where id=%s", (cita_id,))
+    cuando = clock.now(conn) + timedelta(minutes=config.get(conn, "agrupar_avisos_min"))
+    # Cada cita nueva corre la espera: el mensaje sale cuando el hogar termina de agendar.
+    if not conn.execute(
+            "update tarea_programada set ejecutar_en=%s, datos = datos || jsonb_build_object('direct', "
+            "coalesce((datos->>'direct')::boolean, false) or %s, 'citas', coalesce(datos->'citas', '[]') || to_jsonb(%s::bigint)) "
+            "where tipo='avisar_agendadas' and estado='pendiente' and (datos->>'hogar')::bigint=%s returning id",
+            (cuando, direct, cita_id, raiz["id"])).fetchone():
+        tasks.schedule(conn, "avisar_agendadas", cuando, {"hogar": raiz["id"], "direct": direct, "citas": [cita_id]})
+
+
+def enviar_agendadas(conn, hogar_id: int, direct: bool, cita_ids: list[int] | None = None) -> None:
+    """Un solo mensaje con las citas del hogar agendadas desde el último aviso."""
+    from . import familia, messaging
+
+    raiz, ids = familia.hogar(conn, hogar_id)
+    citas = conn.execute("select * from cita where (paciente_id = any(%s) or id = any(%s)) "
+                         "and datos_origen ? 'aviso_pendiente' for update", (ids, cita_ids or [])).fetchall()
+    conn.execute("update cita set datos_origen = datos_origen - 'aviso_pendiente' where id = any(%s)",
+                 ([c["id"] for c in citas],))
+    vivas = [c for c in citas if c["estado"] in ALIVE and c["rango"] is not None]
+    for c in [c for c in vivas if c["paciente_id"] not in ids]:  # dejó el hogar durante la espera: su aviso, aparte
+        messaging.send(conn, c["paciente_id"], "cita_agendada", _info(conn, c["id"]), direct=direct, entity=("cita", c["id"]))
+    vivas = [c for c in vivas if c["paciente_id"] in ids]
+    if not vivas:
+        return  # se cancelaron o cambiaron antes de avisar: el aviso de la nueva fecha ya está en camino
+    if len(vivas) == 1 and vivas[0]["paciente_id"] == raiz["id"]:
+        messaging.send(conn, raiz["id"], "cita_agendada", _info(conn, vivas[0]["id"]), direct=direct,
+                       entity=("cita", vivas[0]["id"]))
+        return
+    messaging.send(conn, raiz["id"], "cita_agendada_hogar", {"lista": messaging.lista_de_citas(conn, vivas, raiz["id"])},
+                   direct=direct, entity=("cita", vivas[0]["id"]))
 
 
 def _info(conn, cita_id: int) -> dict:
@@ -232,10 +275,7 @@ def reschedule(conn, cita_id: int, new_start: datetime, actor: str, origin: str 
     _schedule_reminders(conn, new, new_start, now)
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cambio_fecha")
-    from . import correo, messaging
-    messaging.send(conn, c["paciente_id"], "cita_agendada", _info(conn, new), direct=(actor == "paciente"),
-                   entity=("cita", new))
-    correo.enviar(conn, c["paciente_id"], "agendada", new, direct=(actor == "paciente"))
+    avisar_agendada(conn, c["paciente_id"], new, direct=(actor == "paciente"))
     return new
 
 

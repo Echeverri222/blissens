@@ -2,7 +2,7 @@
 {% if not dias_pagina %}
   <p>No hay espacios disponibles por ahora para esa combinación. Prueba con otro especialista.</p>
 {% else %}
-  {% set base = "/p/" ~ token ~ "/espacios?servicio=" ~ sid ~ "&profesional=" ~ pid ~ "&modo=" ~ modo ~ ("&cita=" ~ cita if cita else "") %}
+  {% set base = "/p/" ~ token ~ "/espacios?servicio=" ~ sid ~ "&profesional=" ~ pid ~ "&modo=" ~ modo ~ ("&cita=" ~ cita if cita else "") ~ ("&para=" ~ para if para else "") %}
   <div class="dias" role="group" aria-label="Día">
     {% if hay_anterior %}<button type="button" class="mas" aria-label="Días anteriores" hx-get="{{ base }}&pag={{ pag - 1 }}" hx-target="#espacios">‹</button>{% endif %}
     {% for d in dias_pagina %}
@@ -16,10 +16,11 @@
   <form hx-post="{% if modo == 'cambiar' %}/p/{{ token }}/cambiar/{{ cita }}{% else %}/p/{{ token }}/agendar{% endif %}" hx-target="#espacios">
     <input type="hidden" name="servicio" value="{{ sid }}">
     <input type="hidden" name="profesional" value="{{ pid }}">
+    {% if para and modo != 'cambiar' %}<input type="hidden" name="para" value="{{ para }}">{% endif %}
     <p class="dia-titulo">{{ dia|fecha|capitalize }}</p>
     <div class="horas" role="radiogroup" aria-label="Horas disponibles">
       {% for t in horas %}
-        <label class="hora"><input type="radio" name="inicio" value="{{ t.isoformat() }}" required><span>{{ t|hora }}</span></label>
+        <label class="hora"><input type="radio" name="inicio" value="{{ t.isoformat() }}" required {% if preseleccion and t == preseleccion %}checked{% endif %}><span>{{ t|hora }}</span></label>
       {% endfor %}
     </div>
     {% if hay_mas_horas %}<button type="button" class="mas-horas" hx-get="{{ base }}&pag={{ pag }}&dia={{ dia.isoformat() }}&hpag={{ hpag_sig }}" hx-target="#espacios">Ver más horas</button>{% endif %}

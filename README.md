@@ -39,7 +39,7 @@ Un clon recién hecho funciona con `make setup && make dev`.
 | Dirección | Qué es |
 |---|---|
 | http://localhost:8000/agendar | Entrada pública de agendamiento (paciente) |
-| http://localhost:8000/p/&lt;token&gt; | "Mis citas" (enlace personal firmado; llega por el simulador) |
+| http://localhost:8000/p/&lt;token&gt; | "Mis citas" (enlace personal firmado; llega por el simulador). Incluye *Mi familia*: agendar y gestionar las citas de hijos, pareja o padres (`docs/prd-familia.md`) |
 | http://localhost:8000/simulador | Simulador de WhatsApp y control del reloj |
 | http://localhost:8000/panel | Panel de la auxiliar y de los especialistas (inicio de sesión con usuario y contraseña) |
 | http://localhost:8000/docs | Documentación interactiva de la API. Inicia sesión desde `POST /api/v1/sesion`: la cookie queda puesta y el resto de endpoints funcionan |

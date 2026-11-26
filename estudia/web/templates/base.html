@@ -16,10 +16,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/static/sitio/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/sitio/fuentes/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/sitio/sitio.css">
+  <link rel="stylesheet" href="{{ estatico('sitio/sitio.css') }}">
   {% block head %}{% endblock %}
   <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/sitio/sitio.js" defer></script>
+  <script src="{{ estatico('sitio/sitio.js') }}" defer></script>
 </head>
 <body class="{% block body_class %}interior{% endblock %}">
   <a class="saltar" href="#contenido">{{ t.saltar }}</a>
