@@ -15,6 +15,7 @@ const resumen = (o: Partial<Resumen> = {}): Resumen => ({
   anterior: { ...resumenBase(), inasistencia: 0.15 }, ...o,
 });
 function resumenBase() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- se descartan las claves de comparación
   const { anterior: _a, desde_anterior: _d, hasta_anterior: _h, ...base } = baseFija;
   return base;
 }
