@@ -34,6 +34,8 @@ DEFAULTS = {
     "retencion_tareas_dias": None,
     "max_intentos_login": 5,
     "bloqueo_login_min": 15,
+    # Metas de los indicadores: {"inasistencia": {"max": 0.15}, "asistencia": {"min": 0.8}, ...}; cada clave es opcional.
+    "metas_indicadores": {},
 }
 
 

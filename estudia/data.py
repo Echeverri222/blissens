@@ -22,6 +22,19 @@ def wipe(conn) -> None:
         conn.execute(f"delete from {t} where negocio_id = negocio_activo()")
 
 
+VALORES_DEMO = {  # pesos, ficticios y redondos (nunca cifras reales)
+    "Valoración o revisión": 80_000, "Limpieza": 100_000, "Control de ortodoncia o alineadores": 150_000,
+    "Urgencia": 120_000, "Resina u operatoria": 200_000, "Blanqueamiento": 350_000,
+    "Preparación de rehabilitación": 400_000, "Cirugía": 500_000,
+}
+
+
+def valores_demo(conn) -> None:
+    """Fija el valor ficticio de los servicios del catálogo (solo el negocio activo). Seguro de repetir."""
+    for nombre, valor in VALORES_DEMO.items():
+        conn.execute("update servicio set valor=%s where nombre=%s", (valor, nombre))
+
+
 def _at(day: date, hhmm: time) -> datetime:
     return datetime.combine(day, hhmm, tzinfo=clock.TZ)
 
@@ -30,6 +43,7 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
     """Conjunto ficticio reproducible: 2 profesionales, ~250 pacientes, ~4 meses de historia y 3 semanas futuras."""
     wipe(conn)
     catalog.load(conn)
+    valores_demo(conn)
     rnd = random.Random(seed_value)
     fake = Faker("es_CO")
     Faker.seed(seed_value)

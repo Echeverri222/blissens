@@ -206,3 +206,115 @@ def test_capacity_and_slots_do_not_apply_when_filtering_by_service(conn):
     assert s["ocupacion"] is None and s["minutos_disponibles"] is None and s["cupos_liberados"] is None
     assert s["cupos_vacios"] is None and s["citas"] == 6
     assert indicators.summary(conn, filt())["capacidad_aplica"] is True
+
+
+# ----- Indicadores fase 2 (docs/prd-indicadores-fase2.md) -----
+
+def _creada(conn, cid, momento):
+    conn.execute("update cita set creada_en=%s where id=%s", (momento, cid))
+
+
+def _usuario(conn, nombre="Ana Recepción"):
+    from estudia import usuarios
+    return usuarios.crear(conn, nombre.split()[0].lower(), nombre, "clave-de-prueba", "auxiliar")
+
+
+def test_money_lost_counts_no_shows_and_unrebooked_late_cancellations(conn):
+    pro = make_pro(conn)
+    a, b, c, d = (make_patient(conn, n) for n in ("Ana", "Beto", "Cami", "Dani"))
+    conn.execute("update servicio set valor=100000 where nombre='Valoración o revisión'")
+    falta = raw(conn, a, pro, "08:00", "no_asistio")
+    tarde = raw(conn, b, pro, "08:30", "cancelada")
+    recuperada = raw(conn, c, pro, "09:00", "cancelada")
+    sin_valor = raw(conn, d, pro, "09:30", "no_asistio", service="Limpieza")
+    normal = raw(conn, a, pro, "10:00", "cancelada")                     # cancelación a tiempo: no es dinero perdido
+    for cid, t in ((tarde, True), (recuperada, True), (normal, False)):
+        cancel(conn, cid, "Viaje", t)
+    nueva = raw(conn, c, pro, "08:00", "programada", day=DAY + timedelta(days=7))
+    for cid in (falta, tarde, recuperada, sin_valor, normal):
+        _creada(conn, cid, NOW - timedelta(days=20))
+    _creada(conn, nueva, NOW + timedelta(days=2))                         # agendó de nuevo 2 días después de cancelar
+    indicators.close_day(conn, DAY)
+    s = indicators.summary(conn, filt(), comparar=True)
+    assert (s["valor_perdido"], s["valor_perdido_inasistencia"], s["valor_perdido_tardias"]) == (200000, 100000, 100000)
+    assert s["citas_sin_valor"] == 1                                      # la inasistencia de Limpieza no tiene valor
+    assert s["anterior"]["valor_perdido"] == 0 and s["anterior"]["citas_sin_valor"] == 0
+    por_pro = indicators.by_dimension(conn, filt(), "profesional")
+    assert por_pro[0]["valor_perdido"] == 200000
+    por_srv = {r["nombre"]: r["valor_perdido"] for r in indicators.by_dimension(conn, filt(), "servicio")}
+    assert por_srv["Valoración o revisión"] == 200000 and por_srv["Limpieza"] == 0
+
+
+def test_summary_returns_current_targets(conn):
+    from estudia import config
+    dataset(conn)
+    indicators.close_day(conn, DAY)
+    assert indicators.summary(conn, filt())["metas"] == {}
+    config.set_(conn, "metas_indicadores", {"inasistencia": {"max": 0.15}})
+    s = indicators.summary(conn, filt(), comparar=True)
+    assert s["metas"] == {"inasistencia": {"max": 0.15}} and "metas" not in s["anterior"]
+
+
+def test_pending_followthrough_medians_and_overdue(conn):
+    pro, a = make_pro(conn), make_patient(conn)
+    u = _usuario(conn)
+    # Dos desenlaces registrados por una persona 2 h y 4 h después de terminar; uno por el sistema (no cuenta).
+    for hh, horas in (("08:00", 2), ("08:30", 4)):
+        cid = raw(conn, a, pro, hh, "atendida")
+        fin = conn.execute("select upper(rango) as f from cita where id=%s", (cid,)).fetchone()["f"]
+        conn.execute("insert into historial_estado(cita_id, estado_anterior, estado_nuevo, actor, momento, usuario_id) "
+                     "values (%s,'programada','atendida','auxiliar',%s,%s)", (cid, fin + timedelta(hours=horas), u))
+    auto = raw(conn, a, pro, "09:00", "no_asistio")
+    conn.execute("insert into historial_estado(cita_id, estado_anterior, estado_nuevo, actor, momento) "
+                 "values (%s,'programada','no_asistio','sistema',%s)", (auto, NOW))
+    raw(conn, a, pro, "09:30", "programada", day=DAY - timedelta(days=1))          # abierta: ya pasó hace más de 48 h
+    m = conn.execute("insert into mensaje(paciente_id, direccion, texto, gestionado, momento) "
+                     "values (%s,'entrante','hola',false,%s) returning id", (a, NOW - timedelta(hours=60))).fetchone()["id"]
+    from estudia import bandejas
+    bandejas.mark_message_managed(conn, m, u)                                         # gestionado ahora, tras 60 h
+    conn.execute("insert into mensaje(paciente_id, direccion, texto, gestionado, momento) "
+                 "values (%s,'entrante','otro',false,%s)", (a, NOW - timedelta(hours=1)))
+    f = {"desde": DAY, "hasta": NOW.date(), "profesional_id": None, "servicio_id": None}
+    r = indicators.pending_followthrough(conn, f)
+    c = r["cierre_citas"]
+    assert c["resueltos"] == 2 and c["mediana_horas"] == 3.0 and c["p90_horas"] == 3.8
+    assert c["vencidos"] == 1 and c["abiertos_hoy"] == 1
+    ms = r["mensajes"]
+    assert (ms["resueltos"], ms["mediana_horas"], ms["abiertos_hoy"], ms["vencidos"]) == (1, 60.0, 1, 0)
+    assert r["seguimientos"]["resueltos"] == 0
+    assert {(x["usuario"], x["resueltos"]) for x in r["por_usuario"]} == {("Ana Recepción", 3)}
+    assert r["registro_desde"] == indicators.REGISTRO_PENDIENTES_DESDE
+
+
+def test_pending_followthrough_counts_hand_closed_follow_ups_with_user(conn):
+    from estudia import agenda, followup
+    pro, a = make_pro(conn), make_patient(conn)
+    u = _usuario(conn)
+    c = agenda.book(conn, a, pro, svc(conn), at(2, "09:00"), "auxiliar", "auxiliar")
+    clock_now = NOW + timedelta(days=1)
+    from estudia import clock
+    clock.freeze(clock_now)
+    agenda.cancel(conn, c, "paciente", "enlace")
+    caso = conn.execute("select id from caso_seguimiento").fetchone()["id"]
+    clock.freeze(clock_now + timedelta(days=2))
+    followup.register_manual(conn, caso, "rechazo", user_id=u)
+    assert conn.execute("select cerrado_por from caso_seguimiento").fetchone()["cerrado_por"] == u
+    r = indicators.pending_followthrough(conn, {"desde": DAY, "hasta": NOW.date() + timedelta(days=5), "profesional_id": None, "servicio_id": None})
+    sg = r["seguimientos"]
+    assert (sg["resueltos"], sg["mediana_horas"], sg["abiertos_hoy"]) == (1, 48.0, 0)
+
+
+def test_rebooking_buckets(conn):
+    pro = make_pro(conn)
+    pacientes = [make_patient(conn, n) for n in ("Ana", "Beto", "Cami", "Dani", "Eli")]
+    # momento de cada cancelación: NOW; la cita nueva se crea `dias` después (None = nunca).
+    for i, (p, dias) in enumerate(zip(pacientes, (0, 2, 10, 40, None))):
+        cid = raw(conn, p, pro, f"0{8 + i}:00", "cancelada")
+        cancel(conn, cid, "Viaje", False)
+        _creada(conn, cid, NOW - timedelta(days=5))
+        if dias is not None:
+            nueva = raw(conn, p, pro, f"0{8 + i}:00", "programada", day=DAY + timedelta(days=30))
+            _creada(conn, nueva, NOW + timedelta(days=dias, hours=1))
+    r = indicators.rebooking(conn, {"desde": NOW.date(), "hasta": NOW.date(), "profesional_id": None, "servicio_id": None})
+    assert r["total"] == 5 and r["mediana_dias"] == 6.0           # mediana de 0, 2, 10, 40 días
+    assert r["buckets"] == {"mismo_dia": 1, "1_3": 1, "4_14": 1, "15_60": 1, "no_reagendo": 1}

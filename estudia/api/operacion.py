@@ -97,7 +97,7 @@ def profesionales(conn=Depends(get_conn), u=Depends(usuario_actual)):
 
 @router.get("/servicios", tags=["Catálogos"], summary="Servicios", response_model=list[sc.ServicioOut])
 def servicios(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, nombre, duracion_min, autoagendable from servicio order by id").fetchall()
+    return conn.execute("select id, nombre, duracion_min, autoagendable, valor::bigint as valor from servicio order by id").fetchall()
 
 
 @router.get("/motivos-cancelacion", tags=["Catálogos"], summary="Motivos de cancelación", response_model=list[sc.MotivoOut])

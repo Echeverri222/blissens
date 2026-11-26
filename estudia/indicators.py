@@ -162,6 +162,13 @@ def period_before(filters: dict) -> dict:
 
 
 def summary(conn, filters: dict, comparar: bool = False) -> dict:
+    """Cifras del periodo, las metas vigentes y, con `comparar`, las del periodo anterior."""
+    out = _summary(conn, filters, comparar)
+    out["metas"] = config.get(conn, "metas_indicadores")
+    return out
+
+
+def _summary(conn, filters: dict, comparar: bool = False) -> dict:
     w, p = _where(filters)
     r = conn.execute(
         f"select coalesce(sum(citas),0) citas, coalesce(sum(atendidas),0) atendidas, coalesce(sum(no_asistio),0) no_asistio, "
@@ -195,16 +202,17 @@ def summary(conn, filters: dict, comparar: bool = False) -> dict:
         "cupos_ocupados_oferta": cap["oferta"] if cap_aplica else None,
         "cupos_ocupados_agendamiento": cap["agend"] if cap_aplica else None,
         "cupos_vacios": cap["vacios"] if cap_aplica else None,
+        **_resumen_dinero(lost_appointments(conn, filters)),
     }
     if comparar:
         prev = period_before(filters)
         out["desde_anterior"], out["hasta_anterior"] = prev["desde"], prev["hasta"]
-        out["anterior"] = summary(conn, prev)
+        out["anterior"] = _summary(conn, prev)
     return out
 
 
 def by_dimension(conn, filters: dict, dim: str) -> list[dict]:
-    """Inasistencia por profesional o servicio."""
+    """Inasistencia y dinero perdido por profesional o servicio."""
     w, p = _where(filters, "h")
     col, join = ("p", "profesional p on p.id=h.profesional_id") if dim == "profesional" else \
                 ("s", "servicio s on s.id=h.servicio_id")
@@ -212,9 +220,14 @@ def by_dimension(conn, filters: dict, dim: str) -> list[dict]:
         f"select {col}.id, {col}.nombre as nombre, sum(h.atendidas) atendidas, sum(h.no_asistio) no_asistio, "
         f"sum(h.citas) citas, sum(h.canceladas) canceladas "
         f"from hecho_diario h join {join} where {w} group by {col}.id, {col}.nombre order by {col}.nombre", p).fetchall()
+    perdido: dict[int, int] = {}
+    for c in lost_appointments(conn, filters):
+        k = c["profesional_id" if dim == "profesional" else "servicio_id"]
+        perdido[k] = perdido.get(k, 0) + (c["valor"] or 0)
     return [{"id": r["id"], "nombre": r["nombre"], "atendidas": r["atendidas"], "no_asistio": r["no_asistio"],
              "citas": r["citas"], "canceladas": r["canceladas"],
-             "inasistencia": _ratio(r["no_asistio"], r["atendidas"] + r["no_asistio"])} for r in rows]
+             "inasistencia": _ratio(r["no_asistio"], r["atendidas"] + r["no_asistio"]),
+             "valor_perdido": perdido.get(r["id"], 0)} for r in rows]
 
 
 def trend(conn, filters: dict) -> list[dict]:
@@ -288,6 +301,160 @@ def time_between_patient(conn, filters: dict) -> float | None:
         where gap is not null and dia between %(desde)s and %(hasta)s
         """, params).fetchone()
     return r["dias"]
+
+
+# ----- Dinero perdido (PRD fase 2, R2) -----
+
+DIAS_REAGENDA_PERDIDA = 30  # una cancelación tardía se da por recuperada si el paciente agenda ese servicio en este plazo
+
+
+def lost_appointments(conn, filters: dict) -> list[dict]:
+    """Citas del rango que costaron dinero: inasistencias y cancelaciones tardías que no se reagendaron.
+
+    Cada fila trae el `valor` del servicio (None si no se ha configurado) y `motivo`: 'inasistencia' o 'tardia'."""
+    w, p = _cita_filters(filters)
+    return conn.execute(
+        f"""
+        select c.id, c.profesional_id, c.servicio_id, s.valor::bigint as valor,
+               case when c.estado='no_asistio' then 'inasistencia' else 'tardia' end as motivo
+        from cita c join servicio s on s.id=c.servicio_id left join cancelacion x on x.cita_id=c.id
+        where {w} and (c.estado='no_asistio' or (c.estado='cancelada' and x.tardia and not exists (
+            select 1 from cita n where n.paciente_id=c.paciente_id and n.servicio_id=c.servicio_id
+            and n.creada_en > x.momento and n.creada_en <= x.momento + make_interval(days => %(dias)s))))
+        """, {**p, "dias": DIAS_REAGENDA_PERDIDA}).fetchall()
+
+
+def _resumen_dinero(citas: list[dict]) -> dict:
+    por = {m: sum(c["valor"] or 0 for c in citas if c["motivo"] == m) for m in ("inasistencia", "tardia")}
+    return {"valor_perdido": sum(por.values()), "valor_perdido_inasistencia": por["inasistencia"],
+            "valor_perdido_tardias": por["tardia"], "citas_sin_valor": sum(1 for c in citas if c["valor"] is None)}
+
+
+# ----- Metas (R3) -----
+
+# indicador -> (límite, si es dinero). `min`: más es mejor; `max`: menos es mejor.
+METAS = {"inasistencia": ("max", False), "asistencia": ("min", False), "confirmacion": ("min", False),
+         "dinero_perdido": ("max", True)}
+
+
+# ----- Pendientes del equipo (R5) -----
+
+HORAS_VENCIDO = {"cierre_citas": 48, "mensajes": 48, "seguimientos": 7 * 24}
+REGISTRO_PENDIENTES_DESDE = date(2026, 11, 25)  # desde esta fecha se registra quién resuelve (migración 014)
+SIN_REGISTRAR = "Sin registrar"
+
+
+def _percentil(vals: list[float], q: float) -> float | None:
+    """Percentil con interpolación lineal (como `percentile_cont`)."""
+    if not vals:
+        return None
+    v = sorted(vals)
+    k = (len(v) - 1) * q
+    i = int(k)
+    return v[i] + (v[min(i + 1, len(v) - 1)] - v[i]) * (k - i)
+
+
+def _resumen_tiempos(horas: list[float], abiertos: list[float], kind: str) -> dict:
+    return {"resueltos": len(horas), "mediana_horas": _percentil(horas, 0.5), "p90_horas": _percentil(horas, 0.9),
+            "abiertos_hoy": len(abiertos), "vencidos": sum(1 for h in abiertos if h > HORAS_VENCIDO[kind])}
+
+
+def pending_followthrough(conn, filters: dict) -> dict:
+    """¿El equipo cierra sus pendientes? Tiempos de resolución de desenlaces, mensajes y seguimientos hechos a mano.
+
+    El periodo se mide por el día en que se resolvió. Los abiertos son los de hoy: no dependen del rango."""
+    now, tz = clock.now(conn), "current_setting('TimeZone')"
+    p = {"desde": filters["desde"], "hasta": filters["hasta"], "now": now}
+    cita_f, caso_f = "", ""
+    for k, col in (("profesional_id", "pro"), ("servicio_id", "srv")):
+        if filters.get(k):
+            p[col] = filters[k]
+            cita_f += f" and c.{k} = %({col})s"
+            caso_f += f" and cc.{k} = %({col})s"
+    horas = lambda a, b: f"(extract(epoch from ({a} - {b}))/3600)::float"  # noqa: E731
+    en_rango = lambda x: f"({x} at time zone {tz})::date between %(desde)s and %(hasta)s"  # noqa: E731
+
+    resueltos: dict[str, list[tuple[float, int | None, str | None]]] = {k: [] for k in HORAS_VENCIDO}
+    # Primer desenlace de cada cita registrado por una persona y no revertido.
+    for r in conn.execute(
+            f"""
+            select greatest(0, {horas('h.momento', 'upper(c.rango)')}) as h, h.usuario_id, u.nombre
+            from historial_estado h join cita c on c.id=h.cita_id left join usuario u on u.id=h.usuario_id
+            where h.estado_nuevo in ('atendida','no_asistio') and h.actor in ('auxiliar','especialista')
+              and h.revierte_id is null and c.rango is not null and {en_rango('h.momento')}
+              and not exists (select 1 from historial_estado r where r.revierte_id=h.id)
+              and not exists (select 1 from historial_estado a where a.cita_id=h.cita_id and a.estado_nuevo in ('atendida','no_asistio')
+                              and a.actor in ('auxiliar','especialista') and a.revierte_id is null
+                              and not exists (select 1 from historial_estado r2 where r2.revierte_id=a.id)
+                              and (a.momento, a.id) < (h.momento, h.id)){cita_f}
+            """, p):
+        resueltos["cierre_citas"].append((r["h"], r["usuario_id"], r["nombre"]))
+    # Los mensajes no tienen profesional ni servicio: esos filtros no aplican.
+    for r in conn.execute(
+            f"""
+            select greatest(0, {horas('m.gestionado_en', 'm.momento')}) as h, m.gestionado_por as usuario_id, u.nombre
+            from mensaje m left join usuario u on u.id=m.gestionado_por
+            where m.direccion='entrante' and m.gestionado_en is not null and {en_rango('m.gestionado_en')}
+            """, p):
+        resueltos["mensajes"].append((r["h"], r["usuario_id"], r["nombre"]))
+    # Cerrados a mano: la auxiliar registró que aceptó o rechazó. Los cerrados antes de la migración 014 no traen usuario.
+    for r in conn.execute(
+            f"""
+            select greatest(0, {horas('cs.cerrado_en', 'cs.abierto_en')}) as h, cs.cerrado_por as usuario_id, u.nombre
+            from caso_seguimiento cs left join cita cc on cc.id=cs.cita_id left join usuario u on u.id=cs.cerrado_por
+            where cs.estado in ('reprogramado','rechazado') and cs.cerrado_en is not null and {en_rango('cs.cerrado_en')}
+              and exists (select 1 from intento i where i.caso_id=cs.id and i.canal='manual' and i.resultado in ('acepto','rechazo')){caso_f}
+            """, p):
+        resueltos["seguimientos"].append((r["h"], r["usuario_id"], r["nombre"]))
+
+    abiertos = {
+        "cierre_citas": [r["h"] for r in conn.execute(
+            f"select {horas('%(now)s', 'upper(c.rango)')} as h from cita c where c.estado = any(%(alive)s) "
+            f"and c.rango is not null and upper(c.rango) < %(now)s{cita_f}", {**p, "alive": list(ALIVE)})],
+        "mensajes": [r["h"] for r in conn.execute(
+            f"select {horas('%(now)s', 'm.momento')} as h from mensaje m where m.direccion='entrante' and not m.gestionado", p)],
+        "seguimientos": [r["h"] for r in conn.execute(
+            f"select {horas('%(now)s', 'cs.abierto_en')} as h from caso_seguimiento cs left join cita cc on cc.id=cs.cita_id "
+            f"where (cs.estado='abierto' or (cs.estado='agotado' and cs.escalado)){caso_f}", p)],
+    }
+    out = {k: _resumen_tiempos([h for h, _, _ in resueltos[k]], abiertos[k], k) for k in HORAS_VENCIDO}
+    personas: dict[int | None, dict] = {}
+    for filas in resueltos.values():
+        for h, uid, nombre in filas:
+            d = personas.setdefault(uid, {"usuario_id": uid, "usuario": nombre, "horas": []})
+            d["horas"].append(h)
+    out["por_usuario"] = sorted(
+        ({"usuario_id": d["usuario_id"], "usuario": d["usuario"], "resueltos": len(d["horas"]),
+          "mediana_horas": _percentil(d["horas"], 0.5)} for d in personas.values()),
+        key=lambda d: (d["usuario_id"] is None, -d["resueltos"]))
+    out["registro_desde"] = REGISTRO_PENDIENTES_DESDE
+    return out
+
+
+# ----- Del cancelar al volver a agendar (R6) -----
+
+DIAS_REAGENDAMIENTO = 60
+
+
+def rebooking(conn, filters: dict) -> dict:
+    """Cancelaciones del rango y cuánto tardó el paciente en agendar de nuevo (mismo profesional o mismo servicio)."""
+    w, p = _cita_filters(filters)
+    tz = "current_setting('TimeZone')"
+    rows = conn.execute(
+        f"""
+        select (r.creada_en at time zone {tz})::date - (x.momento at time zone {tz})::date as dias
+        from cancelacion x join cita c on c.id=x.cita_id
+        left join lateral (
+            select n.creada_en from cita n where n.paciente_id=c.paciente_id and n.creada_en > x.momento
+            and n.creada_en <= x.momento + make_interval(days => %(max)s)
+            and (n.profesional_id=c.profesional_id or n.servicio_id=c.servicio_id) order by n.creada_en limit 1) r on true
+        where {w.replace('c.dia', f"(x.momento at time zone {tz})::date")}
+        """, {**p, "max": DIAS_REAGENDAMIENTO}).fetchall()
+    dias = [r["dias"] for r in rows if r["dias"] is not None]
+    buckets = {"mismo_dia": 0, "1_3": 0, "4_14": 0, "15_60": 0, "no_reagendo": len(rows) - len(dias)}
+    for d in dias:
+        buckets["mismo_dia" if d == 0 else "1_3" if d <= 3 else "4_14" if d <= 14 else "15_60"] += 1
+    return {"mediana_dias": _percentil([float(d) for d in dias], 0.5), "total": len(rows), "buckets": buckets}
 
 
 # ----- Consultas sobre citas (detalle detrás de las cifras) -----

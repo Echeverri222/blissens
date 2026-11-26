@@ -5031,6 +5031,306 @@
         }
       }
     },
+    "/api/v1/indicadores/pendientes": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "¿El equipo cierra sus pendientes?",
+        "description": "Tiempo en resolver desenlaces de citas, mensajes y seguimientos hechos a mano, por quien los resolvió. El periodo es el día en que se resolvió; los abiertos son los de hoy.",
+        "operationId": "pendientes_api_v1_indicadores_pendientes_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendientesOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/reagendamiento": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Días entre cancelar y volver a agendar",
+        "description": "Cancelaciones del periodo y cuándo agendó de nuevo el mismo paciente (mismo profesional o servicio, hasta 60 días después).",
+        "operationId": "reagendamiento_api_v1_indicadores_reagendamiento_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReagendamientoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/indicadores/dia-hora": {
       "get": {
         "tags": [
@@ -5835,6 +6135,294 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UsuarioConClave"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/servicios/{servicio_id}": {
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Fijar el valor promedio de un servicio",
+        "description": "Pesos; `null` lo quita. Sirve para estimar el dinero perdido en los indicadores, no es una factura.",
+        "operationId": "valor_servicio_api_v1_admin_servicios__servicio_id__put",
+        "parameters": [
+          {
+            "name": "servicio_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValorServicio"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicioOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/metas": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Metas vigentes de los indicadores",
+        "operationId": "ver_metas_api_v1_admin_metas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "type": "object"
+                  },
+                  "type": "object",
+                  "title": "Response Ver Metas Api V1 Admin Metas Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Fijar las metas de los indicadores",
+        "description": "Reemplaza todas las metas. Cada una es opcional; un indicador sin meta no se evalúa.",
+        "operationId": "metas_api_v1_admin_metas_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Metas"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "type": "object"
+                  },
+                  "type": "object",
+                  "title": "Response Metas Api V1 Admin Metas Put"
                 }
               }
             }
@@ -7770,6 +8358,39 @@
         ],
         "title": "Body_texto_simulador_texto_post"
       },
+      "BucketsReagendamiento": {
+        "properties": {
+          "mismo_dia": {
+            "type": "integer",
+            "title": "Mismo Dia"
+          },
+          "1_3": {
+            "type": "integer",
+            "title": "1 3"
+          },
+          "4_14": {
+            "type": "integer",
+            "title": "4 14"
+          },
+          "15_60": {
+            "type": "integer",
+            "title": "15 60"
+          },
+          "no_reagendo": {
+            "type": "integer",
+            "title": "No Reagendo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mismo_dia",
+          "1_3",
+          "4_14",
+          "15_60",
+          "no_reagendo"
+        ],
+        "title": "BucketsReagendamiento"
+      },
       "CambioAcceso": {
         "properties": {
           "rol": {
@@ -9334,6 +9955,11 @@
               }
             ],
             "title": "Inasistencia"
+          },
+          "valor_perdido": {
+            "type": "integer",
+            "title": "Valor Perdido",
+            "description": "Pesos perdidos en el periodo (ver `valor_perdido` del resumen)."
           }
         },
         "type": "object",
@@ -9344,7 +9970,8 @@
           "atendidas",
           "no_asistio",
           "canceladas",
-          "inasistencia"
+          "inasistencia",
+          "valor_perdido"
         ],
         "title": "FilaDimension"
       },
@@ -9576,6 +10203,102 @@
           "momento"
         ],
         "title": "MensajeOut"
+      },
+      "MetaDinero": {
+        "properties": {
+          "max": {
+            "type": "integer",
+            "maximum": 1000000000000.0,
+            "minimum": 0.0,
+            "title": "Max"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max"
+        ],
+        "title": "MetaDinero"
+      },
+      "MetaMaxima": {
+        "properties": {
+          "max": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Max"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max"
+        ],
+        "title": "MetaMaxima"
+      },
+      "MetaMinima": {
+        "properties": {
+          "min": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "min"
+        ],
+        "title": "MetaMinima"
+      },
+      "Metas": {
+        "properties": {
+          "inasistencia": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetaMaxima"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asistencia": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetaMinima"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetaMinima"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dinero_perdido": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetaDinero"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Metas",
+        "description": "Metas de los indicadores; todas son opcionales. Tasas entre 0 y 1; el dinero en pesos."
       },
       "MotivoIndicador": {
         "properties": {
@@ -9969,6 +10692,91 @@
         ],
         "title": "PacienteResumen"
       },
+      "PendientesOut": {
+        "properties": {
+          "cierre_citas": {
+            "$ref": "#/components/schemas/ResumenTiempos"
+          },
+          "mensajes": {
+            "$ref": "#/components/schemas/ResumenTiempos"
+          },
+          "seguimientos": {
+            "$ref": "#/components/schemas/ResumenTiempos"
+          },
+          "por_usuario": {
+            "items": {
+              "$ref": "#/components/schemas/PendientesUsuario"
+            },
+            "type": "array",
+            "title": "Por Usuario"
+          },
+          "registro_desde": {
+            "type": "string",
+            "format": "date",
+            "title": "Registro Desde",
+            "description": "Desde esta fecha se registra quién resuelve cada pendiente."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cierre_citas",
+          "mensajes",
+          "seguimientos",
+          "por_usuario",
+          "registro_desde"
+        ],
+        "title": "PendientesOut"
+      },
+      "PendientesUsuario": {
+        "properties": {
+          "usuario_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuario Id"
+          },
+          "usuario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuario",
+            "description": "`null`: no se registró quién resolvió (antes de `registro_desde`)."
+          },
+          "resueltos": {
+            "type": "integer",
+            "title": "Resueltos"
+          },
+          "mediana_horas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediana Horas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "usuario_id",
+          "usuario",
+          "resueltos",
+          "mediana_horas"
+        ],
+        "title": "PendientesUsuario"
+      },
       "ProfesionalOut": {
         "properties": {
           "id": {
@@ -10037,6 +10845,37 @@
           "inasistencia"
         ],
         "title": "PuntoTendencia"
+      },
+      "ReagendamientoOut": {
+        "properties": {
+          "mediana_dias": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediana Dias",
+            "description": "Entre quienes volvieron a agendar."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Cancelaciones del periodo."
+          },
+          "buckets": {
+            "$ref": "#/components/schemas/BucketsReagendamiento"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mediana_dias",
+          "total",
+          "buckets"
+        ],
+        "title": "ReagendamientoOut"
       },
       "RecordatoriosOut": {
         "properties": {
@@ -10251,6 +11090,24 @@
               }
             ],
             "title": "Cupos Vacios"
+          },
+          "valor_perdido": {
+            "type": "integer",
+            "title": "Valor Perdido",
+            "description": "Pesos perdidos: inasistencias + cancelaciones tardías no reagendadas, al valor de cada servicio."
+          },
+          "valor_perdido_inasistencia": {
+            "type": "integer",
+            "title": "Valor Perdido Inasistencia"
+          },
+          "valor_perdido_tardias": {
+            "type": "integer",
+            "title": "Valor Perdido Tardias"
+          },
+          "citas_sin_valor": {
+            "type": "integer",
+            "title": "Citas Sin Valor",
+            "description": "Citas perdidas cuyo servicio no tiene valor configurado: no suman al dinero perdido."
           }
         },
         "type": "object",
@@ -10274,7 +11131,11 @@
           "cupos_liberados",
           "cupos_ocupados_oferta",
           "cupos_ocupados_agendamiento",
-          "cupos_vacios"
+          "cupos_vacios",
+          "valor_perdido",
+          "valor_perdido_inasistencia",
+          "valor_perdido_tardias",
+          "citas_sin_valor"
         ],
         "title": "ResumenBase"
       },
@@ -10473,6 +11334,35 @@
             ],
             "title": "Cupos Vacios"
           },
+          "valor_perdido": {
+            "type": "integer",
+            "title": "Valor Perdido",
+            "description": "Pesos perdidos: inasistencias + cancelaciones tardías no reagendadas, al valor de cada servicio."
+          },
+          "valor_perdido_inasistencia": {
+            "type": "integer",
+            "title": "Valor Perdido Inasistencia"
+          },
+          "valor_perdido_tardias": {
+            "type": "integer",
+            "title": "Valor Perdido Tardias"
+          },
+          "citas_sin_valor": {
+            "type": "integer",
+            "title": "Citas Sin Valor",
+            "description": "Citas perdidas cuyo servicio no tiene valor configurado: no suman al dinero perdido."
+          },
+          "metas": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Metas",
+            "description": "Metas vigentes, p. ej. `{\"inasistencia\": {\"max\": 0.15}}`; solo las que existen."
+          },
           "desde_anterior": {
             "anyOf": [
               {
@@ -10531,9 +11421,62 @@
           "cupos_liberados",
           "cupos_ocupados_oferta",
           "cupos_ocupados_agendamiento",
-          "cupos_vacios"
+          "cupos_vacios",
+          "valor_perdido",
+          "valor_perdido_inasistencia",
+          "valor_perdido_tardias",
+          "citas_sin_valor",
+          "metas"
         ],
         "title": "ResumenOut"
+      },
+      "ResumenTiempos": {
+        "properties": {
+          "resueltos": {
+            "type": "integer",
+            "title": "Resueltos"
+          },
+          "mediana_horas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediana Horas"
+          },
+          "p90_horas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Horas"
+          },
+          "abiertos_hoy": {
+            "type": "integer",
+            "title": "Abiertos Hoy"
+          },
+          "vencidos": {
+            "type": "integer",
+            "title": "Vencidos",
+            "description": "Abiertos hoy con más de 48 h (desenlaces y mensajes) o 7 días (seguimientos)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "resueltos",
+          "mediana_horas",
+          "p90_horas",
+          "abiertos_hoy",
+          "vencidos"
+        ],
+        "title": "ResumenTiempos"
       },
       "Reversion": {
         "properties": {
@@ -10637,6 +11580,18 @@
           "autoagendable": {
             "type": "boolean",
             "title": "Autoagendable"
+          },
+          "valor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor",
+            "description": "Valor promedio en pesos; `null` si no se ha configurado."
           }
         },
         "type": "object",
@@ -11100,6 +12055,30 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ValorServicio": {
+        "properties": {
+          "valor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMaximum": 1000000000000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor",
+            "description": "Pesos; `null` quita el valor."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valor"
+        ],
+        "title": "ValorServicio"
       }
     }
   }

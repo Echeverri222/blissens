@@ -114,10 +114,12 @@ def tareas_fallidas(conn):
                         "order by ejecutar_en desc limit 50").fetchall()
 
 
-def mark_message_managed(conn, message_id: int) -> bool:
-    """Marca como gestionado un mensaje entrante. False si no existe."""
-    return conn.execute("update mensaje set gestionado=true where id=%s and direccion='entrante' returning id",
-                        (message_id,)).fetchone() is not None
+def mark_message_managed(conn, message_id: int, user_id: int | None = None) -> bool:
+    """Marca como gestionado un mensaje entrante, con quién y cuándo. False si no existe."""
+    return conn.execute(
+        "update mensaje set gestionado=true, gestionado_en=coalesce(gestionado_en, %s), "
+        "gestionado_por=coalesce(gestionado_por, %s) where id=%s and direccion='entrante' returning id",
+        (clock.now(conn), user_id, message_id)).fetchone() is not None
 
 
 def mark_contact_managed(conn, request_id: int) -> bool:

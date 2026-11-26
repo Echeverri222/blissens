@@ -5,8 +5,9 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import type { CeldaDiaHora, CitaPerdida, FaltaRepetida, FilaDimension, FiltrosIndicadores } from "@/api/tipos";
+import { pesos } from "@/lib/dinero";
 import { ESTADOS } from "@/lib/estados";
-import { fechaDe, fechaHora } from "@/lib/tiempo";
+import { fechaDe, fechaHora, fechaLarga } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { Hoja, Tarjeta } from "@/ui/controles";
 import { Consulta, Vacio } from "@/ui/vistas";
@@ -70,37 +71,53 @@ export function Contador({ numero, etiqueta, alAbrir, cargando }: { numero: numb
 
 // ---------------------------------------------------------------- tablas por profesional y servicio
 
-const SECUNDARIA = new Set(["Atendidas", "Canceladas"]);
-const orden = (a: FilaDimension, b: FilaDimension) => (b.inasistencia ?? -1) - (a.inasistencia ?? -1) || a.nombre.localeCompare(b.nombre);
+// En el celular se ocultan Citas, Atendidas y Canceladas para que el % y lo perdido queden a la vista sin desplazar.
+const SECUNDARIA = new Set(["Citas", "Atendidas", "Canceladas"]);
+type Orden = "inasistencia" | "perdido";
+const porNombre = (a: FilaDimension, b: FilaDimension) => a.nombre.localeCompare(b.nombre);
+const ORDENES: Record<Orden, (a: FilaDimension, b: FilaDimension) => number> = {
+  inasistencia: (a, b) => (b.inasistencia ?? -1) - (a.inasistencia ?? -1) || porNombre(a, b),
+  perdido: (a, b) => b.valor_perdido - a.valor_perdido || porNombre(a, b),
+};
 
 export function TablaDimension({ titulo, columna, filas, alAbrir }: { titulo: string; columna: string; filas: FilaDimension[]; alAbrir: (f: FilaDimension) => void }) {
+  const [orden, setOrden] = useState<Orden>("inasistencia");
   return (
     <Tarjeta className="overflow-hidden">
-      <h3 className="px-4 pt-4 text-sm font-semibold">{titulo}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
+        <h3 className="text-sm font-semibold">{titulo}</h3>
+        {filas.length > 1 && (
+          <label className="flex items-center gap-1 text-xs text-tinta-suave">Ordenar por
+            <select value={orden} onChange={(e) => setOrden(e.target.value as Orden)} aria-label={`Ordenar ${titulo.toLowerCase()} por`}
+              className="rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-1.5 py-1 text-xs text-tinta">
+              <option value="inasistencia">% inasistencia</option><option value="perdido">Perdido</option>
+            </select>
+          </label>)}
+      </div>
       {filas.length === 0 ? <Vacio titulo="Sin datos en el periodo" /> : (
         <div className="overflow-x-auto">
           <table className="mt-2 w-full text-sm">
             <caption className="sr-only">{titulo}</caption>
             <thead><tr className="border-b border-linea text-left text-xs text-tinta-suave">
               <th scope="col" className="px-4 py-2 font-medium">{columna}</th>
-              {/* En el celular se ocultan Atendidas y Canceladas para que el % quede a la vista sin desplazar. */}
-              {(["Citas", "Atendidas", "No asistió", "Canceladas", "% inasistencia"] as const).map((c) => (
+              {(["Citas", "Atendidas", "No asistió", "Canceladas", "% inasistencia", "Perdido"] as const).map((c) => (
                 <th key={c} scope="col" className={cn("px-3 py-2 text-right font-medium", SECUNDARIA.has(c) && "hidden sm:table-cell")}>{c}</th>))}
             </tr></thead>
-            <tbody>{[...filas].sort(orden).map((r) => {
+            <tbody>{[...filas].sort(ORDENES[orden]).map((r) => {
               const pequena = r.atendidas + r.no_asistio < MUESTRA_MINIMA;
               return (
                 <tr key={r.id} onClick={() => alAbrir(r)} className="cursor-pointer border-b border-linea last:border-0 hover:bg-zinc-50">
                   <th scope="row" className="px-4 py-2 text-left font-medium">
                     <button type="button" className="text-left underline" onClick={(e) => { e.stopPropagation(); alAbrir(r); }} aria-label={`Ver citas perdidas de ${r.nombre}`}>{r.nombre}</button>
                   </th>
-                  <td className="px-3 py-2 text-right tabular-nums">{r.citas}</td>
+                  <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.citas}</td>
                   <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.atendidas}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.no_asistio}</td>
                   <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.canceladas}</td>
                   <td className={cn("px-3 py-2 text-right tabular-nums", pequena && "text-zinc-400")}>
                     {pct(r.inasistencia)}{pequena && <span className="block text-xs font-normal">muestra pequeña</span>}
                   </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{pesos(r.valor_perdido)}</td>
                 </tr>);
             })}</tbody>
           </table>
@@ -135,6 +152,73 @@ export function CitasPerdidas({ fila, dimension, f, alCerrar }: { fila: FilaDime
       <Consulta q={q}>{(d) => d.length === 0 ? <Vacio titulo="Sin citas perdidas">En el periodo no hay inasistencias ni cancelaciones tardías.</Vacio>
         : <ul className="divide-y divide-linea">{d.map((c) => <FilaPerdida key={c.cita_id} c={c} />)}</ul>}</Consulta>
     </Hoja>
+  );
+}
+
+// ---------------------------------------------------------------- ¿el equipo cierra sus pendientes?
+
+/** "3 h" o "2 días": las horas hasta 2 días, después días. */
+const duracion = (h: number | null) => (h === null ? "—" : h < 48 ? `${h < 1 ? "<1" : Math.round(h)} h` : `${Math.round(h / 24)} días`);
+const PENDIENTES = [["cierre_citas", "Desenlace de citas"], ["mensajes", "Mensajes atendidos"], ["seguimientos", "Seguimientos cerrados"]] as const;
+
+export function Pendientes({ f }: { f: FiltrosIndicadores }) {
+  const q = useQuery({ queryKey: ["ind", "pendientes", f.desde, f.hasta, f.profesional_id ?? null, f.servicio_id ?? null], queryFn: () => api.indicadores.pendientes(f) });
+  return (
+    <Tarjeta className="space-y-3 p-4">
+      <h3 className="text-sm font-semibold">¿El equipo cierra sus pendientes?</h3>
+      <Consulta q={q}>{(d) => (<>
+        <table className="w-full text-sm">
+          <caption className="sr-only">Pendientes resueltos por el equipo</caption>
+          <thead><tr className="border-b border-linea text-left text-xs text-tinta-suave">
+            <th scope="col" className="py-1.5 pr-2 font-medium">Pendiente</th>
+            <th scope="col" className="px-2 py-1.5 text-right font-medium">Resueltos</th>
+            <th scope="col" className="px-2 py-1.5 text-right font-medium">Tiempo típico</th>
+            <th scope="col" className="py-1.5 pl-2 text-right font-medium">Vencidos ahora</th>
+          </tr></thead>
+          <tbody>{PENDIENTES.map(([k, t]) => (
+            <tr key={k} className="border-b border-linea last:border-0">
+              <th scope="row" className="py-2 pr-2 text-left font-medium">{t}</th>
+              <td className="px-2 py-2 text-right tabular-nums">{d[k].resueltos}</td>
+              <td className="px-2 py-2 text-right tabular-nums">{duracion(d[k].mediana_horas)}</td>
+              <td className={cn("py-2 pl-2 text-right tabular-nums", d[k].vencidos > 0 && "font-medium text-rose-700")}>{d[k].vencidos}<span className="font-normal text-tinta-suave"> de {d[k].abiertos_hoy}</span></td>
+            </tr>))}</tbody>
+        </table>
+        {d.por_usuario.length > 0 && (
+          <ul className="space-y-0.5 text-sm" aria-label="Pendientes resueltos por persona">{d.por_usuario.map((u) => (
+            <li key={u.usuario_id ?? "ninguno"} className="flex justify-between gap-3"><span className={cn(u.usuario === null && "text-tinta-suave")}>{u.usuario ?? "Sin registrar"}</span>
+              <span className="tabular-nums">{u.resueltos} <span className="text-tinta-suave">· {duracion(u.mediana_horas)}</span></span></li>))}</ul>)}
+        <p className="text-xs text-tinta-suave">Tiempo típico: la mediana entre que el pendiente nació y alguien lo resolvió, en el periodo elegido. Vencidos: abiertos hoy con más de 48 h (7 días los seguimientos).
+          {" "}Antes del {fechaLarga(d.registro_desde)} no se registraba quién resolvía; esas filas aparecen como Sin registrar.</p>
+      </>)}</Consulta>
+    </Tarjeta>
+  );
+}
+
+// ---------------------------------------------------------------- de cancelar a volver a agendar
+
+const TRAMOS = [["mismo_dia", "Mismo día", "bg-sky-700"], ["1_3", "1–3 días", "bg-sky-500"], ["4_14", "4–14 días", "bg-sky-300"], ["15_60", "15–60 días", "bg-sky-200"], ["no_reagendo", "No reagendó", "bg-zinc-300"]] as const;
+
+export function Reagendamiento({ f }: { f: FiltrosIndicadores }) {
+  const q = useQuery({ queryKey: ["ind", "reagendamiento", f.desde, f.hasta, f.profesional_id ?? null, f.servicio_id ?? null], queryFn: () => api.indicadores.reagendamiento(f) });
+  return (
+    <Tarjeta className="space-y-3 p-4">
+      <h3 className="text-sm font-semibold">Después de cancelar, ¿cuánto tardan en volver?</h3>
+      <Consulta q={q}>{(d) => {
+        if (d.total === 0) return <Vacio titulo="Sin cancelaciones en el periodo" />;
+        const dias = d.mediana_dias === null ? null : Math.round(d.mediana_dias);
+        return (<>
+          <p className="text-sm">{dias === null ? "Nadie ha vuelto a agendar" : <>La mitad reagenda {dias === 0 ? "el mismo día" : <>en <b>{dias} {dias === 1 ? "día" : "días"}</b></>}</>}
+            <span className="text-tinta-suave"> · {d.total - d.buckets.no_reagendo} de {d.total} cancelaciones</span></p>
+          <div className="flex h-3 overflow-hidden rounded bg-zinc-100" role="img" aria-label="Cancelaciones según cuánto tardó el paciente en volver a agendar">
+            {TRAMOS.map(([k, t, color]) => d.buckets[k] > 0 && <div key={k} title={`${t}: ${d.buckets[k]}`} className={color} style={{ width: `${(d.buckets[k] / d.total) * 100}%` }} />)}
+          </div>
+          <ul className="grid grid-cols-5 gap-1 text-center" aria-label="Cancelaciones por tiempo hasta volver a agendar">{TRAMOS.map(([k, t, color]) => (
+            <li key={k} className="min-w-0"><span className="block text-lg font-semibold tabular-nums">{d.buckets[k]}</span>
+              <span className="flex items-center justify-center gap-1 text-[11px] leading-tight text-tinta-suave"><span className={cn("size-2 shrink-0 rounded-full", color)} aria-hidden />{t}</span></li>))}</ul>
+          <p className="text-xs text-tinta-suave">Cancelaciones hechas en el periodo (por la fecha en que se cancelaron, no la de la cita). Cuenta cualquier cita nueva con el mismo profesional o servicio en los 60 días siguientes.</p>
+        </>);
+      }}</Consulta>
+    </Tarjeta>
   );
 }
 

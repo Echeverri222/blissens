@@ -93,15 +93,15 @@ def exhaust(conn, caso_id: int) -> None:
     conn.execute("update caso_seguimiento set estado='agotado', escalado=true, cerrado_en=%s where id=%s", (now, caso_id))
 
 
-def decline(conn, caso_id: int) -> None:
-    """El paciente tocó 'Ahora no': sin más intentos."""
+def decline(conn, caso_id: int, user_id: int | None = None) -> None:
+    """El paciente tocó 'Ahora no' (o la auxiliar lo registró): sin más intentos."""
     now = clock.now(conn)
     conn.execute("update intento set resultado='rechazo' where caso_id=%s and resultado is null", (caso_id,))
-    conn.execute("update caso_seguimiento set estado='rechazado', cerrado_en=%s where id=%s and estado='abierto'",
-                 (now, caso_id))
+    conn.execute("update caso_seguimiento set estado='rechazado', cerrado_en=%s, cerrado_por=%s "
+                 "where id=%s and estado='abierto'", (now, user_id, caso_id))
 
 
-def register_manual(conn, caso_id: int, resultado: str, detalle: str = "") -> None:
+def register_manual(conn, caso_id: int, resultado: str, detalle: str = "", user_id: int | None = None) -> None:
     """La auxiliar registra una gestión por teléfono sobre el mismo caso."""
     assert resultado in ("acepto", "rechazo", "sin_respuesta")
     now = clock.now(conn)
@@ -109,10 +109,10 @@ def register_manual(conn, caso_id: int, resultado: str, detalle: str = "") -> No
     conn.execute("insert into intento(caso_id, numero, canal, resultado, momento, detalle) values (%s,%s,'manual',%s,%s,%s)",
                  (caso_id, n, resultado, now, detalle))
     if resultado == "rechazo":
-        decline(conn, caso_id)
+        decline(conn, caso_id, user_id)
     elif resultado == "acepto":
-        conn.execute("update caso_seguimiento set estado='reprogramado', cerrado_en=%s where id=%s and estado='abierto'",
-                     (now, caso_id))
+        conn.execute("update caso_seguimiento set estado='reprogramado', cerrado_en=%s, cerrado_por=%s "
+                     "where id=%s and estado='abierto'", (now, user_id, caso_id))
 
 
 def resolve_on_booking(conn, patient_id: int, new_cita_id: int) -> None:

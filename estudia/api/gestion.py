@@ -132,14 +132,14 @@ def gestion(caso_id: int, datos: sc.Gestion, conn=Depends(get_conn), u=Depends(a
         raise permisos.NoExiste("No existe ese seguimiento")
     if caso["estado"] not in ("abierto", "agotado"):
         raise lifecycle.InvalidTransition("Ese seguimiento ya está cerrado")
-    followup.register_manual(conn, caso_id, datos.resultado, datos.detalle)
+    followup.register_manual(conn, caso_id, datos.resultado, datos.detalle, user_id=u["id"])
     return sc.Ok()
 
 
 @router.post("/mensajes/{mensaje_id}/gestionar", tags=["Acciones de bandeja"],
              summary="Marcar un mensaje entrante como gestionado", response_model=sc.Ok)
 def gestionar_mensaje(mensaje_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
-    if not bandejas.mark_message_managed(conn, mensaje_id):
+    if not bandejas.mark_message_managed(conn, mensaje_id, u["id"]):
         raise permisos.NoExiste("No existe ese mensaje")
     return sc.Ok()
 
@@ -220,6 +220,21 @@ def citas_perdidas(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxilia
             response_model=sc.RecordatoriosOut)
 def recordatorios(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
     return indicators.reminders(conn, f)
+
+
+@router.get("/indicadores/pendientes", tags=["Indicadores"], summary="¿El equipo cierra sus pendientes?",
+            description="Tiempo en resolver desenlaces de citas, mensajes y seguimientos hechos a mano, por quien los resolvió. "
+                        "El periodo es el día en que se resolvió; los abiertos son los de hoy.",
+            response_model=sc.PendientesOut)
+def pendientes(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.pending_followthrough(conn, f)
+
+
+@router.get("/indicadores/reagendamiento", tags=["Indicadores"], summary="Días entre cancelar y volver a agendar",
+            description="Cancelaciones del periodo y cuándo agendó de nuevo el mismo paciente (mismo profesional o servicio, "
+                        "hasta 60 días después).", response_model=sc.ReagendamientoOut)
+def reagendamiento(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return indicators.rebooking(conn, f)
 
 
 @router.get("/indicadores/dia-hora", tags=["Indicadores"], summary="Atendidas y no asistió por día de la semana y hora",
