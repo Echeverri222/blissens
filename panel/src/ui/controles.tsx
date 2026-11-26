@@ -100,20 +100,23 @@ export function Hoja({ abierta, alCerrar, titulo, descripcion, ancho = "md:max-w
 }
 
 /** Acción que pide confirmación antes de ejecutarse (envía mensajes al paciente o es difícil de deshacer). */
-export function Confirmar({ etiqueta, pregunta, alConfirmar, variante = "secundario", deshabilitado, pequeno }: {
-  etiqueta: string; pregunta: string; alConfirmar: () => void; variante?: Variante; deshabilitado?: boolean; pequeno?: boolean;
+/** Toda acción que cambia datos pasa por aquí: un clic por error no debe registrar nada. `pregunta` dice a quién y qué
+ * afecta (nombre, fecha) y `si` repite la acción en el botón que la ejecuta. */
+export function Confirmar({ etiqueta, pregunta, alConfirmar, variante = "secundario", deshabilitado, pequeno, icono, titulo, si = "Sí, continuar" }: {
+  etiqueta: string; pregunta: ReactNode; alConfirmar: () => void; variante?: Variante; deshabilitado?: boolean; pequeno?: boolean;
+  icono?: ReactNode; titulo?: string; si?: string;
 }) {
   return (
     <Dialog.Root>
-      <Dialog.Trigger asChild><Boton variante={variante} disabled={deshabilitado} pequeno={pequeno}>{etiqueta}</Boton></Dialog.Trigger>
+      <Dialog.Trigger asChild><Boton variante={variante} disabled={deshabilitado} pequeno={pequeno}>{icono}{etiqueta}</Boton></Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
-          <Dialog.Title className="text-base font-semibold">{etiqueta}</Dialog.Title>
+          <Dialog.Title className="text-base font-semibold">{titulo ?? etiqueta}</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-tinta-suave">{pregunta}</Dialog.Description>
           <div className="mt-4 flex justify-end gap-2">
             <Dialog.Close asChild><Boton variante="secundario" pequeno>No, volver</Boton></Dialog.Close>
-            <Dialog.Close asChild><Boton variante={variante === "secundario" ? "primario" : variante} pequeno onClick={alConfirmar}>Sí, continuar</Boton></Dialog.Close>
+            <Dialog.Close asChild><Boton variante={variante === "secundario" ? "primario" : variante} pequeno onClick={alConfirmar}>{si}</Boton></Dialog.Close>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

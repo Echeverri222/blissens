@@ -3,7 +3,8 @@ import { Check, MessageCircle, Phone } from "lucide-react";
 import { api } from "@/api/cliente";
 import { useAccion } from "@/api/consultas";
 import { digitosWhatsApp } from "@/lib/solicitudes";
-import { Boton } from "@/ui/controles";
+import { fechaHora } from "@/lib/tiempo";
+import { Confirmar } from "@/ui/controles";
 
 const ENLACE = "inline-flex items-center gap-1 font-medium text-sky-800 underline";
 
@@ -19,7 +20,12 @@ export function EnlacesContacto({ celular }: { celular?: string | null }) {
 }
 
 /** Registra la confirmación dada por teléfono. Tras el éxito la fila sale sola de la lista (se vuelve a consultar todo). */
-export function BotonConfirmo({ citaId, pequeno = true, alExito }: { citaId: number; pequeno?: boolean; alExito?: () => void }) {
+export function BotonConfirmo({ citaId, paciente, inicio, pequeno = true, alExito }: {
+  citaId: number; paciente?: string; inicio?: string | null; pequeno?: boolean; alExito?: () => void;
+}) {
   const m = useAccion(() => api.citas.confirmar(citaId), { ok: "Cita confirmada", alExito });
-  return <Boton pequeno={pequeno} disabled={m.isPending} onClick={() => m.mutate()}><Check className="size-4" aria-hidden /> Confirmó</Boton>;
+  const cita = inicio ? `la cita del ${fechaHora(inicio)}` : "su cita";
+  return <Confirmar etiqueta="Confirmó" variante="primario" pequeno={pequeno} deshabilitado={m.isPending} icono={<Check className="size-4" aria-hidden />}
+    titulo="¿Confirmó por teléfono?" si="Sí, confirmó" alConfirmar={() => m.mutate()}
+    pregunta={<>{paciente ? <b className="text-tinta">{paciente}</b> : "El paciente"} te dijo que asistirá a {cita}. La cita quedará confirmada y saldrá de la lista de llamadas.</>} />;
 }

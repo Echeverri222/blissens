@@ -6,7 +6,7 @@ import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
 import type { FiltrosIndicadores } from "@/api/tipos";
 import { sumarDias } from "@/lib/tiempo";
 import { useSesion } from "@/sesion/Sesion";
-import { Boton, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
+import { Confirmar, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 
 const pct = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(1)} %`);
@@ -59,7 +59,7 @@ export function Indicadores() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-xl font-semibold">Indicadores</h1>
         <p className="text-sm text-tinta-suave">Último cierre diario: <b>{sistema.data?.ultimo_cierre ?? "nunca"}</b></p>
-        <Boton variante="secundario" pequeno disabled={cierre.isPending} onClick={() => cierre.mutate(undefined)}>Ejecutar cierre ahora</Boton>
+        <Confirmar variante="secundario" pequeno deshabilitado={cierre.isPending} etiqueta="Ejecutar cierre ahora" pregunta="Se recalculan los indicadores de los días pendientes. Puede tardar unos segundos." alConfirmar={() => cierre.mutate(undefined)} />
       </div>
       {cierre.error instanceof ApiError && <Aviso>{cierre.error.mensaje}</Aviso>}
       <Tarjeta className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4" role="search" aria-label="Filtros">

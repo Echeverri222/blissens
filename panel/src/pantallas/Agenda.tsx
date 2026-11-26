@@ -97,7 +97,7 @@ export function Agenda() {
             <ListasAparte columnas={columnas.map((c) => ({ titulo: c.titulo, datos: c.datos }))} alAbrir={(id) => ir({ cita: String(id) })} />
             {!movil ? (vista === "semana" && proFiltro === null
               ? <SemanaTodos cols={cols} a={a} ahora={ahora} alAbrir={(id) => ir({ cita: String(id) })} />
-              : <Rejilla cols={cols} a={a} ahora={ahora} desplazar={vista === "dia" && fecha === hoy} alAbrir={(id) => ir({ cita: String(id) })} />) : (
+              : <Rejilla cols={cols} a={a} ahora={ahora} alAbrir={(id) => ir({ cita: String(id) })} />) : (
               <div className="space-y-3">
                 {vista === "semana" && (
                   <div role="group" aria-label="Día de la semana" className="flex gap-1 overflow-x-auto">

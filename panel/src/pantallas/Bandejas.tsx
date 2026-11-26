@@ -8,7 +8,7 @@ import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { Boton, Confirmar, Tarjeta } from "@/ui/controles";
+import { Confirmar, Tarjeta } from "@/ui/controles";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
 
@@ -68,7 +68,7 @@ export function Bandejas() {
   );
 }
 
-type Pendiente = { id: string; urgencia: number; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; citaId?: number; texto: ReactNode };
+type Pendiente = { id: string; urgencia: number; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; texto: ReactNode; acciones: ReactNode };
 
 /** Las llamadas de hoy, de lo más urgente a lo menos: necesita llamada, mensajes, contactos, sin confirmar, seguimientos y, al final, los dados de baja. */
 function pendientes(d: {
@@ -78,14 +78,19 @@ function pendientes(d: {
 }): Pendiente[] {
   const f: Pendiente[] = [];
   for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
+    acciones: <AccionesSeguimiento id={r.id} paciente={r.paciente} />,
     texto: <><b>{r.paciente}</b>: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
   for (const r of d.mensajes ?? []) f.push({ id: `msj-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: "Mensaje", slug: "sin-interpretar", pacienteId: r.paciente_id,
+    acciones: <BotonResuelto id={r.id} paciente={r.paciente} />,
     texto: <><b>{r.paciente}</b> escribió algo que el sistema no entendió: “{r.texto}”.</> });
   for (const r of d.contactos ?? []) f.push({ id: `con-${r.id}`, urgencia: 2, orden: r.momento, etiqueta: esSolicitudWeb(r) ? "Solicitud web" : "Validar", slug: "contactos", celular: r.celular,
+    acciones: <BotonGestionada id={r.id} />,
     texto: esSolicitudWeb(r) ? resumenWeb(r) : <>El documento <b>{r.documento}</b> intentó agendar desde otro celular ({r.celular}). Llama para validar.</> });
-  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular, citaId: r.cita_id,
+  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular,
+    acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Llama a <b>{r.paciente}</b>: su cita del {fechaHora(r.inicio)} {r.estado === "programada" ? "aún no responde al recordatorio" : "sigue sin confirmar"}.</> });
-  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular, citaId: r.cita_id,
+  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular,
+    acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Confirma por teléfono a <b>{r.paciente}</b> su cita del {fechaHora(r.inicio)}: pidió no recibir mensajes.</> });
   return f.sort((a, b) => a.urgencia - b.urgencia || a.orden.localeCompare(b.orden));
 }
@@ -144,9 +149,8 @@ function QueHacerHoy() {
                 <span className={cn("w-32 shrink-0 rounded-full px-2 py-0.5 text-center text-xs font-medium", f.urgencia === 0 ? "bg-rose-100 text-rose-900" : f.urgencia <= 3 ? "bg-amber-100 text-amber-950" : "bg-zinc-200 text-zinc-900")}>{f.etiqueta}</span>
                 <span className="min-w-48 flex-1">{f.texto}</span>
                 <EnlacesContacto celular={f.celular} />
-                {f.citaId !== undefined && <BotonConfirmo citaId={f.citaId} />}
                 {f.pacienteId !== undefined && <Link className={ENLACE} to={`/pacientes/${f.pacienteId}`}>Ver paciente</Link>}
-                <Boton pequeno variante="secundario" onClick={() => setParams({ b: f.slug })}>Resolver</Boton>
+                <div className="ml-auto flex flex-wrap items-center gap-1.5">{f.acciones}</div>
               </Fila>
             ))}
           </Tarjeta>
@@ -160,6 +164,38 @@ function QueHacerHoy() {
       </details>
     </div>
   );
+}
+
+/** Las acciones de cada tipo de pendiente: las mismas en «Qué hacer hoy» y en su bandeja, siempre con confirmación. */
+function AccionesSeguimiento({ id, paciente }: { id: number; paciente: string }) {
+  const m = useAccion((v: { r: ResultadoGestion; detalle: string }) => api.bandejas.gestionSeguimiento(id, v.r, v.detalle), { ok: "Registrado" });
+  const quien = <b className="text-tinta">{paciente}</b>;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <Confirmar etiqueta="Aceptó" pequeno deshabilitado={m.isPending} si="Sí, aceptó" pregunta={<>{quien} aceptó por teléfono. El seguimiento se cierra como aceptado; si quiere una cita, agéndala tú.</>}
+        alConfirmar={() => m.mutate({ r: "acepto", detalle: "Gestión telefónica" })} />
+      <Confirmar etiqueta="Rechazó" pequeno deshabilitado={m.isPending} si="Sí, rechazó" pregunta={<>{quien} no quiere continuar. El seguimiento se cierra y no se le volverá a escribir por este caso.</>}
+        alConfirmar={() => m.mutate({ r: "rechazo", detalle: "Gestión telefónica" })} />
+      <Confirmar etiqueta="Sin respuesta" pequeno deshabilitado={m.isPending} si="Sí, no contestó" pregunta={<>Llamaste a {quien} y no contestó. Queda registrado como un intento más.</>}
+        alConfirmar={() => m.mutate({ r: "sin_respuesta", detalle: "Llamada sin respuesta" })} />
+    </div>
+  );
+}
+
+function BotonResuelto({ id, paciente }: { id: number; paciente: string }) {
+  const m = useAccion(() => api.bandejas.gestionarMensaje(id), { ok: "Mensaje resuelto" });
+  return <Confirmar etiqueta="Resuelto" pequeno deshabilitado={m.isPending} si="Sí, ya le respondí"
+    pregunta={<>¿Ya le respondiste a <b className="text-tinta">{paciente}</b> por tu cuenta? El mensaje sale de la lista.</>} alConfirmar={() => m.mutate(undefined)} />;
+}
+
+function BotonGestionada({ id }: { id: number }) {
+  const m = useAccion(() => api.bandejas.gestionarContacto(id), { ok: "Solicitud gestionada" });
+  return <Confirmar etiqueta="Gestionada" pequeno deshabilitado={m.isPending} si="Sí, ya la gestioné"
+    pregunta="¿Ya contactaste a esta persona? La solicitud sale de la lista." alConfirmar={() => m.mutate(undefined)} />;
+}
+
+function AccionesCita({ citaId, paciente, inicio }: { citaId: number; paciente: string; inicio: string }) {
+  return <div className="flex items-center gap-3"><Link className={ENLACE} to={verCita(citaId, inicio)}>Abrir cita</Link><BotonConfirmo citaId={citaId} paciente={paciente} inicio={inicio} /></div>;
 }
 
 function Lista<T extends object>({ clave, fn, vacio, fila }: { clave: string; fn: () => Promise<T[]>; vacio: string; fila: (x: T) => ReactNode }) {
@@ -180,11 +216,8 @@ const CAUSAS: Record<string, string> = { cancelacion: "cancelación", cambio_fec
 const causa = (s: string) => CAUSAS[s] ?? limpio(s);
 
 function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
-  const resultado = useAccion((v: { id: number; r: ResultadoGestion; detalle: string }) => api.bandejas.gestionSeguimiento(v.id, v.r, v.detalle), { ok: "Registrado" });
   const desenlace = useAccion((v: { id: number; d: "atendida" | "no_asistio" }) => api.citas.desenlace(v.id, v.d), { ok: (_, v) => (v.d === "atendida" ? "Marcada como atendida" : "Marcada como no asistió") });
-  const mensaje = useAccion((id: number) => api.bandejas.gestionarMensaje(id), { ok: "Mensaje resuelto" });
-  const contacto = useAccion((id: number) => api.bandejas.gestionarContacto(id), { ok: "Solicitud gestionada" });
-  const errores = [resultado.error, desenlace.error].find((e) => e instanceof ApiError) as ApiError | undefined;
+  const errores = desenlace.error instanceof ApiError ? desenlace.error : undefined;
   const aviso = errores && <Aviso tipo="aviso">{errores.mensaje}</Aviso>;
   switch (slug) {
     case "no-confirmadas":
@@ -193,17 +226,13 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
           <div className="min-w-36"><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", r.estado === "no_confirmada" ? "bg-amber-100 text-amber-950" : "bg-sky-100 text-sky-950")}>{ESTADO_NC[r.estado]}</span>
             {r.recordatorio_enviado && <p className="text-tinta-suave">{r.recordatorio_en ? `Recordatorio enviado ${fechaHora(r.recordatorio_en)}` : "Recordatorio enviado"}</p>}</div>
           <span className="text-tinta-suave">{r.profesional}</span>
-          <div className="ml-auto flex items-center gap-3"><Link className={ENLACE} to={verCita(r.cita_id, r.inicio)}>Abrir cita</Link><BotonConfirmo citaId={r.cita_id} /></div></Fila>)} />;
+          <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
     case "seguimientos":
       return <>{aviso}<Lista clave={slug} fn={api.bandejas.seguimientos} vacio={vacio} fila={(r) => (
         <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
           <span>{limpio(r.tipo)}{r.escalado && <> <b className="rounded bg-rose-100 px-1.5 text-xs text-rose-900">Necesita llamada</b></>}</span>
           <span className="text-tinta-suave">{r.intentos} intentos · último: {limpio(r.ultimo ?? "pendiente")}</span>
-          <div className="ml-auto flex gap-1.5">
-            <Boton pequeno variante="secundario" onClick={() => resultado.mutate({ id: r.id, r: "acepto", detalle: "Gestión telefónica" })}>Aceptó</Boton>
-            <Boton pequeno variante="secundario" onClick={() => resultado.mutate({ id: r.id, r: "rechazo", detalle: "Gestión telefónica" })}>Rechazó</Boton>
-            <Boton pequeno variante="secundario" onClick={() => resultado.mutate({ id: r.id, r: "sin_respuesta", detalle: "Llamada sin respuesta" })}>Sin respuesta</Boton>
-          </div></Fila>)} /></>;
+          <div className="ml-auto"><AccionesSeguimiento id={r.id} paciente={r.paciente} /></div></Fila>)} /></>;
     case "en-riesgo":
       return <Lista clave={slug} fn={api.bandejas.enRiesgo} vacio={vacio} fila={(r) => (
         <Fila key={r.tratamiento_id}><Paciente id={r.paciente_id} nombre={r.paciente} /><span>Última cita: {r.ultima_cita}</span>
@@ -218,21 +247,21 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
         <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} />
           <span className="text-tinta-suave">{r.profesional}</span><Link className={ENLACE} to={verCita(r.cita_id, r.inicio)}>Abrir cita</Link>
           <div className="ml-auto flex gap-1.5">
-            <Boton pequeno variante="secundario" onClick={() => desenlace.mutate({ id: r.cita_id, d: "atendida" })}>Atendida</Boton>
+            <Confirmar etiqueta="Atendida" pequeno si="Sí, fue atendida" pregunta={<><b className="text-tinta">{r.paciente}</b> asistió a la cita del {fechaHora(r.inicio)}. Se cierra como atendida.</>} alConfirmar={() => desenlace.mutate({ id: r.cita_id, d: "atendida" })} />
             <Confirmar etiqueta="No asistió" pequeno pregunta="Se abrirá un seguimiento y el paciente recibirá un mensaje para reagendar." alConfirmar={() => desenlace.mutate({ id: r.cita_id, d: "no_asistio" })} />
           </div></Fila>)} /></>;
     case "sin-interpretar":
       return <Lista clave={slug} fn={api.bandejas.sinInterpretar} vacio={vacio} fila={(r) => (
         <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} /><span className="flex-[2] italic">“{r.texto}”</span>
-          <span className="text-tinta-suave">{fechaHora(r.momento)}</span><Boton pequeno variante="secundario" onClick={() => mensaje.mutate(r.id)}>Resuelto</Boton></Fila>)} />;
+          <span className="text-tinta-suave">{fechaHora(r.momento)}</span><BotonResuelto id={r.id} paciente={r.paciente} /></Fila>)} />;
     case "contactos":
       return <Lista clave={slug} fn={api.bandejas.contactos} vacio={vacio} fila={(r) => (
         <Fila key={r.id}>
           {esSolicitudWeb(r) ? <DetalleWeb r={r} /> : <><span className="w-32 font-medium">{r.documento}</span><span className="w-32">{r.celular}</span><span className="flex-1 text-tinta-suave">{r.nota}</span></>}
-          <span className="text-tinta-suave">{fechaHora(r.momento)}</span><Boton pequeno variante="secundario" onClick={() => contacto.mutate(r.id)}>Gestionada</Boton></Fila>)} />;
+          <span className="text-tinta-suave">{fechaHora(r.momento)}</span><BotonGestionada id={r.id} /></Fila>)} />;
     default:
       return <Lista clave={slug} fn={api.bandejas.dadosDeBaja} vacio={vacio} fila={(r) => (
         <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
-          <div className="ml-auto flex items-center gap-3"><Link className={ENLACE} to={verCita(r.cita_id, r.inicio)}>Abrir cita</Link><BotonConfirmo citaId={r.cita_id} /></div></Fila>)} />;
+          <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
   }
 }

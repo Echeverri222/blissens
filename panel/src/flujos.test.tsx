@@ -92,6 +92,8 @@ describe("hoja de cita", () => {
     servidor.use(http.post(`${API}/citas/10/desenlace`, ok()));
     const d = await abrir();
     await userEvent.click(await within(d).findByRole("button", { name: "Atendida" }));
+    expect(enviadas).toHaveLength(0); // un clic por error no registra nada
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, fue atendida" }));
     await waitFor(() => expect(enviadas).toContainEqual({ metodo: "POST", ruta: "/api/v1/citas/10/desenlace", cuerpo: { desenlace: "atendida" } }));
     enviadas.length = 0;
     await userEvent.click(within(d).getByRole("button", { name: "No asistió" }));
@@ -104,6 +106,7 @@ describe("hoja de cita", () => {
     servidor.use(http.post(`${API}/citas/10/desenlace`, () => error(409, "desenlace_anticipado", "Solo se puede registrar el desenlace desde la hora de inicio de la cita.")));
     const d = await abrir();
     await userEvent.click(await within(d).findByRole("button", { name: "Atendida" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, fue atendida" }));
     expect((await screen.findAllByText(/desde la hora de inicio/)).length).toBeGreaterThan(0);
   });
 
@@ -127,6 +130,8 @@ describe("hoja de cita", () => {
       http.post(`${API}/citas/10/confirmar`, async ({ request }) => { await registrar(request); confirmada = true; return HttpResponse.json({ ok: true }); }));
     const d = await abrir(AUX);
     await userEvent.click(await within(d).findByRole("button", { name: "Confirmó" }));
+    expect(enviadas).toHaveLength(0);
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, confirmó" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ metodo: "POST", ruta: "/api/v1/citas/10/confirmar" }));
     expect(await within(d).findByText("Confirmada")).toBeInTheDocument();
     expect(within(d).queryByRole("button", { name: "Confirmó" })).not.toBeInTheDocument();
@@ -232,6 +237,7 @@ describe("bandejas", () => {
     expect(await screen.findByRole("tab", { name: /No confirmadas\s*2/ })).toBeInTheDocument();
     expect(await screen.findByText("Necesita llamada")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Aceptó" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, aceptó" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "acepto", detalle: "Gestión telefónica" } }));
   });
   it("una bandeja vacía explica qué significa", async () => {
@@ -249,17 +255,22 @@ describe("qué hacer hoy", () => {
       http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
     montar("/bandejas", AUX);
     expect(await screen.findByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
-    const filas = await screen.findAllByRole("button", { name: "Resolver" });
-    expect(filas).toHaveLength(2);
+    expect(await screen.findByRole("button", { name: "Aceptó" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmó" })).toBeInTheDocument();
     const panel = screen.getByRole("tabpanel", { name: "Qué hacer hoy" });
     expect(panel.textContent!.indexOf("Ana Pérez")).toBeLessThan(panel.textContent!.indexOf("Luis Gómez"));
     expect(screen.getByText("Necesita llamada")).toBeInTheDocument();
   });
-  it("Resolver lleva a la bandeja donde se gestiona, con sus acciones", async () => {
-    servidor.use(http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])));
+  it("cada fila se resuelve ahí mismo, con confirmación y sin cambiar de página", async () => {
+    servidor.use(
+      http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([SEG])),
+      http.post(`${API}/seguimientos/5/gestion`, ok()));
     montar("/bandejas", AUX);
-    await userEvent.click(await screen.findByRole("button", { name: "Resolver" }));
-    expect(await screen.findByRole("button", { name: "Aceptó" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Sin respuesta" }));
+    expect(enviadas).toHaveLength(0);
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, no contestó" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "sin_respuesta" } }));
+    expect(screen.getByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
   });
   it("sin pendientes dice que todo está al día", async () => {
     montar("/bandejas", AUX);

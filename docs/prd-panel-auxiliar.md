@@ -81,7 +81,8 @@ Add both terms to `GLOSSARY.md`.
   stay readable at 1366 px. The specialist keeps seeing only their own week.
 - Day view, today only:
   - a thin horizontal line at the current time, refreshed every minute;
-  - on first load, scroll to about one hour before now;
+  - no automatic scrolling: the page opens at the top so the summary strip and controls stay visible (an earlier
+    "scroll to one hour before now" hid them; reverted after user feedback on 2026-11-25);
   - past appointments that are still alive (`programada`, `confirmada`, `no_confirmada`) are visually muted, and get a small
     "Por cerrar" tag once they end, linking to the sheet where the outcome is recorded;
   - finished states keep their current style.

@@ -60,12 +60,14 @@ function Contenido({ c, alCerrar, alMover }: { c: CitaDetalle; alCerrar: () => v
           <h4 className="text-sm font-semibold">Acciones</h4>
           <div className="flex flex-wrap gap-2">
             {c.acciones.includes("desenlace") && (<>
-              <Boton onClick={() => desenlace.mutate("atendida")} disabled={desenlace.isPending}>Atendida</Boton>
+              <Confirmar etiqueta="Atendida" variante="primario" deshabilitado={desenlace.isPending} si="Sí, fue atendida"
+                pregunta={<><b className="text-tinta">{c.paciente.nombre}</b> asistió a esta cita. Se cierra como atendida.</>}
+                alConfirmar={() => desenlace.mutate("atendida")} />
               <Confirmar etiqueta="No asistió" variante="secundario" deshabilitado={desenlace.isPending}
                 pregunta="Se abrirá un seguimiento y el paciente recibirá un mensaje para reagendar."
                 alConfirmar={() => desenlace.mutate("no_asistio")} />
             </>)}
-            {c.acciones.includes("confirmar") && <BotonConfirmo citaId={c.id} pequeno={false} />}
+            {c.acciones.includes("confirmar") && <BotonConfirmo citaId={c.id} paciente={c.paciente.nombre} inicio={c.inicio} pequeno={false} />}
             {c.acciones.includes("cambiar_fecha") && <Boton variante="secundario" onClick={() => setModo(modo === "fecha" ? null : "fecha")}>Cambiar fecha</Boton>}
             {c.acciones.includes("cancelar") && <Boton variante="secundario" onClick={() => setModo(modo === "cancelar" ? null : "cancelar")}>Cancelar cita</Boton>}
           </div>

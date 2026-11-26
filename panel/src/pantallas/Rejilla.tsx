@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { CalendarOff } from "lucide-react";
 import type { Agenda, CitaAgenda } from "@/api/tipos";
 import { columnaDia, posicion, rangoVisible, type ColumnaDia } from "@/lib/calendario";
@@ -16,11 +15,10 @@ export function calcularColumnas(cols: Col[], a: Agenda) {
 }
 
 /** Rejilla de horas (escritorio): una columna por profesional (día) o por día (semana). */
-export function Rejilla({ cols, a, ahora, alAbrir, desplazar }: { cols: Col[]; a: Agenda; ahora: Date; alAbrir: (id: number) => void; desplazar?: boolean }) {
+export function Rejilla({ cols, a, ahora, alAbrir }: { cols: Col[]; a: Agenda; ahora: Date; alAbrir: (id: number) => void }) {
   const columnas = calcularColumnas(cols, a);
-  const ancla = useRef<HTMLDivElement>(null);
-  // Al abrir el día de hoy, la vista arranca una hora antes de la hora actual (solo la primera vez).
-  useEffect(() => { if (desplazar) ancla.current?.scrollIntoView?.({ block: "start" }); }, [desplazar]);
+  // Sin desplazamiento automático: la página abre arriba para que el resumen del día y los controles queden a la vista.
+  // La línea roja marca la hora actual.
   const visible = rangoVisible(columnas.map((c) => c.datos));
   const alto = ((visible.hasta - visible.desde) / 60) * PX_HORA;
   const horas = Array.from({ length: (visible.hasta - visible.desde) / 60 + 1 }, (_, i) => visible.desde + i * 60);
@@ -56,10 +54,6 @@ export function Rejilla({ cols, a, ahora, alAbrir, desplazar }: { cols: Col[]; a
               const p = posicion(t, visible);
               return p && <CajaDeCita key={cita.id} cita={cita} ahora={ahora} estilo={{ top: `${p.arriba}%`, height: `${p.alto}%` }} alAbrir={alAbrir} compacta={(p.alto / 100) * alto < 44} />;
             })}
-            {c.hoy && desplazar && c.clave === columnas.find((x) => x.hoy)?.clave && (
-              <div ref={ancla} aria-hidden className="pointer-events-none absolute inset-x-0 scroll-mt-36"
-                style={{ top: Math.max(0, ((minAhora - 60 - visible.desde) / 60) * PX_HORA), height: 1 }} />
-            )}
             {c.hoy && minAhora >= visible.desde && minAhora <= visible.hasta && (
               <div role="img" aria-label={`Hora actual del sistema ${horaDe(ahora)}`} className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-rose-600"
                 style={{ top: ((minAhora - visible.desde) / 60) * PX_HORA }}><span className="absolute -left-1 -top-1.5 size-2.5 rounded-full bg-rose-600" /></div>
