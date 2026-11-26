@@ -270,3 +270,91 @@ small.muted { color: var(--gris); }
 .familia li + li { border-top: 1px solid var(--linea); }
 .familia a { font-size: .9rem; text-underline-offset: .2em; }
 .filtros .para { grid-column: 1 / -1; }
+
+/* ---------------------------------------------------------------- Agendar: página aparte, sin distracciones */
+/* Celular primero: cabecera compacta, título corto con barra de pasos y la tarjeta del formulario montada sobre la banda
+   negra, visible en la primera pantalla. En escritorio: dos columnas (contexto a la izquierda, formulario a la derecha). */
+.cab--foco .cab__fila { height: 3.5rem; }
+.cab--foco .cab__logo { width: 6.5rem; }
+.cab--foco .cab__der { gap: 1.25rem; }
+.foco__tel { display: none; color: var(--gris-claro); text-decoration: none; font-size: .88rem; letter-spacing: .02em; }
+.foco__tel:hover { color: var(--blanco); }
+.foco__volver { display: inline-flex; align-items: center; gap: .4rem; color: var(--blanco); text-decoration: none; font-size: .88rem;
+  padding: .45rem .9rem; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; transition: background .2s, border-color .2s; }
+.foco__volver:hover { background: rgba(255,255,255,.12); border-color: #fff; }
+.foco__volver-txt { display: none; }
+
+main.foco { display: grid; grid-template-areas: "intro" "form" "extra"; padding: 0; max-width: none; margin: 0; }
+.foco__intro { grid-area: intro; background: var(--negro); color: var(--blanco); padding: 1.25rem 1rem 3.75rem; }
+.foco__kicker { font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; color: var(--gris-claro); margin: 0 0 .35rem; }
+.foco__titulo { font-size: 1.45rem; letter-spacing: .02em; line-height: 1.2; margin: 0 0 .35rem; }
+.foco__lead { font-size: .9rem; line-height: 1.5; color: var(--gris-claro); margin: 0; max-width: 34rem; }
+
+/* Pasos: en el celular, una barra de progreso de tres tramos; en escritorio, una lista vertical. */
+.foco__pasos { list-style: none; margin: 1.1rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+.foco__pasos li { position: relative; padding-top: .55rem; font-size: .68rem; line-height: 1.25; color: #8b8b91; }
+.foco__pasos li::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; border-radius: 3px; background: rgba(255,255,255,.18); }
+.foco__pasos li.on { color: var(--blanco); }
+.foco__pasos li.on::before { background: var(--blanco); transform-origin: left; animation: foco-barra .7s var(--ease) both .15s; }
+.foco__num { display: none; }
+
+.foco__form { grid-area: form; padding: 0 .75rem; margin-top: -2.75rem; position: relative; }
+.foco__tarjeta { max-width: 30rem; margin-inline: auto; background: var(--blanco); border: 0; border-radius: 1.1rem;
+  padding: 1.25rem 1.1rem 1.1rem; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 14px 40px rgba(0,0,0,.12);
+  animation: foco-sube .55s var(--ease) both; }
+.foco__paso { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gris); font-weight: 500; margin: 0 0 .9rem; }
+.foco__tarjeta label { font-size: .88rem; }
+.foco__tarjeta input:not([type=checkbox]) { transition: border-color .2s, box-shadow .2s; }
+.foco__tarjeta input:not([type=checkbox]):focus { border-color: var(--negro); box-shadow: 0 0 0 3px rgba(0,0,0,.08); outline: none; }
+.foco__tarjeta button[type=submit] { width: 100%; }
+.foco__tarjeta .nota { font-size: .8rem; margin-bottom: 0; }
+
+.foco__extra { grid-area: extra; padding: 1rem .75rem 2.5rem; max-width: 30rem; margin-inline: auto; width: 100%; box-sizing: border-box;
+  display: grid; gap: .6rem; }
+.foco__info { background: var(--blanco); border: 1px solid var(--linea); border-radius: .9rem; padding: 0 1rem; }
+.foco__info summary { cursor: pointer; list-style: none; padding: .85rem 0; font-size: .9rem; font-weight: 500; display: flex; justify-content: space-between; }
+.foco__info summary::-webkit-details-marker { display: none; }
+.foco__info summary::after { content: "+"; font-weight: 400; transition: transform .25s var(--ease); }
+.foco__info[open] summary::after { transform: rotate(45deg); }
+.foco__datos { margin: 0 0 1rem; font-size: .88rem; }
+.foco__datos dt { margin-top: .6rem; font-size: .68rem; }
+.foco__ayuda { display: flex; flex-direction: column; gap: .1rem; padding: .85rem 1rem; border-radius: .9rem; background: var(--negro);
+  color: var(--blanco); text-decoration: none; font-size: .8rem; transition: transform .2s var(--ease); }
+.foco__ayuda span { color: var(--gris-claro); }
+.foco__ayuda strong { font-size: 1rem; font-weight: 500; letter-spacing: .02em; }
+.foco__ayuda:hover { transform: translateY(-1px); }
+
+@keyframes foco-sube { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes foco-barra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .foco__tarjeta, .foco__pasos li.on::before { animation: none; } }
+
+@media (min-width: 640px) {
+  .foco__tel, .foco__volver-txt { display: inline; }
+  .foco__titulo { font-size: 1.9rem; }
+  .foco__lead { font-size: 1rem; }
+  .foco__pasos li { font-size: .78rem; }
+}
+@media (min-width: 900px) {
+  .cab--foco .cab__fila { height: var(--cab); }
+  .cab--foco .cab__logo { width: 8.5rem; }
+  main.foco { grid-template-columns: 44% 56%; grid-template-rows: auto 1fr; grid-template-areas: "intro form" "extra form";
+              min-height: calc(100svh - var(--cab) - 4.5rem); background: linear-gradient(to right, var(--negro) 44%, transparent 44%); }
+  .foco__intro, .foco__extra { padding-inline: clamp(2rem, 6vw, 6rem) 3rem; max-width: none; margin: 0; }
+  .foco__intro { padding-top: clamp(3rem, 9vh, 6rem); padding-bottom: 0; background: none; }
+  .foco__kicker { font-size: .78rem; margin-bottom: .75rem; }
+  .foco__titulo { font-size: clamp(2.2rem, 3.2vw, 3rem); text-transform: uppercase; letter-spacing: .03em; margin-bottom: .9rem; }
+  .foco__lead { font-size: 1.05rem; }
+  .foco__pasos { grid-template-columns: none; gap: .85rem; margin-top: 2.5rem; }
+  .foco__pasos li { display: flex; align-items: center; gap: .85rem; padding: 0; font-size: .95rem; color: var(--gris-claro); }
+  .foco__pasos li::before { display: none; }
+  .foco__num { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); font-size: .85rem; }
+  .foco__pasos li.on .foco__num { background: var(--blanco); color: var(--negro); border-color: var(--blanco); }
+  .foco__form { grid-row: 1 / span 2; align-self: center; margin: 0; padding: 3rem clamp(1.5rem, 5vw, 5rem); }
+  .foco__tarjeta { padding: clamp(1.5rem, 2.5vw, 2.25rem); }
+  .foco__paso { font-size: .78rem; margin-bottom: 1.25rem; }
+  .foco__extra { padding-top: 2rem; padding-bottom: 3.5rem; align-content: start; }
+  .foco__info { background: none; border: 0; padding: 0; color: var(--blanco); }
+  .foco__info summary { display: none; }
+  .foco__datos dt { color: var(--gris-claro); } .foco__datos dd { color: #e8e8ea; }
+  .foco__ayuda { background: none; border: 1px solid rgba(255,255,255,.2); max-width: 26rem; }
+}

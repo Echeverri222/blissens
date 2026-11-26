@@ -19,7 +19,7 @@
     <p class="hero__sub rev">{% for linea in t.hero.sub %}<span>{{ linea }}</span>{% endfor %}</p>
     <div class="hero__ctas rev" role="group" aria-label="{{ t.hero.aria }}">
       <a class="boton boton--linea" href="#evaluacion">{{ t.hero.afuera }}</a>
-      <a class="boton boton--blanco" href="#agendar">{{ t.hero.local }}</a>
+      <a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.hero.local }}</a>
     </div>
   </div>
   <a class="hero__bajar" href="#nosotros" aria-label="{{ t.adn.kicker }}"><span></span></a>
@@ -187,5 +187,5 @@
 {% endblock %}
 
 {% block barra %}
-<div class="barra" id="barra"><a class="boton boton--blanco" href="#agendar">{{ t.barra }}</a></div>
+<div class="barra" id="barra"><a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.barra }}</a></div>
 {% endblock %}
