@@ -1,11 +1,11 @@
-id: english-wisdom-tooth-surgery
+id: en-ingles-cirugia-de-cordal
 perfil: paciente
 actor: jorge
 categoria: accion
 pregunta: can i book a wisdom tooth surgery for next week?
 intencion: >-
-  En inglés: la cirugía no se agenda desde el enlace del paciente. No se prepara ninguna cita; se responde en inglés y se
-  ofrece que la clínica lo contacte.
+  En inglés: la cirugía no se agenda desde el enlace del paciente. No se prepara ninguna cita; se responde en español y
+  se ofrece que la clínica lo contacte.
 herramientas:
   esperadas: [servicios]
   aceptables: [pedir_contacto, espacios_libres]
@@ -15,9 +15,9 @@ contexto:
     args: {}
     excluye: ["Cirugía"]
 respuesta:
-  incluye: ["clinic"]
-  excluye: ["Solo puedo ayudarte"]
+  incluye: ["clinica"]
+  excluye: ["Solo puedo ayudarte", "clinic ", "surgery", "book"]
   propuestas: []
 notas: >-
-  Responde en inglés (idioma de la persona). No es fuera de alcance: es una cita, solo que no autoagendable. Tampoco es
+  Responde en español aunque escriba en inglés. No es fuera de alcance: es una cita, solo que no autoagendable. Tampoco es
   pregunta clínica, así que no corresponde «Llama a la clínica».

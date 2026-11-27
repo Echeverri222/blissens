@@ -9,6 +9,13 @@ Preguntas del día a día de la clínica, cada una con las herramientas que debe
 
 Ejecutor: `tests/test_golden_asistente.py`. Mundo: `tests/mundo_clinica.py`. Todo es ficticio.
 
+**Lo precargado cuenta como consultado.** Cada mensaje llega con un bloque `<precargado>` (ver
+`herramientas_precargadas` en `estudia/asistente/conversacion.py`): recepción trae `resumen_dia`, la `agenda` de hoy,
+`datos_del_negocio`, `servicios` y `motivos_cancelacion`; el especialista, `mi_dia` de hoy y `datos_del_negocio`; el
+paciente, `mis_citas`, `servicios` y `datos_del_negocio`. En vivo, una herramienta esperada que ya viene precargada se da por
+usada aunque el modelo no la llame. Ojo: la `agenda` y `mi_dia` precargadas son de hoy; un caso sobre otro día no se
+distingue por herramienta, sino por lo que la respuesta debe decir.
+
 ## El mundo: martes 17 de noviembre de 2026, 10:30 (hora de Bogotá)
 
 Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín. Todos atienden de lunes a viernes,

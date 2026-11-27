@@ -148,11 +148,44 @@ def test_la_hora_y_el_nombre_viajan_en_el_turno_del_usuario_y_nunca_en_el_sistem
     primero = p["messages"][0]["content"]
     assert primero[0]["text"].startswith("<contexto>") and "Marta" in primero[0]["text"] and "Recepción" not in primero[0]["text"]
     assert "lunes 2026-11-16 08:00" in primero[0]["text"] and "Blissens" in primero[0]["text"]
-    assert primero[1] == texto("Hola")
+    assert primero[1]["text"].startswith("<precargado>") and primero[-1] == texto("Hola")
     for perfil, instruccion in INSTRUCCIONES.items():  # fijas: nada que cambie entre peticiones
         assert instruccion == p["system"] or perfil != "auxiliar"
         assert "2026" not in instruccion and "Blissens" not in instruccion and "Marta" not in instruccion
     assert p["system"] == INSTRUCCIONES["auxiliar"]
+
+
+def test_el_mensaje_actual_lleva_lo_precargado_y_el_historial_lo_guarda_sin_el(mundo, conn):
+    from estudia.asistente.conversacion import herramientas_precargadas
+    f1 = Falso(responde("Primera"))
+    r1 = conversar(mundo.aux, "¿Quién sigue?", cliente=f1)
+    bloque = f1.peticiones[0]["messages"][0]["content"][1]["text"]
+    for nombre in herramientas_precargadas("auxiliar"):
+        assert f"\n{nombre}" in bloque, nombre
+    assert "agenda (hoy):" in bloque and '"citas_hoy"' in bloque
+    conn.rollback()
+    guardado = filas(conn, "asistente_mensaje")[0]["contenido"]
+    assert len(guardado) == 2 and "<precargado>" not in json.dumps(guardado)
+    f2 = Falso(responde("Segunda"))
+    conversar(mundo.aux, "¿Y después?", r1["conversacion_id"], cliente=f2)
+    enviados = f2.peticiones[0]["messages"]
+    assert "<precargado>" not in json.dumps(enviados[:2]) and enviados[2]["content"][1]["text"].startswith("<precargado>")
+
+
+def test_lo_precargado_de_un_paciente_es_solo_de_su_hogar(mundo):
+    falso = Falso(responde("ok"))
+    conversar(mundo.ana, "¿Cuándo es mi cita?", cliente=falso)
+    bloque = falso.peticiones[0]["messages"][0]["content"][1]["text"]
+    assert bloque.startswith("<precargado>\nmis_citas:") and "servicios:" in bloque and "datos_del_negocio:" in bloque
+    assert "resumen_dia" not in bloque and "agenda" not in bloque
+
+    def citas(b):
+        return json.loads(next(x for x in b.splitlines() if x.startswith("mis_citas:"))[len("mis_citas:"):])["citas"]
+    assert [c["id"] for c in citas(bloque)] == [mundo.cita]
+    otro = Falso(responde("ok"))
+    conversar(mundo.luis, "¿Cuándo es mi cita?", cliente=otro)
+    bloque = otro.peticiones[0]["messages"][0]["content"][1]["text"]
+    assert citas(bloque) == [] and "Ana" not in bloque  # la cita de Ana no viaja en lo de Luis
 
 
 def test_las_herramientas_se_ejecutan_y_las_propuestas_se_devuelven_sin_ejecutarse(mundo, conn):
@@ -195,7 +228,7 @@ def test_una_conversacion_continua_reenvia_los_turnos_anteriores_sin_cambiarlos(
     assert r2["conversacion_id"] == r1["conversacion_id"]
     enviados = f2.peticiones[0]["messages"]
     assert [(m["role"], m["content"]) for m in enviados[:2]] == [(g["rol"], g["contenido"]) for g in guardado]
-    assert enviados[2]["content"][1] == texto("Dos")
+    assert enviados[2]["content"][-1] == texto("Dos")
     conn.rollback()
     assert len(filas(conn, "asistente_conversacion")) == 1 and len(filas(conn, "asistente_mensaje")) == 4
     assert [m["contenido"] for m in filas(conn, "asistente_mensaje")[:2]] == [g["contenido"] for g in guardado]  # no se editó nada

@@ -19,7 +19,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from datetime import time as hora
 
 from .. import clock, config, db, familia, fmt, logs, settings
@@ -291,6 +291,37 @@ def _contexto(conn, actor: Actor) -> str:
     return contexto(negocio, persona, f"{fmt.DIAS[ahora.weekday()]} {ahora:%Y-%m-%d %H:%M} (hora del negocio)")
 
 
+# Lo que viaja ya consultado con cada mensaje, en <precargado>: responde lo más común ("¿quién sigue?", "¿a qué hora es mi
+# cita?", "¿dónde quedan?") sin una vuelta más al modelo. Pasa por el despachador (permisos, alcance y auditoría de siempre).
+# Va solo en el mensaje actual: el historial guarda el turno sin él, así una conversación larga no repite fotos viejas del día.
+def _precarga_de(perfil: str, hoy: date) -> list[tuple[str, dict]]:
+    return {
+        "auxiliar": [("resumen_dia", {}), ("agenda", {"desde": hoy.isoformat(), "hasta": hoy.isoformat()}),
+                     ("datos_del_negocio", {}), ("servicios", {}), ("motivos_cancelacion", {})],
+        "especialista": [("mi_dia", {}), ("datos_del_negocio", {})],
+        "paciente": [("mis_citas", {}), ("servicios", {}), ("datos_del_negocio", {})],
+    }.get(perfil, [])
+
+
+def herramientas_precargadas(perfil: str) -> list[str]:
+    """Los nombres de lo que viaja en <precargado> para ese perfil (`agenda`, solo la de hoy)."""
+    return [n for n, _ in _precarga_de(perfil, date.today())]
+
+
+def precarga(actor: Actor, hoy: date, *, conexion=None) -> str:
+    """El bloque <precargado> del mensaje actual; vacío si el perfil no tiene o todo falló."""
+    partes = []
+    for nombre, args in _precarga_de(actor.perfil, hoy):
+        salida = ejecutar(actor, nombre, args, conexion=conexion)
+        if "error" in salida:
+            continue  # sin ese dato el modelo llama la herramienta si la necesita
+        etiqueta = f"{nombre} (hoy)" if nombre == "agenda" else nombre
+        partes.append(f"{etiqueta}: {json.dumps(salida, ensure_ascii=False, separators=(',', ':'), default=str)}")
+    if not partes:
+        return ""
+    return "<precargado>\n" + "\n".join(partes) + "\n</precargado>"
+
+
 def _respuesta(actor: Actor, motivo: str, conversacion_id: int | None) -> dict:
     return {"conversacion_id": conversacion_id, "respuesta": respuesta_fija(actor.perfil, motivo), "propuestas": []}
 
@@ -332,13 +363,16 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
             if humanos >= aj.mensajes_por_conversacion:
                 return _respuesta(actor, "limite", conversacion_id)
         marco = _contexto(conn, actor)
+        hoy = clock.now(conn).date()
     finally:
         conn.close()
 
     # 2. El bucle, sin conexión abierta.
     cliente = cliente or cliente_de_la_api()
     entrada = [{"type": "text", "text": marco}, {"type": "text", "text": texto}]
-    mensajes = historial + [{"role": "user", "content": entrada}]
+    precargado = precarga(actor, hoy)
+    envio = [entrada[0], {"type": "text", "text": precargado}, entrada[1]] if precargado else entrada
+    mensajes = historial + [{"role": "user", "content": envio}]
     nuevos: list[tuple] = [("user", entrada, 0, 0)]
     propuestas: list[dict] = []
     usadas: list[str] = []

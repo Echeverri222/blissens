@@ -141,6 +141,13 @@ rutas no existen y nada cambia (en Bedrock, sin `AWS_REGION`). Para probarlo en 
 4. Equipo: entra al panel y abre *Asistente* (arriba a la derecha). Pacientes: abre un enlace `/p/<token>` y usa
    *Preguntarle al asistente*; pide un consentimiento aparte antes de la primera pregunta.
 
+**Lo precargado y las guías.** Cada mensaje viaja con un bloque `<precargado>`: lo que devuelven, al llegar el mensaje,
+las herramientas que responden lo más común (recepción: resumen y agenda de hoy, datos del negocio, servicios y motivos de
+cancelación; especialista: su día; paciente: las citas de su hogar, servicios y datos del negocio). Así "¿quién sigue?" o
+"¿a qué hora es mi cita?" se responden sin una vuelta más al modelo. Pasa por el despachador (mismos permisos, alcance y
+auditoría) y no se guarda en el historial. Las instrucciones de cada perfil (`instrucciones.py`) traen guías por tarea:
+los pasos, herramientas y datos de agendar, cambiar fecha, cancelar, confirmar, cerrar citas y demás.
+
 Topes por negocio (`make negocio ARGS="config ..."`): `asistente_mensajes_dia_usuario` (200), `asistente_mensajes_dia_paciente`
 (20 por hogar), `asistente_tokens_dia` (2 000 000) y `retencion_asistente_dias` (30).
 

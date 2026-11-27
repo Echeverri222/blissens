@@ -24,7 +24,7 @@ import yaml
 
 from estudia import catalog, clock, db, settings
 from estudia.asistente import CATALOGO, ejecutar, herramientas_de
-from estudia.asistente.conversacion import conversar
+from estudia.asistente.conversacion import conversar, herramientas_precargadas
 
 from .conftest import URL, vaciar
 from .mundo_clinica import AHORA, PACIENTES, construir
@@ -244,10 +244,12 @@ def _conversar(actor, turnos: list[str], cliente) -> dict:
 def calificar(caso: dict, r: dict, w) -> list[str]:
     """Lo que el modelo hizo mal en este caso. Lista vacía: aprobado."""
     fallos = []
-    usadas = [x["nombre"] for x in r["llamadas"]]
+    # Lo precargado cuenta como consultado: el modelo ya lo tiene en el mensaje (la agenda y mi_dia, solo de hoy).
+    llamadas = [x["nombre"] for x in r["llamadas"]]
+    usadas = llamadas + herramientas_precargadas(ACTORES[caso["actor"]])
     h = _herramientas(caso)
-    if h["ninguna"] and usadas:
-        fallos.append(f"No debía usar herramientas y usó {usadas}")
+    if h["ninguna"] and llamadas:
+        fallos.append(f"No debía usar herramientas y usó {llamadas}")
     for x in h["esperadas"]:
         if x not in usadas:
             fallos.append(f"No usó {x}")
@@ -255,7 +257,7 @@ def calificar(caso: dict, r: dict, w) -> list[str]:
         if not set(g) & set(usadas):
             fallos.append(f"No usó ninguna de {g}")
     for x in h["prohibidas"]:
-        if x in usadas:
+        if x in llamadas:
             fallos.append(f"Usó {x}, que no debía")
     esp = caso.get("respuesta") or {}
     texto = " ".join(r["respuestas"])
@@ -289,7 +291,7 @@ def test_calificar_con_un_modelo_falso(conn, monkeypatch):
     assert bien["llamadas"] == [{"nombre": "mi_agenda", "args": {"desde": "2026-11-17"}}]
     assert calificar(caso, bien, w) == []
     mal = _conversar(rios, _turnos(caso), Falso(responde("Sigue Lucía a la 1:30.")))
-    assert calificar(caso, mal, w) == ["No usó ninguna de ['mi_dia', 'mi_agenda']", "La respuesta no menciona «Tomás»",
+    assert calificar(caso, mal, w) == ["La respuesta no menciona «Tomás»",
                                        "La respuesta no menciona ninguno de ['11:00', '11 a', '11am', 'once']",
                                        "La respuesta menciona «Lucía», que no debía"]
 

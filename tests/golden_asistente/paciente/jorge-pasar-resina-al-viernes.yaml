@@ -2,9 +2,13 @@ id: jorge-pasar-resina-al-viernes
 perfil: paciente
 actor: jorge
 categoria: accion
-pregunta: no puedo mañana, me la pasan para el viernes x la tarde? tipo 4
+pregunta:
+  - no puedo mañana, me la pasan para el viernes x la tarde? tipo 4
+  - si a las 4 perfecto
 intencion: >-
-  Cambiar la cita de resina de Jorge (miércoles 16:00, Dra. Ríos) al viernes 20 a las 16:00 con la misma doctora.
+  Cambiar la cita de resina de Jorge (miércoles 16:00, Dra. Ríos) al viernes 20 a las 16:00 con la misma doctora. «Tipo 4»
+  es aproximado: primero le dice que el viernes a las 4:00 p. m. está libre y le pregunta si se la pasa a esa hora; con el
+  «si a las 4 perfecto», la propuesta.
 herramientas:
   esperadas: [mis_citas, espacios_libres, proponer_cambiar_fecha]
   aceptables: [pedir_contacto]

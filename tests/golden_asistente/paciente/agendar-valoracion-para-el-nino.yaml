@@ -6,9 +6,11 @@ pregunta:
   - necesito sacarle cita al niño para valoracion
   - el lunes temprano se puede?
   - listo la primera q haya
+  - si dale
 intencion: >-
-  Agendar una valoración para Tomás (no para Laura): primero las horas libres del lunes 23 de noviembre y luego la
-  propuesta de la primera (7:30) con `para` = Tomás.
+  Agendar una valoración para Tomás (no para Laura): primero las horas libres del lunes 23 de noviembre; con «la primera
+  q haya» le dice la de las 7:30 y le pregunta si se la deja (sin preparar nada); con el «si dale», la propuesta de las
+  7:30 con `para` = Tomás.
 herramientas:
   esperadas: [espacios_libres, proponer_agendar]
   aceptables: [mis_citas, servicios]
@@ -29,4 +31,5 @@ respuesta:
   propuestas: [agendar]
 notas: >-
   «El niño» es Tomás: el modelo debe tomar su id de `mis_citas.hogar` y pasarlo en `para`. Si agenda para Laura, la
-  propuesta sale a nombre de Laura y el caso falla en la respuesta.
+  propuesta sale a nombre de Laura y el caso falla en la respuesta. «La primera q haya» no es una hora exacta: el paciente
+  siempre confirma la hora antes de la propuesta (una propuesta en el tercer turno sería de más).

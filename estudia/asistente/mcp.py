@@ -25,7 +25,7 @@ from .. import clock, db, settings
 from .actor import Actor
 from .base import Herramienta
 from .catalogo import herramientas_de
-from .conversacion import _contexto
+from .conversacion import _contexto, precarga
 from .despachador import ejecutar
 from .instrucciones import INSTRUCCIONES
 
@@ -124,8 +124,9 @@ def main(argv: list[str] | None = None) -> int:
     conn = db.connect()
     try:
         actor = actor_de(conn, negocio_id, a.perfil, a.usuario, a.paciente)
-        if a.contexto:
+        if a.contexto:  # lo mismo que abre cada mensaje en el asistente: <contexto> y <precargado>
             print(_contexto(conn, actor))
+            print(precarga(actor, clock.now(conn).date()))
             return 0
         instrucciones = instrucciones_de(conn, actor)
     except SinActor as e:
