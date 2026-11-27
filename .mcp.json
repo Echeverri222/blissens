@@ -4,6 +4,16 @@
       "command": "uv",
       "args": ["run", "python", "-m", "estudia.asistente.mcp"],
       "env": {"ENTORNO": "local"}
+    },
+    "estudia-auxiliar": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "estudia.asistente.mcp", "--perfil", "auxiliar"],
+      "env": {"ENTORNO": "local"}
+    },
+    "estudia-paciente": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "estudia.asistente.mcp", "--perfil", "paciente"],
+      "env": {"ENTORNO": "local"}
     }
   }
 }

@@ -679,6 +679,42 @@ def test_mcp_se_niega_a_arrancar_fuera_de_local():
 def test_mcp_el_archivo_de_configuracion_lanza_el_modulo_con_uv_y_no_lleva_secretos():
     cfg = json.loads((RAIZ / ".mcp.json").read_text())["mcpServers"]["estudia"]
     assert cfg["command"] == "uv" and cfg["args"][-2:] == ["-m", "estudia.asistente.mcp"] and cfg["env"] == {"ENTORNO": "local"}
+    for perfil in ("auxiliar", "paciente"):
+        cfg = json.loads((RAIZ / ".mcp.json").read_text())["mcpServers"][f"estudia-{perfil}"]
+        assert cfg["args"][-4:] == ["-m", "estudia.asistente.mcp", "--perfil", perfil] and cfg["env"] == {"ENTORNO": "local"}
+
+
+def test_mcp_por_perfil_publica_el_mismo_catalogo_e_instrucciones_que_el_asistente(mundo, conn):
+    from estudia.asistente.instrucciones import INSTRUCCIONES
+    from estudia.asistente.mcp import actor_de, instrucciones_de
+
+    aux = actor_de(conn, 1, "auxiliar", usuario="recepcion")
+    assert aux.perfil == "auxiliar" and aux.usuario["nombre_usuario"] == "recepcion"
+    assert actor_de(conn, 1, "paciente", paciente=str(mundo.luis)).paciente_id == mundo.luis
+    assert actor_de(conn, 1, "paciente").paciente_id in (mundo.ana, mundo.luis)  # sin paciente: el de la próxima cita
+    for actor in (aux, mundo.a_ana):
+        texto = instrucciones_de(conn, actor)
+        assert texto.startswith(INSTRUCCIONES[actor.perfil]) and "<contexto>Negocio:" in texto
+    assert instrucciones_de(conn, mundo.a_op) is None
+
+    antes = conteos(conn)
+
+    async def sesion(actor):
+        s = crear_servidor(actor, conexion=URL, instrucciones="x")
+        nombres = {t.name for t in await s.list_tools()}
+        return nombres, (await s.call_tool("mis_citas", {})).structured_content if "mis_citas" in nombres else None
+    nombres, citas = asyncio.run(sesion(mundo.a_luis))
+    assert nombres == set(actual("paciente")) and "consulta_sql" not in nombres
+    assert {c["id"] for c in citas["citas"]} == {mundo.c_luis}  # solo su hogar
+    nombres, _ = asyncio.run(sesion(aux))
+    assert nombres == set(actual("auxiliar"))
+    assert conteos(conn) == antes
+
+
+def test_mcp_los_subagentes_del_asistente_estan_al_dia_con_las_instrucciones():
+    r = subprocess.run([sys.executable, "scripts/agentes_asistente.py", "--check"], cwd=RAIZ, capture_output=True, text=True,
+                       timeout=60)
+    assert r.returncode == 0, r.stderr
 
 
 def test_mcp_consulta_sql_acepta_un_select_y_rechaza_todo_lo_demas(mundo, conn):

@@ -148,6 +148,14 @@ Topes por negocio (`make negocio ARGS="config ..."`): `asistente_mensajes_dia_us
 el repositorio: da las herramientas del perfil `operador` (las de lectura, `esquema` y `consulta_sql`, que solo acepta `select`) sobre la base
 local. Solo arranca con `ENTORNO=local`.
 
+`estudia-auxiliar` y `estudia-paciente` (mismo módulo con `--perfil auxiliar|paciente`, y `--usuario`/`--paciente` para elegir
+quién) exponen exactamente el catálogo y el alcance de ese perfil, con las mismas instrucciones del asistente. Los subagentes
+`.claude/agents/asistente-auxiliar.md` y `asistente-paciente.md` hacen de asistente solo con esas herramientas: sirven para
+iterar herramientas, instrucciones y golden cases sin gastar en el modelo; el prompt abre con el bloque de
+`uv run python -m estudia.asistente.mcp --perfil paciente --contexto`. Se generan desde `instrucciones.py` con
+`uv run python scripts/agentes_asistente.py` (una prueba falla si quedan desactualizados). La elección de herramientas y la
+velocidad reales del modelo del asistente solo se prueban en la interfaz.
+
 **Golden cases.** `tests/golden_asistente/` guarda preguntas reales del día a día (recepción, especialistas y pacientes) sobre
 un mundo ficticio, cada una con las herramientas que deben responderla y lo que la respuesta debe y no debe decir. Formato y
 mundo en `tests/golden_asistente/README.md`.
