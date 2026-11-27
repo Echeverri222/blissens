@@ -27,3 +27,12 @@ def create(conn, nombres: str, apellidos: str, documento: str, celular: str, con
     return conn.execute(
         "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, creado_en) "
         "values (%s,%s,%s,%s,%s,%s) returning id", (nombres, apellidos, documento, phone, now, now)).fetchone()["id"]
+
+
+def marcar_segmentos(conn, paciente_id: int, internacional: bool, deportista: bool, usuario_id: int | None) -> dict:
+    """La recepción marca o desmarca los segmentos de alto valor (internacional, deportista). Su decisión manda: la
+    importación ya no la cambia. Devuelve las marcas como quedaron."""
+    return conn.execute(
+        "update paciente set internacional=%s, deportista=%s, segmento_origen='recepcion', segmento_marcado_en=%s, "
+        "segmento_marcado_por=%s where id=%s returning internacional, deportista, segmento_origen, segmento_marcado_en",
+        (internacional, deportista, clock.now(conn), usuario_id, paciente_id)).fetchone()

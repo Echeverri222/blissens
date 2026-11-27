@@ -60,11 +60,12 @@ def resumen_dia(conn) -> dict:
 def seguimientos(conn):
     return conn.execute(
         "select cs.id, cs.tipo, cs.estado, cs.escalado, cs.abierto_en, p.id as paciente_id, "
-        "p.nombres || ' ' || p.apellidos as paciente, p.celular, "
+        "p.nombres || ' ' || p.apellidos as paciente, p.celular, p.internacional, p.deportista, "
         "(select count(*) from intento i where i.caso_id=cs.id) as intentos, "
         "(select resultado from intento i where i.caso_id=cs.id order by numero desc limit 1) as ultimo "
         "from caso_seguimiento cs join paciente p on p.id=cs.paciente_id "
-        "where cs.estado='abierto' or (cs.estado='agotado' and cs.escalado) order by cs.escalado desc, cs.abierto_en").fetchall()
+        "where cs.estado='abierto' or (cs.estado='agotado' and cs.escalado) "
+        "order by cs.escalado desc, (p.internacional or p.deportista) desc, cs.abierto_en").fetchall()
 
 
 def en_riesgo(conn, profesional_id: int | None = None, servicio_id: int | None = None):

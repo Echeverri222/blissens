@@ -287,6 +287,22 @@ class PacienteCreado(Salida):
     paciente_id: int
 
 
+SegmentoOrigen = Literal["recepcion", "importacion", "sitio_en"]
+
+
+class Segmentos(Entrada):
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+
+
+class SegmentosOut(Salida):
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    segmento_origen: SegmentoOrigen | None = Field(
+        description="De dónde salió la última marca: la recepción, la importación del Excel o el registro en el sitio en inglés.")
+    segmento_marcado_en: Momento | None
+
+
 class FichaPaciente(Salida):
     id: int
     nombres: str
@@ -295,6 +311,9 @@ class FichaPaciente(Salida):
     celular: str | None
     correo: str | None
     acepta_mensajes: bool
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    segmento_origen: SegmentoOrigen | None
 
 
 class CitaFicha(Salida):
@@ -409,6 +428,8 @@ class SeguimientoOut(Salida):
     celular: str | None
     intentos: int
     ultimo: str | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
 
 class EnRiesgoOut(Salida):
@@ -420,6 +441,8 @@ class EnRiesgoOut(Salida):
     caso_id: int | None
     celular: str | None
     servicio: str | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
 
 class CupoLibreOut(Salida):

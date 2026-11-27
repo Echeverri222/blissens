@@ -272,9 +272,38 @@ describe("qué hacer hoy", () => {
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/seguimientos/5/gestion", cuerpo: { resultado: "sin_respuesta" } }));
     expect(screen.getByRole("tab", { name: /Qué hacer hoy/, selected: true })).toBeInTheDocument();
   });
+  it("con la misma urgencia, el paciente de alto valor va primero y lleva su marca", async () => {
+    const regular = { ...SEG, escalado: false, abierto_en: "2026-11-10T10:00:00-05:00", internacional: false, deportista: false };
+    const vip = { ...SEG, id: 6, escalado: false, paciente_id: 9, paciente: "Vera Díaz", internacional: false, deportista: true };
+    servidor.use(http.get(`${API}/bandejas/seguimientos`, () => HttpResponse.json([regular, vip])));
+    montar("/bandejas", AUX);
+    expect(await screen.findByText("Vera Díaz")).toBeInTheDocument();
+    const panel = screen.getByRole("tabpanel", { name: "Qué hacer hoy" });
+    expect(panel.textContent!.indexOf("Vera Díaz")).toBeLessThan(panel.textContent!.indexOf("Ana Pérez"));
+    expect(within(panel).getByTitle(/alto valor/)).toHaveTextContent("Deportista");
+  });
   it("sin pendientes dice que todo está al día", async () => {
     montar("/bandejas", AUX);
     expect(await screen.findByText("Todo al día")).toBeInTheDocument();
+  });
+});
+
+describe("ficha del paciente", () => {
+  const FICHA = {
+    paciente: { id: 7, nombres: "Ana", apellidos: "Pérez", documento: "123", celular: "+573001112233", correo: null, acepta_mensajes: true,
+      internacional: true, deportista: false, segmento_origen: "sitio_en" },
+    familia: { responsable: null, familiares: [] }, citas: [], historial: [], casos: [], mensajes: [],
+  };
+  it("muestra la marca de alto valor, de dónde salió, y la recepción la cambia con una casilla", async () => {
+    servidor.use(
+      http.get(`${API}/pacientes/7`, () => HttpResponse.json(FICHA)),
+      http.put(`${API}/pacientes/7/segmentos`, async ({ request }) => { await registrar(request); return HttpResponse.json({ internacional: true, deportista: true, segmento_origen: "recepcion", segmento_marcado_en: "2026-11-16T10:00:00-05:00" }); }));
+    montar("/pacientes/7", AUX);
+    expect(await screen.findByTitle(/alto valor/)).toHaveTextContent("Internacional");
+    expect(screen.getByText(/se registró en el sitio en inglés/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Internacional" })).toBeChecked();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Deportista de alto nivel" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/pacientes/7/segmentos", cuerpo: { internacional: true, deportista: true } }));
   });
 });
 

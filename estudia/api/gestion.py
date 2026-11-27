@@ -36,6 +36,18 @@ def correo_paciente(paciente_id: int, datos: sc.ConsentimientoCorreo, conn=Depen
     return sc.ConsentimientoCorreo(correo=p["correo"], acepta=p["acepta_correo"])
 
 
+@router.put("/pacientes/{paciente_id}/segmentos", tags=["Pacientes"], response_model=sc.SegmentosOut,
+            summary="Marcar o desmarcar al paciente como internacional o deportista de alto nivel",
+            description="Los pacientes de alto valor salen primero en las bandejas de seguimientos y de pacientes en riesgo. "
+                        "Lo que marca la recepción manda: la importación del Excel ya no lo cambia.",
+            dependencies=[auditar("editar_segmentos")])
+def segmentos_paciente(paciente_id: int, datos: sc.Segmentos, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.marcar_segmentos(conn, paciente_id, datos.internacional, datos.deportista, u["id"])
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
 @router.get("/pacientes/{paciente_id}", tags=["Pacientes"], summary="Ficha completa del paciente",
             response_model=sc.FichaCompleta, dependencies=[auditar("ver_ficha")])
 def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):

@@ -1,7 +1,7 @@
 import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { Ban, CalendarClock, CircleCheck, CircleHelp, CheckCheck, Repeat, UserX } from "lucide-react";
+import { Ban, CalendarClock, CircleCheck, CircleHelp, CheckCheck, Repeat, Star, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ESTADOS } from "@/lib/estados";
 import type { Estado } from "@/api/tipos";
@@ -71,6 +71,17 @@ export function EtiquetaEstado({ estado, className }: { estado: Estado; classNam
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", e.clases, className)}>
       <IconoEstado estado={estado} />{e.texto}
+    </span>
+  );
+}
+
+/** Pacientes de alto valor para la clínica: internacionales y deportistas de alto nivel. Sin marca no pinta nada. */
+export function AltoValor({ internacional, deportista, className }: { internacional?: boolean; deportista?: boolean; className?: string }) {
+  if (!internacional && !deportista) return null;
+  const texto = [internacional && "Internacional", deportista && "Deportista"].filter(Boolean).join(" · ");
+  return (
+    <span title="Paciente de alto valor: sale primero en las bandejas" className={cn("inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-950", className)}>
+      <Star className="size-3" aria-hidden />{texto}
     </span>
   );
 }

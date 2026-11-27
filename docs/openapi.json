@@ -2387,6 +2387,109 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/segmentos": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Marcar o desmarcar al paciente como internacional o deportista de alto nivel",
+        "description": "Los pacientes de alto valor salen primero en las bandejas de seguimientos y de pacientes en riesgo. Lo que marca la recepción manda: la importación del Excel ya no lo cambia.",
+        "operationId": "segmentos_paciente_api_v1_pacientes__paciente_id__segmentos_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Segmentos"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentosOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}": {
       "get": {
         "tags": [
@@ -9995,6 +10098,16 @@
               }
             ],
             "title": "Servicio"
+          },
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
           }
         },
         "type": "object",
@@ -10006,7 +10119,9 @@
           "dias_sin_cita",
           "caso_id",
           "celular",
-          "servicio"
+          "servicio",
+          "internacional",
+          "deportista"
         ],
         "title": "EnRiesgoOut"
       },
@@ -10305,6 +10420,32 @@
           "acepta_mensajes": {
             "type": "boolean",
             "title": "Acepta Mensajes"
+          },
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "segmento_origen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recepcion",
+                  "importacion",
+                  "sitio_en"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segmento Origen"
           }
         },
         "type": "object",
@@ -10315,7 +10456,10 @@
           "documento",
           "celular",
           "correo",
-          "acepta_mensajes"
+          "acepta_mensajes",
+          "internacional",
+          "deportista",
+          "segmento_origen"
         ],
         "title": "FichaPaciente"
       },
@@ -11925,6 +12069,77 @@
         ],
         "title": "Reversion"
       },
+      "Segmentos": {
+        "properties": {
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "internacional",
+          "deportista"
+        ],
+        "title": "Segmentos"
+      },
+      "SegmentosOut": {
+        "properties": {
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "segmento_origen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recepcion",
+                  "importacion",
+                  "sitio_en"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segmento Origen",
+            "description": "De dónde salió la última marca: la recepción, la importación del Excel o el registro en el sitio en inglés."
+          },
+          "segmento_marcado_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segmento Marcado En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "internacional",
+          "deportista",
+          "segmento_origen",
+          "segmento_marcado_en"
+        ],
+        "title": "SegmentosOut"
+      },
       "SeguimientoOut": {
         "properties": {
           "id": {
@@ -11980,6 +12195,16 @@
               }
             ],
             "title": "Ultimo"
+          },
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
           }
         },
         "type": "object",
@@ -11993,7 +12218,9 @@
           "paciente",
           "celular",
           "intentos",
-          "ultimo"
+          "ultimo",
+          "internacional",
+          "deportista"
         ],
         "title": "SeguimientoOut"
       },

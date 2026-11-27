@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BellOff } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
-import type { FichaCompleta } from "@/api/tipos";
+import type { FichaCompleta, Segmentos } from "@/api/tipos";
 import { ESTADOS } from "@/lib/estados";
 import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
-import { Confirmar, EtiquetaEstado, Tarjeta } from "@/ui/controles";
+import { AltoValor, Casilla, Confirmar, EtiquetaEstado, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { BuscarPaciente } from "./Agendar";
 import { useNavigate } from "react-router-dom";
@@ -115,9 +115,11 @@ export function Ficha() {
           <Link to="/pacientes" className="text-sm underline">← Buscar otro paciente</Link>
           <Tarjeta className="flex flex-wrap items-start justify-between gap-3 p-4">
             <div>
-              <h1 className="text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}</h1>
+              <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}
+                <AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
               <Familia f={f} />
+              <MarcasAltoValor f={f} />
               {!f.paciente.acepta_mensajes && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950"><BellOff className="size-4" aria-hidden />Dado de baja de mensajes automáticos</p>
               )}
@@ -139,6 +141,36 @@ export function Ficha() {
         </div>
       )}
     </Consulta>
+  );
+}
+
+const ORIGEN_MARCA = {
+  sitio_en: "Marcado como internacional porque se registró en el sitio en inglés. Revísalo.",
+  importacion: "Marcado desde el software de la clínica.",
+  recepcion: null,
+} as const;
+
+/** Internacional y deportista de alto nivel: los segmentos que la clínica quiere atender primero. Se guardan al marcar. */
+function MarcasAltoValor({ f }: { f: FichaCompleta }) {
+  const p = f.paciente;
+  // Lo último que se guardó manda hasta que llegue la ficha nueva: así marcar una casilla tras otra no deshace la primera.
+  const [guardado, setGuardado] = useState<Segmentos | null>(null);
+  const m = useAccion((s: Segmentos) => api.pacientes.segmentos(p.id, s),
+    { ok: "Marca guardada", alExito: (d) => setGuardado({ internacional: d.internacional, deportista: d.deportista }) });
+  const desdeFicha = { internacional: p.internacional, deportista: p.deportista };
+  const vigente = m.isPending ? m.variables! : guardado && (guardado.internacional !== desdeFicha.internacional || guardado.deportista !== desdeFicha.deportista) ? guardado : desdeFicha;
+  useEffect(() => { if (guardado && vigente === desdeFicha) setGuardado(null); }, [guardado, vigente, desdeFicha]);
+  const cambiar = (s: Partial<Segmentos>) => m.mutate({ ...vigente, ...s });
+  const nota = p.segmento_origen ? ORIGEN_MARCA[p.segmento_origen] : null;
+  return (
+    <fieldset className="mt-2 text-sm" disabled={m.isPending}>
+      <legend className="sr-only">Paciente de alto valor</legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Casilla etiqueta="Internacional" checked={vigente.internacional} onChange={(e) => cambiar({ internacional: e.target.checked })} />
+        <Casilla etiqueta="Deportista de alto nivel" checked={vigente.deportista} onChange={(e) => cambiar({ deportista: e.target.checked })} />
+      </div>
+      {nota && (vigente.internacional || vigente.deportista) && <p className="text-tinta-suave">{nota}</p>}
+    </fieldset>
   );
 }
 

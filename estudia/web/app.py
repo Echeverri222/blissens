@@ -322,11 +322,12 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
                       values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
                               "acepta_correo": acepta_correo, "consentimiento": consentimiento})
     now = clock.now(conn)
+    en_ingles = lang == "en"  # quien se registra en el sitio en inglés queda marcado como internacional (la recepción lo revisa)
     pid = conn.execute(
-        "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, consentimiento_version, creado_en) "
-        "values (%s,%s,%s,%s,%s,%s,%s) returning id",
+        "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, consentimiento_version, creado_en, "
+        "internacional, segmento_origen, segmento_marcado_en) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
         (nombres.strip(), apellidos.strip(), documento, phone, now, config.get(conn, "consentimiento_version"),
-         now)).fetchone()["id"]
+         now, en_ingles, "sitio_en" if en_ingles else None, now if en_ingles else None)).fetchone()["id"]
     if correo.strip():
         correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
     return ir(f"/p/{links.make_token(pid, conn=conn)}/nueva")
