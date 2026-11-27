@@ -1,0 +1,21 @@
+id: que-tengo-manana
+perfil: especialista
+actor: rios
+categoria: agenda
+pregunta: ¿Mañana qué tengo?
+intencion: La agenda de mañana miércoles de la Dra. Ríos. Solo Jorge Ramírez, resina a las 16:00, aún sin confirmar.
+herramientas:
+  esperadas: [mi_agenda]
+  aceptables: [detalle_cita, mi_horario]
+  prohibidas: [agenda]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.manana}"}
+    incluye: ["Jorge", "Resina u operatoria", "16:00"]
+    excluye: ["Laura", "Mateo", "Control de ortodoncia"]
+respuesta:
+  incluye: ["Jorge"]
+  incluye_alguno: ["16:00", "4 p", "4:00", "4pm", "cuatro"]
+  excluye: ["Laura", "Mateo"]
+  propuestas: []
+notas: Laura (Mejía) y Mateo (Torres) también tienen cita mañana, con otros profesionales; no deben salir.

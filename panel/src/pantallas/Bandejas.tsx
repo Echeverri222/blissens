@@ -8,20 +8,20 @@ import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { Confirmar, Tarjeta } from "@/ui/controles";
+import { AltoValor, Confirmar, Tarjeta } from "@/ui/controles";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
 
 type Grupo = "Llamar" | "Revisar";
 const BANDEJAS: { clave: keyof ConteoBandejas; slug: string; texto: string; grupo: Grupo; ayuda: string; vacio: string }[] = [
   { clave: "no_confirmadas", slug: "no-confirmadas", texto: "No confirmadas", grupo: "Llamar", ayuda: "Citas próximas sin confirmación, ordenadas por cercanía: las que no respondieron y, hasta el fin de mañana, las que aún no contestan el recordatorio. Llama primero a las más urgentes.", vacio: "Todas las citas próximas están confirmadas." },
-  { clave: "seguimientos", slug: "seguimientos", texto: "Seguimientos", grupo: "Llamar", ayuda: "Casos abiertos y que necesitan llamada. Registra aquí lo que hayas gestionado por teléfono.", vacio: "No hay seguimientos abiertos." },
+  { clave: "seguimientos", slug: "seguimientos", texto: "Seguimientos", grupo: "Llamar", ayuda: "Casos abiertos y que necesitan llamada, primero los pacientes de alto valor (internacionales y deportistas). Registra aquí lo que hayas gestionado por teléfono.", vacio: "No hay seguimientos abiertos." },
   { clave: "sin_interpretar", slug: "sin-interpretar", texto: "Mensajes por responder", grupo: "Llamar", ayuda: "Mensajes que el paciente escribió y el sistema no supo interpretar. Respóndele por tu cuenta y márcalo como resuelto.", vacio: "No hay mensajes pendientes." },
   { clave: "contactos", slug: "contactos", texto: "Contactos y solicitudes", grupo: "Llamar", ayuda: "Solicitudes de contacto: personas del sitio web que piden información y quienes intentaron agendar con un documento ya registrado pero otro celular (esas se validan por teléfono).", vacio: "No hay solicitudes de contacto." },
   { clave: "dados_de_baja", slug: "dados-de-baja", texto: "Dados de baja", grupo: "Llamar", ayuda: "Citas próximas de pacientes que pidieron no recibir mensajes automáticos: confírmalas por teléfono.", vacio: "No hay citas próximas de pacientes dados de baja." },
   { clave: "sin_desenlace", slug: "sin-desenlace", texto: "Citas por cerrar", grupo: "Revisar", ayuda: "Citas pasadas que quedaron sin desenlace. Ciérralas para no dejar huecos en los datos.", vacio: "No hay citas pasadas sin cerrar." },
   { clave: "cupos_libres", slug: "cupos-libres", texto: "Cupos libres", grupo: "Revisar", ayuda: "Espacios liberados por cancelaciones que aún no se han ocupado, y a quién se ofrecieron.", vacio: "No hay cupos liberados pendientes." },
-  { clave: "en_riesgo", slug: "en-riesgo", texto: "Pacientes en riesgo", grupo: "Revisar", ayuda: "Tratamientos activos sin cita futura y con más días que el umbral desde la última cita.", vacio: "Ningún paciente con tratamiento a medias está en riesgo." },
+  { clave: "en_riesgo", slug: "en-riesgo", texto: "Pacientes en riesgo", grupo: "Revisar", ayuda: "Tratamientos activos sin cita futura y con más días que el umbral desde la última cita. Primero los pacientes de alto valor (internacionales y deportistas), después los de más días sin cita.", vacio: "Ningún paciente con tratamiento a medias está en riesgo." },
 ];
 
 const ENLACE = "font-medium underline";
@@ -68,18 +68,19 @@ export function Bandejas() {
   );
 }
 
-type Pendiente = { id: string; urgencia: number; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; texto: ReactNode; acciones: ReactNode };
+type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; texto: ReactNode; acciones: ReactNode };
 
-/** Las llamadas de hoy, de lo más urgente a lo menos: necesita llamada, mensajes, contactos, sin confirmar, seguimientos y, al final, los dados de baja. */
+/** Las llamadas de hoy, de lo más urgente a lo menos: necesita llamada, mensajes, contactos, sin confirmar, seguimientos y, al final, los dados de baja.
+ *  Con la misma urgencia, primero los pacientes de alto valor (internacionales y deportistas). */
 function pendientes(d: {
   seguimientos?: Awaited<ReturnType<typeof api.bandejas.seguimientos>>; contactos?: Awaited<ReturnType<typeof api.bandejas.contactos>>;
   mensajes?: Awaited<ReturnType<typeof api.bandejas.sinInterpretar>>; noConfirmadas?: Awaited<ReturnType<typeof api.bandejas.noConfirmadas>>;
   dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>;
 }): Pendiente[] {
   const f: Pendiente[] = [];
-  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
     acciones: <AccionesSeguimiento id={r.id} paciente={r.paciente} />,
-    texto: <><b>{r.paciente}</b>: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
+    texto: <><b>{r.paciente}</b> <AltoValor internacional={r.internacional} deportista={r.deportista} />: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
   for (const r of d.mensajes ?? []) f.push({ id: `msj-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: "Mensaje", slug: "sin-interpretar", pacienteId: r.paciente_id,
     acciones: <BotonResuelto id={r.id} paciente={r.paciente} />,
     texto: <><b>{r.paciente}</b> escribió algo que el sistema no entendió: “{r.texto}”.</> });
@@ -92,7 +93,7 @@ function pendientes(d: {
   for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Confirma por teléfono a <b>{r.paciente}</b> su cita del {fechaHora(r.inicio)}: pidió no recibir mensajes.</> });
-  return f.sort((a, b) => a.urgencia - b.urgencia || a.orden.localeCompare(b.orden));
+  return f.sort((a, b) => a.urgencia - b.urgencia || Number(!!b.altoValor) - Number(!!a.altoValor) || a.orden.localeCompare(b.orden));
 }
 
 const ESTADO_NC = { no_confirmada: "Sin confirmar", programada: "Sin respuesta aún" } as const;
@@ -230,12 +231,14 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
     case "seguimientos":
       return <>{aviso}<Lista clave={slug} fn={api.bandejas.seguimientos} vacio={vacio} fila={(r) => (
         <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+          <AltoValor internacional={r.internacional} deportista={r.deportista} />
           <span>{limpio(r.tipo)}{r.escalado && <> <b className="rounded bg-rose-100 px-1.5 text-xs text-rose-900">Necesita llamada</b></>}</span>
           <span className="text-tinta-suave">{r.intentos} intentos · último: {limpio(r.ultimo ?? "pendiente")}</span>
           <div className="ml-auto"><AccionesSeguimiento id={r.id} paciente={r.paciente} /></div></Fila>)} /></>;
     case "en-riesgo":
       return <Lista clave={slug} fn={api.bandejas.enRiesgo} vacio={vacio} fila={(r) => (
-        <Fila key={r.tratamiento_id}><Paciente id={r.paciente_id} nombre={r.paciente} /><span>Última cita: {r.ultima_cita}</span>
+        <Fila key={r.tratamiento_id}><Paciente id={r.paciente_id} nombre={r.paciente} />
+          <AltoValor internacional={r.internacional} deportista={r.deportista} /><span>Última cita: {r.ultima_cita}</span>
           <span>{r.dias_sin_cita} días sin cita</span><span className="text-tinta-suave">Mensaje de recuperación: {r.caso_id ? "enviado" : "aún no"}</span>
           <Link className={cn(ENLACE, "ml-auto")} to={`/agendar?paciente=${r.paciente_id}`}>Agendar</Link></Fila>)} />;
     case "cupos-libres":

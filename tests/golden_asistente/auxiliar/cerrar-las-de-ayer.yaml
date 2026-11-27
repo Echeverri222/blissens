@@ -1,0 +1,31 @@
+id: cerrar-las-de-ayer
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta:
+  - cuales quedaron sin cerrar de ayer?
+  - Jorge si vino, Mateo no
+intencion: >-
+  Las citas de ayer sin desenlace (Jorge 9:00 limpieza y Mateo 15:00 valoración, ambas con la Dra. Ríos) y luego dos
+  propuestas: Jorge atendido, Mateo no asistió.
+herramientas:
+  esperadas: [proponer_desenlace]
+  una_de: [[bandeja, agenda]]
+  aceptables: [resumen_dia, detalle_cita]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: sin_desenlace}
+    incluye: ["Jorge Ramírez Soto", "Mateo Ruiz Cano", "{fecha.ayer}T09:00", "{fecha.ayer}T15:00"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.jorge_ayer}", desenlace: atendida}
+    incluye: ["Jorge Ramírez Soto fue atendido"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.mateo_ayer}", desenlace: no_asistio}
+    incluye: ["Mateo Ruiz Cano no asistió"]
+respuesta:
+  incluye: ["Jorge", "Mateo", "confirmar"]
+  propuestas: [desenlace, desenlace]
+notas: >-
+  La bandeja también trae la resina de Andrés de hoy 9:00 (ya pasó, sin cerrar): está bien que la mencione aparte, pero «las
+  de ayer» son dos. «Jorge» es ambiguo en la bandeja solo si se mira mañana (también tiene la resina): el desenlace va a la de
+  ayer.

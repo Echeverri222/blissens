@@ -287,6 +287,22 @@ class PacienteCreado(Salida):
     paciente_id: int
 
 
+SegmentoOrigen = Literal["recepcion", "importacion", "sitio_en"]
+
+
+class Segmentos(Entrada):
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+
+
+class SegmentosOut(Salida):
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    segmento_origen: SegmentoOrigen | None = Field(
+        description="De dónde salió la última marca: la recepción, la importación del Excel o el registro en el sitio en inglés.")
+    segmento_marcado_en: Momento | None
+
+
 class FichaPaciente(Salida):
     id: int
     nombres: str
@@ -295,6 +311,9 @@ class FichaPaciente(Salida):
     celular: str | None
     correo: str | None
     acepta_mensajes: bool
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    segmento_origen: SegmentoOrigen | None
 
 
 class CitaFicha(Salida):
@@ -409,6 +428,8 @@ class SeguimientoOut(Salida):
     celular: str | None
     intentos: int
     ultimo: str | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
 
 class EnRiesgoOut(Salida):
@@ -420,6 +441,8 @@ class EnRiesgoOut(Salida):
     caso_id: int | None
     celular: str | None
     servicio: str | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
 
 class CupoLibreOut(Salida):
@@ -713,3 +736,39 @@ class CambioAcceso(Entrada):
 class UsuarioConClave(Salida):
     usuario: UsuarioAdmin
     clave_temporal: str | None = Field(description="Se muestra una sola vez; la persona debe cambiarla al ingresar")
+
+
+# ----------------------------------------------------------------- asistente
+
+class AsistenteEstadoOut(Salida):
+    disponible: bool = Field(description="El negocio encendió el asistente para el equipo (y hay clave de la API)")
+    perfil: Literal["auxiliar", "especialista"]
+    mensajes_restantes: int = Field(description="Mensajes que le quedan hoy a este usuario")
+
+
+class AsistenteMensajeIn(Entrada):
+    conversacion_id: int | None = Field(None, description="Continúa esa conversación; sin él se abre una nueva")
+    texto: str = Field(min_length=1, max_length=1000)
+
+
+class PropuestaOut(Salida):
+    tipo: Literal["agendar", "cambiar_fecha", "cancelar", "confirmar_telefono", "desenlace", "bloqueo"]
+    parametros: dict[str, Any] = Field(description="Lo que lleva el endpoint existente que la ejecuta, ya con sus ids")
+    resumen: str = Field(description="Una línea para la tarjeta de confirmación")
+
+
+class AsistenteRespuestaOut(Salida):
+    conversacion_id: int | None = Field(description="Null solo si se respondió con una respuesta fija sin abrir conversación")
+    respuesta: str = Field(description="Texto plano con saltos de línea")
+    propuestas: list[PropuestaOut]
+
+
+class AsistenteTurnoOut(Salida):
+    rol: Literal["usuario", "asistente"]
+    texto: str
+    propuestas: list[PropuestaOut] = Field(description="Solo en turnos del asistente: las que preparó en ese turno")
+
+
+class AsistenteConversacionOut(Salida):
+    conversacion_id: int
+    mensajes: list[AsistenteTurnoOut]

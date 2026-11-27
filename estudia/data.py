@@ -1,6 +1,7 @@
 """Datos: ficticios (Faker es_CO, reproducibles) e importación de Excel (solo local)."""
 import json
 import random
+import re
 import sys
 from datetime import date, datetime, time, timedelta
 
@@ -111,13 +112,17 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
                 used_docs.add(doc)
                 break
         creado = now - timedelta(days=rnd.randint(30, 400))
+        nombre, apellidos = fake.first_name(), f"{fake.last_name()} {fake.last_name()}"
+        celular = "+573" + str(rnd.randint(0, 999_999_999)).zfill(9)
+        nacimiento = fake.date_of_birth(minimum_age=6, maximum_age=80)
+        segmento = rnd.choices(["local", "internacional", "deportista"], [88, 6, 6])[0]  # mismo orden de sorteo de siempre
         pid = conn.execute(
-            "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, tipo, "
-            "consentimiento_en, creado_en) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
-            (f"F{i + 1}", fake.first_name(), f"{fake.last_name()} {fake.last_name()}", doc,
-             "+573" + str(rnd.randint(0, 999_999_999)).zfill(9), f"paciente{i + 1}@ejemplo.com",
-             fake.date_of_birth(minimum_age=6, maximum_age=80),
-             rnd.choices(["local", "internacional", "deportista"], [88, 6, 6])[0], creado, creado)).fetchone()["id"]
+            "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, "
+            "internacional, deportista, segmento_origen, consentimiento_en, creado_en) "
+            "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+            (f"F{i + 1}", nombre, apellidos, doc, celular, f"paciente{i + 1}@ejemplo.com", nacimiento,
+             segmento == "internacional", segmento == "deportista",
+             "importacion" if segmento != "local" else None, creado, creado)).fetchone()["id"]
         pat_ids.append(pid)
 
     # --- Tratamientos, historia y citas futuras ---
@@ -313,6 +318,16 @@ def _id(v):
         return s
 
 
+SEGMENTOS = (("internacional", ("internac", "exterior", "extranj", "foreign")), ("deportista", ("deport", "atleta")))
+
+
+def segmentos_de(*textos) -> dict[str, bool]:
+    """Las marcas de alto valor que dice «Tipo Paciente» en el software de la clínica. Solo cuenta una palabra que
+    empieza así («Deportista», «del exterior»), no una que la lleve dentro («Coldeportes»)."""
+    t = " ".join(filter(None, (_s(x) for x in textos))).lower()
+    return {marca: any(re.search(rf"\b{w}", t) for w in palabras) for marca, palabras in SEGMENTOS}
+
+
 def importar(conn, folder=None) -> dict:
     """Importa agenda y estados desde una carpeta local ignorada por git. Idempotente; no dispara mensajes ni casos."""
     import pandas as pd
@@ -332,6 +347,11 @@ def importar(conn, folder=None) -> dict:
     def col(df, prefix):
         return next(c for c in df.columns if c.lower().startswith(prefix.lower()))
 
+    def col_opcional(df, prefix):
+        return next((c for c in df.columns if c.lower().startswith(prefix.lower())), None)
+
+    c_segmento = [c for c in (col_opcional(ag, "Tipo Paciente"),) if c]  # «Convenio» es la aseguradora: no dice el segmento
+
     c_cita_e, c_cita_a = col(est, "# Cita"), col(ag, "# Cita")
     ag["_k"] = ag[c_cita_a].map(_id)
     ag = ag.drop_duplicates("_k").set_index("_k")
@@ -347,7 +367,7 @@ def importar(conn, folder=None) -> dict:
             "on conflict (negocio_id, nombre) do update set nombre='Otro' returning id").fetchone()["id"]
 
     pros: dict[str, int] = {}
-    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0}
+    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0, "segmentados": 0}
     seen_patients = set()
     for _, r in est.iterrows():
         cid_ext = _id(r[c_cita_e])
@@ -391,6 +411,16 @@ def importar(conn, folder=None) -> dict:
             if phone:
                 conn.execute("update paciente set celular=%s where external_id=%s and celular is null", (phone, pext))
         pat = conn.execute("select id from paciente where external_id=%s", (pext,)).fetchone()["id"]
+        marcas = segmentos_de(*(a[c] for c in c_segmento)) if a is not None else {}
+        if any(marcas.values()):  # solo suma marcas (y confirma las del sitio en inglés); lo que decidió la recepción no se toca
+            if conn.execute(
+                    "update paciente set internacional = internacional or %s, deportista = deportista or %s, "
+                    "segmento_origen='importacion', segmento_marcado_en=%s, segmento_marcado_por=null "
+                    "where id=%s and segmento_origen is distinct from 'recepcion' "
+                    "and (internacional < %s or deportista < %s or segmento_origen = 'sitio_en') returning id",
+                    (marcas["internacional"], marcas["deportista"], clock.now(conn), pat,
+                     marcas["internacional"], marcas["deportista"])).fetchone():
+                stats["segmentados"] += 1
         # Tratamiento
         text_ = _id(r[col(est, "# Tratamiento")])
         tid = None

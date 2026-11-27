@@ -1,0 +1,33 @@
+id: agendar-limpieza-sara-con-torres
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta:
+  - tengo a Sara Morales en el telefono, necesita una limpieza, ojala el jueves en la mañana con la dra Torres. que hay?
+  - listo, la de las 8
+intencion: >-
+  Buscar a Sara, ver las horas libres de limpieza el jueves por la mañana con la Dra. Torres (7:30, 8:00, 8:30...) y, cuando
+  Marta elige las 8, preparar la cita para confirmar.
+herramientas:
+  esperadas: [buscar_pacientes, espacios_libres, proponer_agendar]
+  aceptables: [agenda, servicios, ficha_paciente, datos_del_negocio]
+contexto:
+  - llamada: datos_del_negocio
+    incluye: ["Dra. Camila Torres", "{pro.torres}"]
+  - llamada: buscar_pacientes
+    args: {q: "Sara Morales"}
+    incluye: ["Sara Morales Díaz"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.limpieza}", profesional_id: "{pro.torres}", desde: "{fecha.jueves}", dias: 1}
+    incluye: ["Dra. Camila Torres", "{fecha.jueves}T08:00"]
+  - llamada: proponer_agendar
+    args: {paciente_id: "{paciente.sara}", servicio_id: "{servicio.limpieza}", profesional_id: "{pro.torres}", inicio: "{fecha.jueves}T08:00:00"}
+    incluye: ["Sara Morales Díaz", "Limpieza", "Dra. Camila Torres"]
+respuesta:
+  incluye: ["Sara", "jueves", "confirmar"]
+  incluye_alguno: ["8:00", "8 a. m.", "8am", "8 am"]
+  excluye: ["ya quedo agendada", "ya la agende"]
+  propuestas: [agendar]
+notas: >-
+  El id de la Dra. Torres sale de `datos_del_negocio` (lista los profesionales con su id); el de Sara, de buscarla con
+  nombre y apellido.

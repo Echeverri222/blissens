@@ -1,0 +1,33 @@
+id: jueves-y-bloquear-la-manana
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta:
+  - y el jueves como estoy?
+  - bloquéame tambien la mañana de ese dia, me voy todo el dia pal congreso
+intencion: >-
+  El jueves de la Dra. Ríos: la valoración de Lucía de las 9:00 está cancelada y la tarde está bloqueada por el congreso.
+  Luego, bloquear la mañana del jueves (07:30–12:00): se puede, porque la única cita de esa franja está cancelada.
+herramientas:
+  esperadas: [proponer_bloqueo]
+  una_de: [[mi_agenda, mi_horario]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.jueves}"}
+    incluye: ["Lucía", "cancelada", "Congreso de odontología"]
+    excluye: ["Diego", "Tomás"]
+  - llamada: mi_horario
+    args: {}
+    incluye: ["Congreso de odontología", "07:30"]
+  - llamada: proponer_bloqueo
+    args: {inicio: "{fecha.jueves}T07:30:00", fin: "{fecha.jueves}T12:00:00", motivo: "Congreso de odontología"}
+    incluye: ["Bloquear la agenda de Dra. Valentina Ríos", "Congreso"]
+respuesta:
+  incluye: ["congreso"]
+  incluye_alguno: ["cancelada", "cancelo", "canceló"]
+  excluye: ["ya quedó bloqueado", "ya quedo bloqueada", "listo, bloqueado"]
+  propuestas: [bloqueo]
+notas: >-
+  La cita cancelada de Lucía no cruza el bloqueo (solo cuentan las citas vivas); el modelo no debe frenarse por ella. La
+  propuesta solo queda lista para confirmar.

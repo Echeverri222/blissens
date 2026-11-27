@@ -1,0 +1,16 @@
+id: que-doctor-tiene-mas-faltas
+perfil: auxiliar
+actor: marta
+categoria: indicadores
+pregunta: y cual doctor tiene mas faltas este mes?
+intencion: "La inasistencia de noviembre por profesional: el Dr. Mejía (1 falta, la de Diego); la Dra. Ríos ninguna."
+herramientas:
+  esperadas: [indicadores]
+contexto:
+  - llamada: indicadores
+    args: {reporte: por_profesional, desde: "{fecha.hoy-16}", hasta: "{fecha.hoy}"}
+    incluye: ["Andrés Mejía", '"no_asistio": 1']
+respuesta:
+  incluye: ["Mejía"]
+  incluye_alguno: ["noviembre", "este mes", "del 1 al"]
+  propuestas: []

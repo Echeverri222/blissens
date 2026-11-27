@@ -1,0 +1,4 @@
+{# Lo que HTMX agrega al final de la conversación; lo demás va "fuera de banda": el id de la conversación y el aviso de error. #}
+{% include "_asistente_mensajes.html" %}
+<input type="hidden" id="conversacion" name="conversacion" value="{{ conversacion_id or '' }}" hx-swap-oob="true">
+<div id="chat-error" role="alert" hx-swap-oob="true">{% if error %}<p class="error">{{ error }}</p>{% endif %}</div>

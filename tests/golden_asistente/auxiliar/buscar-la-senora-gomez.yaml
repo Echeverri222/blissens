@@ -1,0 +1,19 @@
+id: buscar-la-senora-gomez
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: buscame a la señora gomez
+intencion: Encontrar a Laura Gómez Arango (y a su hijo Tomás, mismo apellido), con los últimos 4 del documento para distinguirlos.
+herramientas:
+  esperadas: [buscar_pacientes]
+  aceptables: [ficha_paciente]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "gomez"}
+    incluye: ["Laura Gómez Arango", "Tomás Gómez Arango", "0113"]
+respuesta:
+  incluye: ["Laura"]
+  propuestas: []
+notas: >-
+  Recepción escribe sin tildes: «gomez» debe encontrar a «Gómez» (antes no lo hacía). El contexto busca sin tilde a
+  propósito.

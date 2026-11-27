@@ -1,0 +1,30 @@
+id: que-tengo-hoy
+perfil: especialista
+actor: rios
+categoria: agenda
+pregunta:
+  - que tengo hoy?
+  - y cuantos me quedan?
+intencion: >-
+  La agenda de hoy de la Dra. Ríos (Laura 08:00 atendida, Andrés 09:00 sin cerrar, Tomás 11:00, Paula 14:00) y, en el
+  segundo turno, cuántos pacientes le faltan por atender desde las 10:30: dos (Tomás y Paula).
+herramientas:
+  una_de: [[mi_dia, mi_agenda]]
+  aceptables: [detalle_cita]
+  prohibidas: [agenda, resumen_dia]
+contexto:
+  - llamada: mi_dia
+    incluye: ["Laura", "Andrés", "Tomás", "Paula", "atendida", "huecos_libres"]
+    excluye: ["Lucía", "Sara Morales", "Blanqueamiento"]
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Laura", "Andrés", "Tomás", "Paula", "Resina u operatoria", "atendida"]
+    excluye: ["Lucía", "Sara Morales", "Blanqueamiento"]
+respuesta:
+  incluye: ["Tomás", "Paula"]
+  incluye_alguno: ["dos", "2 pacientes", "2 citas", "te quedan 2", "quedan 2"]
+  excluye: ["Lucía", "Sara", "Blanqueamiento"]
+  propuestas: []
+notas: >-
+  «¿Cuántos me quedan?» depende de la hora del contexto: el modelo cuenta él mismo las citas vivas posteriores a las 10:30
+  (gap 2 del PRD fase 2, mi_dia). Andrés ya pasó pero sigue sin cerrar: no es «uno que queda», es un pendiente.

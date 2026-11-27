@@ -1,0 +1,28 @@
+id: confirmar-que-si-voy-manana
+perfil: paciente
+actor: laura
+categoria: accion
+pregunta: si voy mañana a la de las 9, me la confirman?
+intencion: >-
+  Laura quiere confirmar su valoración de mañana a las 9:00 (programada, sin confirmar): se prepara la confirmación y se
+  dice que falta tocar el botón.
+herramientas:
+  esperadas: [mis_citas, proponer_confirmar]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Laura", "Valoración", "miércoles 18 de noviembre a las 9:00 a. m.", "programada"]
+  - llamada: proponer_confirmar
+    args: {cita_id: "{cita.laura_manana}"}
+    incluye: ["Confirmar que asistirás", "Valoración"]
+  - llamada: proponer_confirmar
+    args: {cita_id: "{cita.mateo_manana}"}
+    error: no_existe
+respuesta:
+  incluye: ["confirmar"]
+  propuestas: [confirmar]
+  excluye: ["quedo confirmada", "ya esta confirmada", "te la confirme", "confirmada!"]
+notas: >-
+  La pregunta más común del día antes. `proponer_confirmar` prepara el mismo paso que el botón «Sí, asistiré» del
+  recordatorio; el asistente nunca dice que ya quedó confirmada.

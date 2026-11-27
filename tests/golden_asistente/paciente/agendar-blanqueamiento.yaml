@@ -1,0 +1,29 @@
+id: agendar-blanqueamiento
+perfil: paciente
+actor: laura
+categoria: accion
+pregunta: quiero agendarme un blanqueamiento para la otra semana
+intencion: >-
+  El blanqueamiento no se agenda desde la página del paciente: no se prepara ninguna cita. Se dice que eso lo agenda la
+  clínica y se ofrece que la contacten.
+herramientas:
+  esperadas: [servicios]
+  aceptables: [espacios_libres, pedir_contacto]
+  prohibidas: [proponer_agendar]
+contexto:
+  - llamada: servicios
+    args: {}
+    incluye: ["Limpieza"]
+    excluye: ["Blanqueamiento"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.blanqueamiento}", desde: "{fecha.lunes}"}
+    error: no_existe
+respuesta:
+  incluye: ["clinica"]
+  excluye: ["$", "precio", "lunes 23 de noviembre a las"]
+  propuestas: []
+notas: >-
+  Un servicio no autoagendable no sale en `servicios` ni en `espacios_libres` para el paciente. El modelo no debe
+  sustituirlo por otro servicio (p. ej. agendar una valoración «para el blanqueamiento») sin que la persona lo pida.
+  Ofrecer el contacto está bien; prepararlo sin que lo pidan haría fallar `propuestas: []` (ajustar si se decide lo
+  contrario).

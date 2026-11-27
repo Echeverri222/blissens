@@ -26,6 +26,8 @@ services:
         sync: false            # rol postgres, solo para migrar al arrancar
       - key: CLAVE_ROL_APP
         sync: false            # contraseña con la que la migración crea el rol estudia_app
+      - key: ANTHROPIC_API_KEY
+        sync: false            # sin ella, las rutas del asistente no existen (docs/prd-asistente.md, D4)
   # - type: worker
   #   name: estudia-trabajador
   #   runtime: docker

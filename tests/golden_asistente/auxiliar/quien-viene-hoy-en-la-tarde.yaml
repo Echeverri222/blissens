@@ -1,0 +1,18 @@
+id: quien-viene-hoy-en-la-tarde
+perfil: auxiliar
+actor: marta
+categoria: agenda
+pregunta: quien viene hoy en la tarde?
+intencion: Las citas de hoy desde la 1 p. m. de todos los profesionales (Lucía 13:30 con Mejía, Paula 14:00 con Ríos, Sara 15:00 con Torres).
+herramientas:
+  esperadas: [agenda]
+  prohibidas: [ficha_paciente]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Lucía Fernández", "Paula Castro", "Sara Morales", "Blanqueamiento", "Dra. Camila Torres"]
+respuesta:
+  incluye: ["Lucía", "Paula", "Sara"]
+  excluye: ["Pineda", "Tomás"]
+  propuestas: []
+notas: Andrés (9:00) y Tomás (11:00) son de la mañana; no deben colarse en «la tarde».

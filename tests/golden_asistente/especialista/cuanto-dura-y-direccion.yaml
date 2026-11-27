@@ -1,0 +1,26 @@
+id: cuanto-dura-y-direccion
+perfil: especialista
+actor: mejia
+categoria: negocio
+pregunta:
+  - cuanto dura un blanqueamiento? para ver si me alcanza antes de almuerzo
+  - y la direccion exacta del consultorio? un paciente me la esta pidiendo por whatsapp
+intencion: >-
+  El blanqueamiento dura 60 minutos. La dirección es Calle 10 # 43-20, consultorio 301, Medellín.
+herramientas:
+  esperadas: [servicios, datos_del_negocio]
+  aceptables: [mi_agenda]
+contexto:
+  - llamada: servicios
+    args: {}
+    incluye: ["Blanqueamiento", "60"]
+    excluye: ["350000", "350.000", "\"valor\""]
+  - llamada: datos_del_negocio
+    args: {}
+    incluye: ["Calle 10 # 43-20", "consultorio 301"]
+respuesta:
+  incluye: ["43-20"]
+  incluye_alguno: ["60 min", "una hora", "1 hora", "60 minutos"]
+  excluye: ["$", "350"]
+  propuestas: []
+notas: El valor interno del servicio nunca sale, tampoco para el equipo clínico.

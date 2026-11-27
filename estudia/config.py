@@ -36,6 +36,13 @@ DEFAULTS = {
     "bloqueo_login_min": 15,
     # Metas de los indicadores: {"inasistencia": {"max": 0.15}, "asistencia": {"min": 0.8}, ...}; cada clave es opcional.
     "metas_indicadores": {},
+    # Asistente (docs/prd-asistente.md, D4). Con la clave de la API puesta, cada negocio lo enciende por separado.
+    "asistente_equipo": False,                 # el equipo del negocio puede usar el asistente
+    "asistente_pacientes": False,              # los pacientes del negocio pueden usarlo
+    "asistente_mensajes_dia_usuario": 200,     # mensajes por usuario del equipo y día
+    "asistente_mensajes_dia_paciente": 20,     # mensajes por hogar y día
+    "asistente_tokens_dia": 2_000_000,         # tokens de entrada + salida por negocio y día
+    "retencion_asistente_dias": 30,            # las conversaciones más viejas las borra la depuración diaria
 }
 
 

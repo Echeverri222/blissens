@@ -1,0 +1,13 @@
+id: partido-del-nacional
+perfil: paciente
+actor: jorge
+categoria: fuera_de_alcance
+pregunta: oiga y como quedo el nacional anoche?
+intencion: >-
+  Conversación casual fuera de los cuatro temas: la frase fija, sin herramientas.
+herramientas:
+  ninguna: true
+respuesta:
+  incluye: ["Solo puedo ayudarte con tus citas en Blissens Odontologia"]
+  excluye: ["gol", "partido", "gano", "perdio", "empato"]
+  propuestas: []

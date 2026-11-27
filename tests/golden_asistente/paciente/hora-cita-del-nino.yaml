@@ -1,0 +1,19 @@
+id: hora-cita-del-nino
+perfil: paciente
+actor: laura
+categoria: agenda
+pregunta: a que hora es la cita del niño hoy?
+intencion: La cita de hoy de Tomás, el hijo de Laura (11:00, control de ortodoncia con la Dra. Ríos).
+herramientas:
+  esperadas: [mis_citas]
+  prohibidas: [pedir_contacto]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Tomás", "Control de ortodoncia", "Valentina Ríos"]
+    excluye: ["Gómez Arango", "Jorge"]
+respuesta:
+  incluye: ["Tomás"]
+  incluye_alguno: ["11:00", "11 a", "11am", "once"]
+  excluye: ["Jorge"]
+  propuestas: []

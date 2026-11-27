@@ -1,0 +1,31 @@
+{# Texto del asistente = salida del modelo, no confiable: solo autoescape, como texto plano. Nunca |safe ni linkify. #}
+{% for m in mensajes %}
+  {% if m.rol == 'usuario' %}
+    <div class="burbuja burbuja--yo"><p>{{ m.texto }}</p></div>
+  {% else %}
+    <div class="burbuja burbuja--asistente"><p>{{ m.texto }}</p></div>
+    {% for pr in m.propuestas %}
+      <div class="propuesta tarjeta" data-tipo="{{ pr.tipo }}">
+        <p class="propuesta__resumen">{{ pr.resumen }}</p>
+        {% if pr.metodo == 'get' %}
+          <div class="acciones">
+            <a role="button" href="{{ pr.accion }}">{{ pr.boton }}</a>
+            <button type="button" class="outline secondary solo-js" onclick="this.closest('.propuesta').remove()">Descartar</button>
+          </div>
+        {% else %}
+          <form method="post" action="{{ pr.accion }}" class="{{ 'solo-js' if pr.alternativa else '' }}"
+                hx-post="{{ pr.accion }}" {% if pr.alternativa %}hx-target="closest .propuesta" hx-swap="none"
+                data-alternativa="{{ pr.alternativa }}"
+                hx-on::before-swap="event.preventDefault(); location.href = this.dataset.alternativa"{% else %}hx-target="closest .propuesta" hx-swap="outerHTML"{% endif %}>
+            {% for nombre, valor in pr.campos %}<input type="hidden" name="{{ nombre }}" value="{{ valor }}">{% endfor %}
+            <div class="acciones">
+              <button type="submit">{{ pr.boton }}</button>
+              <button type="button" class="outline secondary solo-js" onclick="this.closest('.propuesta').remove()">Descartar</button>
+            </div>
+          </form>
+          {% if pr.alternativa %}<p class="nota propuesta__alt"><a href="{{ pr.alternativa }}">Elegir en la agenda</a></p>{% endif %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endfor %}

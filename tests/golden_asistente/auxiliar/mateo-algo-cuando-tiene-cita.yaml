@@ -1,0 +1,21 @@
+id: mateo-algo-cuando-tiene-cita
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: el muchacho que se llama Mateo, no me acuerdo el apellido, cuando es que tiene la proxima cita?
+intencion: Encontrar a Mateo Ruiz Cano por el nombre de pila y decir su próxima cita (mañana 8:00, control de ortodoncia con la Dra. Torres, ya confirmada).
+herramientas:
+  esperadas: [buscar_pacientes]
+  una_de: [[ficha_paciente, agenda]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Mateo"}
+    incluye: ["Mateo Ruiz Cano"]
+  - llamada: ficha_paciente
+    args: {paciente_id: "{paciente.mateo}"}
+    incluye: ["{fecha.manana}T08:00", "Control de ortodoncia", "Dra. Camila Torres", "confirmada"]
+respuesta:
+  incluye: ["Ruiz", "Torres"]
+  incluye_alguno: ["8:00", "8 a. m.", "8am", "8 am"]
+  propuestas: []

@@ -1,0 +1,20 @@
+id: valoracion-manana-con-cualquiera
+perfil: auxiliar
+actor: marta
+categoria: agenda
+pregunta: hay algo para una valoracion mañana en la mañana con el que sea?
+intencion: Horas libres de valoración mañana por la mañana con cualquier profesional (desde las 7:30).
+herramientas:
+  esperadas: [espacios_libres]
+  aceptables: [servicios, agenda]
+  prohibidas: [proponer_agendar]
+contexto:
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.valoracion}", desde: "{fecha.manana}", dias: 1}
+    incluye: ["cualquiera", "{fecha.manana}T07:30", "{fecha.manana}T11:30", "profesional_id"]
+respuesta:
+  incluye_alguno: ["7:30", "7:30 a. m.", "730"]
+  propuestas: []
+notas: >-
+  Buscando «con cualquiera», cada hora dice con quién quedaría, para que «agéndalo a las 7:30» tenga el `profesional_id`
+  que pide `proponer_agendar` del equipo.

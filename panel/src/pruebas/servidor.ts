@@ -36,6 +36,8 @@ export const error = (status: number, codigo: string, mensaje: string, extra: ob
 const base = "*/api/v1";
 export const manejadores = (sesion: Sesion | null = AUX) => [
   http.get(`${base}/sesion`, () => (sesion ? HttpResponse.json(sesion) : error(401, "no_autenticado", "Inicia sesión para continuar."))),
+  // Sin clave de la API el servidor no registra la ruta: el panel no muestra el asistente.
+  http.get(`${base}/asistente/estado`, () => error(404, "no_existe", "No existe.")),
   http.get(`${base}/profesionales`, () => HttpResponse.json([{ id: 1, nombre: "Dra. Uno", especialidad: "General" }, { id: 2, nombre: "Dr. Dos", especialidad: "General" }])),
   http.get(`${base}/servicios`, () => HttpResponse.json([{ id: 1, nombre: "Valoración", duracion_min: 60, autoagendable: true }])),
   http.get(`${base}/motivos-cancelacion`, () => HttpResponse.json([{ id: 3, etiqueta: "Calamidad" }])),

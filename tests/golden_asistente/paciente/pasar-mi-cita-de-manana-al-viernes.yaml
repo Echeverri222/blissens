@@ -1,0 +1,32 @@
+id: pasar-mi-cita-de-manana-al-viernes
+perfil: paciente
+actor: laura
+categoria: accion
+pregunta:
+  - no puedo ir mañana, me la pasan para el viernes?
+  - a las 8 esta bien
+intencion: >-
+  Cambiar la valoración de Laura del miércoles 9:00 (Dr. Mejía) al viernes 20 a las 8:00 con el mismo profesional: primero
+  sus horas libres del viernes, luego la propuesta de cambio de fecha.
+herramientas:
+  esperadas: [mis_citas, espacios_libres, proponer_cambiar_fecha]
+  prohibidas: [proponer_cancelar, proponer_agendar]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Laura", "Valoración", "Andrés Mejía"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.valoracion}", profesional_id: "{pro.mejia}", desde: "{fecha.viernes}", dias: 1}
+    incluye: ["Andrés Mejía", "viernes 20 de noviembre a las 8:00 a. m."]
+    excluye: ["10:00 a. m."]
+  - llamada: proponer_cambiar_fecha
+    args: {cita_id: "{cita.laura_manana}", inicio: "{fecha.viernes}T08:00:00-05:00"}
+    incluye: ["Cambiar tu cita", "Valoración", "viernes 20 de noviembre a las 8:00 a. m."]
+respuesta:
+  incluye: ["viernes"]
+  incluye_alguno: ["8:00", "8 a", "8am", "ocho"]
+  excluye: ["Diego", "quedo cambiada", "ya quedo"]
+  propuestas: [cambiar_fecha]
+notas: >-
+  El viernes a las 10:00 el Dr. Mejía ya tiene una cita (de Diego): no debe ofrecerse y nunca se dice de quién es.
+  El cambio es con el mismo profesional, así que la búsqueda debe ir con `profesional_id` del Dr. Mejía.

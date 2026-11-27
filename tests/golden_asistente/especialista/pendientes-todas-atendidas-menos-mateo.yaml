@@ -1,0 +1,39 @@
+id: pendientes-todas-atendidas-menos-mateo
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta:
+  - doctora aqui entre paciente y paciente, que tengo sin cerrar?
+  - todas atendidas menos la de Mateo, ese no vino
+intencion: >-
+  Primero la lista de pendientes (Jorge y Mateo de ayer, Andrés de hoy). Después tres propuestas: Jorge atendida, Andrés
+  atendida, Mateo no asistió.
+herramientas:
+  esperadas: [citas_sin_desenlace, proponer_desenlace]
+  aceptables: [detalle_cita, mi_agenda, mi_dia]
+contexto:
+  - llamada: citas_sin_desenlace
+    incluye: ["Jorge", "Mateo", "Andrés"]
+    excluye: ["Tomás", "Paula"]
+  - llamada: mi_agenda
+    args: {desde: "{fecha.ayer}", hasta: "{fecha.hoy}"}
+    incluye: ["Jorge", "Mateo", "Andrés"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.jorge_ayer}", desenlace: atendida}
+    incluye: ["Jorge", "fue atendido"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.andres_hoy}", desenlace: atendida}
+    incluye: ["Andrés", "fue atendido"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.mateo_ayer}", desenlace: no_asistio}
+    incluye: ["Mateo", "no asistió"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.tomas_hoy}", desenlace: atendida}
+    error: accion_no_permitida
+respuesta:
+  incluye: ["Jorge", "Andrés", "Mateo"]
+  excluye: ["Tomás", "Paula"]
+  propuestas: [desenlace, desenlace, desenlace]
+notas: >-
+  En el segundo turno, «todas» son las del turno anterior: no debe incluir a Tomás ni a Paula (aún no empiezan; la
+  herramienta además lo rechaza).

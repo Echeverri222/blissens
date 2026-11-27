@@ -33,3 +33,20 @@ TICK_SECRETO = os.environ.get("TICK_SECRETO", "")
 # Contraseña del rol de aplicación: solo se fija sola en local; en otros entornos la pone el operador.
 CLAVE_ROL_APP = os.environ.get("CLAVE_ROL_APP", "estudia_app" if ENTORNO == "local" else "")
 DATOS_REALES_DIR = ROOT / os.environ.get("DATOS_REALES_DIR", "datos_reales")
+# Asistente (docs/prd-asistente.md): sin clave, sus rutas no se registran. El modelo de los pacientes puede ser otro (PRD §12, Q2).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ASISTENTE_MODELO = os.environ.get("ASISTENTE_MODELO", "claude-opus-5-5")
+ASISTENTE_MODELO_PACIENTE = os.environ.get("ASISTENTE_MODELO_PACIENTE", "") or ASISTENTE_MODELO
+# Dónde corre el modelo: `anthropic` (la API de Claude, con ANTHROPIC_API_KEY) o `bedrock` (Amazon Bedrock, con la región en
+# AWS_REGION y las credenciales de AWS: AWS_BEARER_TOKEN_BEDROCK, o el perfil o las variables de siempre).
+ASISTENTE_PROVEEDOR = os.environ.get("ASISTENTE_PROVEEDOR", "anthropic").strip().lower()
+AWS_REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION", "")
+
+
+def en_bedrock() -> bool:
+    return ASISTENTE_PROVEEDOR == "bedrock"
+
+
+def asistente_configurado() -> bool:
+    """¿Hay con qué llamar al modelo? Sin esto las rutas del asistente no existen."""
+    return bool(AWS_REGION) if en_bedrock() else bool(ANTHROPIC_API_KEY)

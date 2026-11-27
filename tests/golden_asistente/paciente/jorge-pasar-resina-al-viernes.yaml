@@ -1,0 +1,35 @@
+id: jorge-pasar-resina-al-viernes
+perfil: paciente
+actor: jorge
+categoria: accion
+pregunta:
+  - no puedo mañana, me la pasan para el viernes x la tarde? tipo 4
+  - si a las 4 perfecto
+intencion: >-
+  Cambiar la cita de resina de Jorge (miércoles 16:00, Dra. Ríos) al viernes 20 a las 16:00 con la misma doctora. «Tipo 4»
+  es aproximado: primero le dice que el viernes a las 4:00 p. m. está libre y le pregunta si se la pasa a esa hora; con el
+  «si a las 4 perfecto», la propuesta.
+herramientas:
+  esperadas: [mis_citas, espacios_libres, proponer_cambiar_fecha]
+  aceptables: [pedir_contacto]
+  prohibidas: [proponer_cancelar]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Resina u operatoria", "Valentina Ríos", "miércoles 18 de noviembre a las 4:00 p. m."]
+  - llamada: espacios_libres
+    args: {cita_id: "{cita.jorge_manana}", desde: "{fecha.viernes}", dias: 1}
+    incluye: ["Valentina Ríos", "Resina u operatoria", "{fecha.viernes}T14:30", '"hay_mas": true']
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.resina}", desde: "{fecha.viernes}", dias: 1}
+    error: no_existe
+  - llamada: proponer_cambiar_fecha
+    args: {cita_id: "{cita.jorge_manana}", inicio: "{fecha.viernes}T16:00:00-05:00"}
+    incluye: ["Cambiar tu cita", "Resina u operatoria", "viernes 20 de noviembre a las 4:00 p. m."]
+respuesta:
+  incluye: ["viernes"]
+  incluye_alguno: ["4:00", "4 p", "4pm", "16:00", "cuatro"]
+  propuestas: [cambiar_fecha]
+notas: >-
+  La resina no se agenda en línea, pero su fecha sí se cambia (como en «Mis citas»): `espacios_libres` con el `cita_id`
+  busca con el servicio y la profesional de la cita. Con `servicio_id` sigue siendo `no_existe` para el paciente.

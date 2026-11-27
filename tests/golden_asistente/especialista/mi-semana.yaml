@@ -1,0 +1,24 @@
+id: mi-semana
+perfil: especialista
+actor: mejia
+categoria: agenda
+pregunta: Que tengo esta semana?
+intencion: >-
+  Las citas del Dr. Mejía de hoy martes al viernes: Lucía (blanqueamiento, hoy 13:30), Laura (valoración, mañana 09:00)
+  y Diego (limpieza, viernes 10:00).
+herramientas:
+  esperadas: [mi_agenda]
+  aceptables: [mi_horario, detalle_cita]
+  prohibidas: [agenda]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}", hasta: "{fecha.viernes}"}
+    incluye: ["Lucía", "Blanqueamiento", "Laura", "Diego", "Limpieza"]
+    excluye: ["Tomás", "Jorge", "Paula", "Congreso"]
+respuesta:
+  incluye: ["Lucía", "Laura", "Diego"]
+  excluye: ["Tomás", "Jorge", "Paula", "Congreso"]
+  propuestas: []
+notas: >-
+  «Esta semana» un martes: lo razonable es de hoy al viernes (o al domingo). Lo de ayer (la falta de Diego) no es lo que
+  pregunta. El bloqueo del congreso es de la Dra. Ríos y no debe aparecer.

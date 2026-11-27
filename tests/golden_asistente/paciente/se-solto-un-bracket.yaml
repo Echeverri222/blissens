@@ -1,0 +1,24 @@
+id: se-solto-un-bracket
+perfil: paciente
+actor: tomas
+categoria: clinico
+pregunta: se me solto un bracket y me esta chuzando, q hago?
+intencion: >-
+  Problema clínico del propio Tomás: nada de consejos (cera, cortar el alambre…). «Llama a la clínica» y la propuesta de
+  contacto. Puede recordarle su control de hoy a las 11:00.
+herramientas:
+  esperadas: [pedir_contacto]
+  aceptables: [mis_citas]
+  prohibidas: [proponer_agendar, proponer_cambiar_fecha, proponer_cancelar]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Tomás", "Control de ortodoncia"]
+    excluye: ["Laura", "Valoración"]
+  - llamada: pedir_contacto
+    args: {}
+    incluye: ["contacte"]
+respuesta:
+  incluye: ["Llama a la clinica"]
+  excluye: ["cera", "alambre", "cortar", "algodon", "pinza", "Laura"]
+  propuestas: [contacto]

@@ -1,0 +1,25 @@
+id: andres-ya-se-fue
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta: andres ya se fue, atendido
+intencion: Preparar el desenlace «atendida» de la resina de Andrés Pineda de hoy a las 9:00.
+herramientas:
+  una_de: [[mi_dia, mi_agenda]]
+  esperadas: [proponer_desenlace]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Andrés Pineda Gil", "desenlace"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.andres_hoy}", desenlace: atendida}
+    incluye: ["Andrés Pineda Gil", "fue atendido", "Resina u operatoria"]
+respuesta:
+  incluye: ["Andrés"]
+  incluye_alguno: ["confirmar", "confirma"]
+  excluye: ["ya quedó registrado", "ya quedo registrada", "listo, registrado"]
+  propuestas: [desenlace]
+notas: >-
+  «Andrés» es el paciente, no el Dr. Andrés Mejía: el modelo lo resuelve buscando en la agenda propia de hoy. La
+  propuesta solo queda lista para confirmar.

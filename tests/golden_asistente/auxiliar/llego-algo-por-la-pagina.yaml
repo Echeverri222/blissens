@@ -1,0 +1,19 @@
+id: llego-algo-por-la-pagina
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: llego alguna solicitud por el formulario de la pagina?
+intencion: La solicitud de contacto web pendiente de esta mañana («Quiero información sobre blanqueamiento»).
+herramientas:
+  esperadas: [bandeja]
+  prohibidas: [buscar_pacientes]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: contactos}
+    incluye: ["Quiero información sobre blanqueamiento", "celular_ultimos4"]
+respuesta:
+  incluye: ["blanqueamiento"]
+  propuestas: []
+notas: >-
+  La solicitud trae los últimos 4 del celular y del documento (y el paciente, si el documento es de uno) para saber a quién
+  llamar; el número completo está en el panel. Sigue sin haber cómo marcarla gestionada desde el asistente (el panel sí).

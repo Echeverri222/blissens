@@ -11,7 +11,23 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import agenda, arranque, canales, clock, config, db, familia, fmt, links, logs, messaging, settings, tasks, usuarios
+from .. import (
+    agenda,
+    arranque,
+    canales,
+    clock,
+    config,
+    db,
+    familia,
+    fmt,
+    lifecycle,
+    links,
+    logs,
+    messaging,
+    settings,
+    tasks,
+    usuarios,
+)
 from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
@@ -306,11 +322,12 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
                       values={**values, "nombres": nombres, "apellidos": apellidos, "correo": correo,
                               "acepta_correo": acepta_correo, "consentimiento": consentimiento})
     now = clock.now(conn)
+    en_ingles = lang == "en"  # quien se registra en el sitio en inglés queda marcado como internacional (la recepción lo revisa)
     pid = conn.execute(
-        "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, consentimiento_version, creado_en) "
-        "values (%s,%s,%s,%s,%s,%s,%s) returning id",
+        "insert into paciente(nombres, apellidos, documento, celular, consentimiento_en, consentimiento_version, creado_en, "
+        "internacional, segmento_origen, segmento_marcado_en) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
         (nombres.strip(), apellidos.strip(), documento, phone, now, config.get(conn, "consentimiento_version"),
-         now)).fetchone()["id"]
+         now, en_ingles, "sitio_en" if en_ingles else None, now if en_ingles else None)).fetchone()["id"]
     if correo.strip():
         correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
     return ir(f"/p/{links.make_token(pid, conn=conn)}/nueva")
@@ -376,8 +393,12 @@ def mis_citas(request: Request, token: str, aviso: str = "", cita: int | None = 
     fams = familia.familiares(conn, p["id"])
     responsable = familia.responsable_de(conn, p)
     hoy = clock.now(conn).astimezone(clock.TZ).date()
-    return render(request, "mis_citas.html", p=p, token=token, citas=_appointments(conn, familia.ids_del_hogar(conn, p)),
-                  aviso=aviso, familiares=fams, responsable=responsable, siguientes=_siguientes(conn, p, fams, cita),
+    # El acceso al asistente solo existe si sus rutas están registradas y el negocio lo encendió para los pacientes.
+    asistente = bool(request.app.state.asistente) and bool(config.get(conn, "asistente_pacientes"))
+    citas = _appointments(conn, familia.ids_del_hogar(conn, p))
+    ahora = clock.now(conn)
+    return render(request, "mis_citas.html", p=p, token=token, asistente=asistente, citas=citas,
+                  confirmables={c["id"] for c in citas if _confirmable(c, ahora)}, aviso=aviso, familiares=fams, responsable=responsable, siguientes=_siguientes(conn, p, fams, cita),
                   menor=familia.es_menor(p["fecha_nacimiento"], hoy))
 
 
@@ -562,6 +583,30 @@ def cambiar_post(request: Request, token: str, cita_id: int, inicio: str = Form(
     resp = HTMLResponse("")
     resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote(f"Cambiamos la fecha de {quien}.")
     return resp
+
+
+def _confirmable(c: dict, ahora: datetime) -> bool:
+    """Una cita que la persona puede confirmar desde su enlace: viva, sin confirmar y que aún no empieza."""
+    return c["estado"] in ("programada", "no_confirmada") and c["rango"] is not None and c["rango"].lower > ahora
+
+
+@publico.post("/p/{token}/confirmar/{cita_id}", response_class=HTMLResponse)
+def confirmar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlace)):
+    """«Sí, asistiré» desde el enlace: el mismo paso que el botón del recordatorio, sin mensaje de vuelta (lo ve en pantalla)."""
+    p = patient_from_token(conn, token)
+    c = _cita_del_hogar(conn, p, cita_id)
+    s = _sujeto(conn, p, c["paciente_id"])
+    quien = "tu cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
+    if c["estado"] == "confirmada":
+        aviso = f"{quien[0].upper()}{quien[1:]} ya estaba confirmada."
+    elif not _confirmable(c, clock.now(conn)):
+        aviso = f"{quien[0].upper()}{quien[1:]} ya empezó: no se puede confirmar."
+    else:
+        lifecycle.transition(conn, cita_id, "confirmada", "paciente", "Confirmó desde su enlace")
+        aviso = f"Listo: confirmamos {quien}. ¡Te esperamos!"
+    if request.headers.get("HX-Request") == "true":
+        return render(request, "_asistente_contacto.html", aviso=aviso)
+    return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
 
 
 @publico.get("/p/{token}/cancelar/{cita_id}", response_class=HTMLResponse)
@@ -759,16 +804,28 @@ def salud(conn=Depends(get_conn)):
     return {"ok": True}
 
 
-def crear_app(entorno: str | None = None) -> FastAPI:
-    """Construye la aplicación del entorno: lo que ese entorno no permite NO se registra como ruta (PRD #4, D7)."""
+def crear_app(entorno: str | None = None, asistente: bool | None = None) -> FastAPI:
+    """Construye la aplicación del entorno: lo que ese entorno no permite NO se registra como ruta (PRD #4, D7).
+
+    `asistente`: sin la clave de la API (`ANTHROPIC_API_KEY`) las rutas del asistente no existen. El generador del esquema
+    OpenAPI lo pide siempre (`True`) para que el contrato las incluya.
+    """
     entorno = entorno or settings.ENTORNO
+    if asistente is None:
+        asistente = settings.asistente_configurado()
     if entorno != "local" and not os.environ.get("PYTEST_CURRENT_TEST"):
         arranque.exigir(entorno)
     app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas")
     app.state.entorno = entorno
+    app.state.asistente = bool(asistente)
     registrar_errores(app)
     logs.instalar(app)
     app.include_router(api_router)
+    if asistente:
+        from ..api.asistente import router as asistente_router
+        app.include_router(asistente_router)
+        from .asistente_paciente import router as asistente_paciente_router
+        app.include_router(asistente_paciente_router)
     app.include_router(panel_router)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(publico)

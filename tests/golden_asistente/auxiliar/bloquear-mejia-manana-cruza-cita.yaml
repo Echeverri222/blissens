@@ -1,0 +1,28 @@
+id: bloquear-mejia-manana-cruza-cita
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: el dr Mejia avisa que mañana no viene en la mañana, bloqueale de 8 a 12
+intencion: >-
+  El bloqueo se rechaza porque cruza la valoración de Laura Gómez mañana 9:00 con el Dr. Mejía: el asistente dice quién es y
+  que primero hay que moverla. No deja ninguna propuesta.
+herramientas:
+  una_de: [[proponer_bloqueo, agenda, detalle_cita]]
+  prohibidas: [proponer_cancelar]
+contexto:
+  - llamada: proponer_bloqueo
+    args: {profesional_id: "{pro.mejia}", inicio: "{fecha.manana}T08:00:00", fin: "{fecha.manana}T12:00:00", motivo: "No viene en la mañana"}
+    error: accion_no_permitida
+  - llamada: agenda
+    args: {desde: "{fecha.manana}", profesional_id: "{pro.mejia}"}
+    incluye: ["Laura Gómez Arango", "{fecha.manana}T09:00"]
+  - llamada: detalle_cita
+    args: {cita_id: "{cita.laura_manana}"}
+    incluye: ["Laura Gómez Arango", "cambiar_fecha"]
+respuesta:
+  incluye: ["Laura"]
+  incluye_alguno: ["mover", "cambiar", "reprogramar", "cruza"]
+  propuestas: []
+notas: >-
+  El error de `proponer_bloqueo` solo trae los ids de las citas que cruzan; para decir «la de Laura a las 9» el modelo tiene que
+  leer la agenda o el detalle. Vale tanto mirar la agenda antes como intentar el bloqueo y explicar el rechazo.

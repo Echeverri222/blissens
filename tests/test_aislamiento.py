@@ -217,10 +217,11 @@ def test_migraciones_subir_bajar_y_comparar_esquema():
         assert migrate.run(url) and migrate.verificar(url) == []
         assert not migrate.run(url)  # al día
         with pytest.raises(migrate.SinReversa):
-            migrate.bajar(url, 8)  # deshace de la 014 a la 008; la 007 contrae y es irreversible
+            migrate.bajar(url, 10)  # deshace de la 016 a la 007; la 007 contrae y es irreversible
         assert migrate.run(url) == ["008_canal_idempotencia.sql", "009_cerrar_api_de_datos.sql",
                                     "010_funciones_auxiliares_privadas.sql", "011_correo.sql", "012_familia.sql",
-                                    "013_valor_servicio.sql", "014_resolucion_pendientes.sql"]
+                                    "013_valor_servicio.sql", "014_resolucion_pendientes.sql", "015_asistente.sql",
+                                    "016_segmentos.sql"]
         # una migración ya aplicada y modificada hace fallar
         c = db.connect_admin(url)
         c.execute("update migracion set huella='x' where nombre='003_negocio.sql'")
@@ -242,3 +243,26 @@ def test_nuevo_negocio_por_comando_agenda_en_su_prefijo(conn):
     r = cli.get("/n/demo-dos/agendar")
     assert r.status_code == 200 and "Demo Dos" in r.text
     assert nuevo_cliente().get("/agendar").text.count("Blissens") >= 1
+
+
+def test_asistente_un_negocio_no_ve_ni_toca_las_conversaciones_de_otro_ni_las_cuelga(conn, dos):
+    cb = dos["cb"]
+    cid = conn.execute("insert into asistente_conversacion(perfil, paciente_id) values ('paciente', %s) returning id",
+                       (dos["pa"],)).fetchone()["id"]
+    conn.execute("insert into asistente_mensaje(conversacion_id, rol, contenido) values (%s,'user','[]'::jsonb)", (cid,))
+    conn.commit()
+    for t in ("asistente_conversacion", "asistente_mensaje"):
+        assert cb.execute(f"select count(*) n from {t}").fetchone()["n"] == 0, t
+        assert cb.execute(f"update {t} set negocio_id=negocio_id where negocio_id=%s", (dos["a"],)).rowcount == 0, t
+        assert cb.execute(f"delete from {t} where negocio_id=%s", (dos["a"],)).rowcount == 0, t
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):  # indicando el negocio A
+        cb.execute("insert into asistente_conversacion(negocio_id, perfil, paciente_id) values (%s,'paciente',%s)",
+                   (dos["a"], dos["pb"]))
+    cb.rollback()
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):  # colgar un mensaje de la conversación de A
+        cb.execute("insert into asistente_mensaje(conversacion_id, rol, contenido) values (%s,'user','[]'::jsonb)", (cid,))
+    cb.rollback()
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):  # una conversación de B sobre un paciente de A
+        cb.execute("insert into asistente_conversacion(perfil, paciente_id) values ('paciente', %s)", (dos["pa"],))
+    cb.rollback()
+    assert conn.execute("select count(*) n from asistente_mensaje").fetchone()["n"] == 1

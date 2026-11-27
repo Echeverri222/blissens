@@ -1,0 +1,26 @@
+id: cancelar-la-del-nino-hoy
+perfil: paciente
+actor: laura
+categoria: accion
+pregunta: cancelame la del niño de hoy porfa, no alcanzamos a llegar
+intencion: Preparar la cancelación de la cita de Tomás de hoy a las 11:00 (control de ortodoncia con la Dra. Ríos).
+herramientas:
+  esperadas: [mis_citas, proponer_cancelar]
+  prohibidas: [proponer_cambiar_fecha, pedir_contacto]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Tomás", "Control de ortodoncia", "martes 17 de noviembre a las 11:00 a. m."]
+  - llamada: proponer_cancelar
+    args: {cita_id: "{cita.tomas_hoy}"}
+    incluye: ["Cancelar la cita de Tomás", "Control de ortodoncia"]
+  - llamada: proponer_cancelar
+    args: {cita_id: "{cita.laura_hoy}"}
+    error: no_existe
+respuesta:
+  incluye: ["Tomas"]
+  excluye: ["quedo cancelada", "ya la cancele", "ya esta cancelada", "Laura"]
+  propuestas: [cancelar]
+notas: >-
+  Solo una cancelación: la de Tomás, no la de Laura de mañana. La limpieza de Laura de hoy ya pasó y no se puede cancelar
+  (la llamada canónica lo comprueba). La pantalla de cancelar pide el motivo; el asistente no lo necesita.

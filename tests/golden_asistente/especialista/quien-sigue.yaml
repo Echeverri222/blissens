@@ -1,0 +1,23 @@
+id: quien-sigue
+perfil: especialista
+actor: rios
+categoria: agenda
+pregunta: ¿Quién sigue?
+intencion: La próxima cita de hoy de la Dra. Ríos después de las 10:30 (Tomás, 11:00, control de ortodoncia).
+herramientas:
+  una_de: [[mi_dia, mi_agenda]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: mi_dia
+    incluye: ['"siguiente"', "Tomás", "Control de ortodoncia"]
+    excluye: ["Lucía", "Sara Morales"]
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Tomás", "Control de ortodoncia", "Paula"]
+    excluye: ["Lucía", "Sara Morales"]
+respuesta:
+  incluye: ["Tomás"]
+  incluye_alguno: ["11:00", "11 a", "11am", "once"]
+  excluye: ["Lucía", "Andrés"]
+  propuestas: []
+notas: Hoy el modelo filtra él mismo la agenda del día por la hora del contexto (gap 2 del PRD fase 2, mi_dia).

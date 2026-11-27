@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: golden-update respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
+.PHONY: golden-asistente golden-asistente-vivo asistente-charla golden-update respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
 
 db-up:
 	docker compose up -d --wait db
@@ -33,6 +33,20 @@ dev: db-up panel-deps
 	uv run python -m estudia.worker & \
 	(cd panel && npm run build:watch) & \
 	wait
+
+# Golden cases del asistente (tests/golden_asistente/README.md). Sin modelo: estructura, herramientas y contexto.
+golden-asistente: db-up
+	uv run pytest tests/test_golden_asistente.py -q
+
+# Con el modelo real, sobre el mundo ficticio: ASISTENTE_EVAL_KEY=... make golden-asistente-vivo [K=especialista]
+#   o en Bedrock: ASISTENTE_EVAL_PROVEEDOR=bedrock ASISTENTE_EVAL_MODELO=claude-sonnet-5-5 make golden-asistente-vivo
+golden-asistente-vivo: db-up
+	ASISTENTE_EN_VIVO=1 uv run pytest tests/test_golden_asistente.py -q -k "en_vivo $(if $(K),and $(K),)" ; \
+	uv run python scripts/informe_golden_asistente.py
+
+# Una pregunta libre al modelo real: make asistente-charla ACTOR=rios PREGUNTA="¿quién sigue? || ábreme esa cita"
+asistente-charla: db-up
+	ASISTENTE_PREGUNTA="$(PREGUNTA)" ASISTENTE_ACTOR="$(or $(ACTOR),marta)" uv run pytest tests/test_golden_asistente.py -q -s -k charla
 
 golden-update: db-up
 	GOLDEN_UPDATE=1 uv run pytest tests/test_golden.py

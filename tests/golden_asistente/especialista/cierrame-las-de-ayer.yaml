@@ -1,0 +1,34 @@
+id: cierrame-las-de-ayer
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta: "ciérrame las de ayer: Jorge vino, Mateo no"
+intencion: >-
+  Dos propuestas, una por cita: la limpieza de Jorge de ayer 09:00 como atendida y la valoración de Mateo de ayer 15:00 como
+  no asistió. Sara (ayer 10:00) ya está cerrada y no se toca.
+herramientas:
+  esperadas: [proponer_desenlace]
+  una_de: [[mi_agenda, citas_sin_desenlace, mi_dia]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.ayer}"}
+    incluye: ["Jorge Ramírez Soto", "Mateo Ruiz Cano", "Sara"]
+    excluye: ["Diego"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.jorge_ayer}", desenlace: atendida}
+    incluye: ["Jorge Ramírez Soto", "fue atendido"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.mateo_ayer}", desenlace: no_asistio}
+    incluye: ["Mateo Ruiz Cano", "no asistió"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.sara_ayer}", desenlace: atendida}
+    error: accion_no_permitida
+respuesta:
+  incluye: ["Jorge", "Mateo"]
+  incluye_alguno: ["confirmar", "confirma"]
+  excluye: ["Diego"]
+  propuestas: [desenlace, desenlace]
+notas: >-
+  Una propuesta por cita (PRD fase 2, B2: no hay «confirmar todas»). Diego faltó ayer, pero con el Dr. Mejía: no es de
+  la Dra. Ríos y no debe salir.

@@ -9,7 +9,7 @@ Especificación: [issue #1 (PRD)](https://github.com/Echeverri222/blissens/issue
 ## Requisitos
 
 Docker (PostgreSQL), Python 3.12+, [`uv`](https://docs.astral.sh/uv/) y Node 20+ (para el panel). Nada más. Tras instalar
-dependencias el sistema funciona sin conexión a internet: el panel no hace ninguna petición a terceros (la tipografía va empaquetada).
+dependencias el sistema funciona sin conexión a internet: el panel no hace ninguna petición a terceros (la tipografía va empaquetada). La única excepción es el asistente, apagado por defecto (ver *Asistente*).
 
 ## Comandos
 
@@ -102,6 +102,7 @@ Trabajador (ciclo de tareas) ───────┘─────────
 | `usuarios`, `permisos` | Usuarios, contraseñas (`scrypt`), sesiones por cookie y una sola función de permisos por rol |
 | `horario` | Horario semanal y bloqueos (rechazan si hay citas vivas; anulan cupos y ofertas cruzados) |
 | `pacientes` | Alta de pacientes con consentimiento |
+| `asistente/` | Catálogo cerrado de herramientas por perfil, despachador único, ciclo con la API de Claude y servidor MCP local (ADR 0009) |
 | `api/` | Rutas `/api/v1` delgadas, modelos de entrada/salida y traducción de errores; el esquema OpenAPI es el contrato |
 
 Decisiones clave:
@@ -117,6 +118,67 @@ Decisiones clave:
 - Zona horaria `America/Bogota`. La API y el panel exigen sesión; el simulador y `/tick` solo existen en `local`/`demo` (`/tick` exige `X-Tick-Secreto` fuera de local).
 - **Un negocio hoy, N mañana (PRD #4)**: todas las tablas llevan `negocio_id` con RLS forzada; el código de dominio no lo menciona (el negocio activo es un ajuste de la conexión). La aplicación usa el rol `estudia_app` (sin privilegios) y las migraciones/CLI el rol administrador (`DATABASE_URL_ADMIN`). Migraciones propias con reversa: `make migrar ARGS="estado|subir|bajar|verificar"`. Nuevo negocio: `make negocio ARGS="crear ..."`. Fuera de `local` la aplicación se niega a arrancar con configuración insegura. Administración (`/api/v1/admin/usuarios` y sección *Administración* del panel, solo para administradores): alta con contraseña temporal que se muestra una vez y debe cambiarse al ingresar, quitar/devolver acceso, cambiar permisos y no dejar el negocio sin administrador. Canal de mensajes con puerto y webhook (`POST /canales/{tipo}/webhook`); registro de accesos a datos de pacientes, retención y anonimizado; registro JSON por petición sin datos personales. Despliegue preparado y no realizado: `Dockerfile`, `render.yaml` (Render + Supabase, solo datos ficticios) y CI en `.github/workflows/ci.yml`. Decisiones en `docs/adr/` y vocabulario en `GLOSSARY.md`.
 - **El panel no calcula nada de negocio**: qué botones muestra cada cita lo decide la API (`acciones`), la hora "de ahora" es la del sistema y no la del navegador, y los mensajes de error son los de la API.
+
+## Asistente (apagado por defecto)
+
+Un asistente conversacional para el equipo (cajón *Asistente* del panel) y para los pacientes (desde su enlace personal).
+Responde con un catálogo cerrado de herramientas según el perfil (`paciente`, `especialista`, `auxiliar`) y **nunca escribe**:
+prepara propuestas que la persona confirma, y la acción corre por la ruta que ya existía. Especificación en
+`docs/prd-asistente.md`; decisión en `docs/adr/0009-asistente.md`.
+
+Es la única función que hace una petición a un tercero (la API de Claude, desde el servidor). Sin `ANTHROPIC_API_KEY` sus
+rutas no existen y nada cambia (en Bedrock, sin `AWS_REGION`). Para probarlo en local:
+
+1. `make migrar ARGS=subir` (migración 015).
+   - **En Amazon Bedrock** en vez de la API de Claude: en `.env`, `ASISTENTE_PROVEEDOR=bedrock`, `AWS_REGION=us-east-1` y,
+     si el perfil de `~/.aws` no es el default, `AWS_PROFILE=...` (por ejemplo tras `aws login --profile ...`). El modelo debe
+     tener aceptado el acuerdo en Bedrock; el código le pone el prefijo `anthropic.` al id, y la reserva del servidor
+     (`fallbacks`) no existe allí.
+2. Agrega `ANTHROPIC_API_KEY=...` a `.env` y reinicia `make dev`. El modelo se elige con `ASISTENTE_MODELO` y
+   `ASISTENTE_MODELO_PACIENTE` (por defecto `claude-opus-5-5`).
+3. Enciéndelo para el negocio: `make negocio ARGS="config blissens asistente_equipo true"` y, para los pacientes,
+   `make negocio ARGS="config blissens asistente_pacientes true"`.
+4. Equipo: entra al panel y abre *Asistente* (arriba a la derecha). Pacientes: abre un enlace `/p/<token>` y usa
+   *Preguntarle al asistente*; pide un consentimiento aparte antes de la primera pregunta.
+
+**Lo precargado y las guías.** Cada mensaje viaja con un bloque `<precargado>`: lo que devuelven, al llegar el mensaje,
+las herramientas que responden lo más común (recepción: resumen y agenda de hoy, datos del negocio, servicios y motivos de
+cancelación; especialista: su día; paciente: las citas de su hogar, servicios y datos del negocio). Así "¿quién sigue?" o
+"¿a qué hora es mi cita?" se responden sin una vuelta más al modelo. Pasa por el despachador (mismos permisos, alcance y
+auditoría) y no se guarda en el historial. Las instrucciones de cada perfil (`instrucciones.py`) traen guías por tarea:
+los pasos, herramientas y datos de agendar, cambiar fecha, cancelar, confirmar, cerrar citas y demás.
+
+Topes por negocio (`make negocio ARGS="config ..."`): `asistente_mensajes_dia_usuario` (200), `asistente_mensajes_dia_paciente`
+(20 por hogar), `asistente_tokens_dia` (2 000 000) y `retencion_asistente_dias` (30).
+
+**Servidor MCP local.** `.mcp.json` registra `uv run python -m estudia.asistente.mcp` para una sesión de Claude Code abierta en
+el repositorio: da las herramientas del perfil `operador` (las de lectura, `esquema` y `consulta_sql`, que solo acepta `select`) sobre la base
+local. Solo arranca con `ENTORNO=local`.
+
+`estudia-auxiliar` y `estudia-paciente` (mismo módulo con `--perfil auxiliar|paciente`, y `--usuario`/`--paciente` para elegir
+quién) exponen exactamente el catálogo y el alcance de ese perfil, con las mismas instrucciones del asistente. Los subagentes
+`.claude/agents/asistente-auxiliar.md` y `asistente-paciente.md` hacen de asistente solo con esas herramientas: sirven para
+iterar herramientas, instrucciones y golden cases sin gastar en el modelo; el prompt abre con el bloque de
+`uv run python -m estudia.asistente.mcp --perfil paciente --contexto`. Se generan desde `instrucciones.py` con
+`uv run python scripts/agentes_asistente.py` (una prueba falla si quedan desactualizados). La elección de herramientas y la
+velocidad reales del modelo del asistente solo se prueban en la interfaz.
+
+**Golden cases.** `tests/golden_asistente/` guarda preguntas reales del día a día (recepción, especialistas y pacientes) sobre
+un mundo ficticio, cada una con las herramientas que deben responderla y lo que la respuesta debe y no debe decir. Formato y
+mundo en `tests/golden_asistente/README.md`.
+
+- `make golden-asistente`: sin modelo. Comprueba que cada pregunta se puede responder con el catálogo del perfil, que las
+  llamadas canónicas traen el contexto correcto y que cada herramienta tiene al menos un caso.
+- En Bedrock, en lugar de `ASISTENTE_EVAL_KEY=...`: `ASISTENTE_EVAL_PROVEEDOR=bedrock` (con la región y el perfil de `.env`); las
+  pruebas no leen `ASISTENTE_MODELO` de `.env`, así que el modelo va en `ASISTENTE_EVAL_MODELO` (por ejemplo `claude-sonnet-5-5`).
+- `ASISTENTE_EVAL_KEY=... make golden-asistente-vivo [K=paciente]`: con el modelo real (`ASISTENTE_EVAL_MODELO` para probar
+  otro). Califica qué herramientas eligió, qué propuestas preparó y qué dijo, y resume el informe de `.logs/golden-asistente/`.
+- `ASISTENTE_EVAL_KEY=... make asistente-charla ACTOR=rios PREGUNTA="¿quién sigue? || ábreme esa cita"`: una conversación libre.
+- El agente `.claude/agents/usuario-clinica.md` simula a una persona de la clínica y escribe casos nuevos.
+
+> **Solo con datos ficticios.** Todo lo que una herramienta devuelve se envía a Anthropic, tanto desde el asistente como desde
+> la sesión de Claude Code con el servidor MCP. No lo uses después de `make importar` con los Excel reales, y no enciendas el
+> asistente de pacientes en `produccion` hasta que la empresa confirme el tratamiento de datos por un tercero (ADR 0009).
 
 ## Privacidad y datos reales
 

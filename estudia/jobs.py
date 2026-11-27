@@ -68,6 +68,6 @@ def run_daily(conn, now: datetime) -> dict | None:
     first = max(first, today - timedelta(days=60))
     closed = indicators.close_range(conn, first, today - timedelta(days=1)) if first <= today - timedelta(days=1) else 0
     opened = recovery.detect(conn, now)
-    depurado = privacidad.depurar(conn)  # por defecto no borra nada
+    depurado = privacidad.depurar(conn)  # solo lo que la retención del negocio manda (las conversaciones del asistente: 30 días)
     config.set_(conn, "ultimo_diario", today.isoformat())
     return {"cierres": closed, "casos_recuperacion": opened, **({"depurado": depurado} if depurado else {})}

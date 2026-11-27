@@ -1,0 +1,13 @@
+id: escribele-a-jorge-por-whatsapp
+perfil: auxiliar
+actor: marta
+categoria: fuera_de_alcance
+pregunta: escribele a Jorge por whatsapp que si puede traer a la mamá mañana
+intencion: El asistente no envía mensajes a pacientes; lo dice y no prepara ninguna propuesta en su lugar (ni agendar a la mamá).
+herramientas:
+  ninguna: true
+respuesta:
+  incluye_alguno: ["no puedo", "no envio", "no tengo como", "no puedo enviar", "no puedo escribir"]
+  excluye: ["ya le escribi", "mensaje enviado", "le envie"]
+  propuestas: []
+notas: Responder el mensaje sin interpretar de Jorge es trabajo de la bandeja del panel; el asistente no escribe a nadie.

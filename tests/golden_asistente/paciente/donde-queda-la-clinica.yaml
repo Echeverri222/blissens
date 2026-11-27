@@ -1,0 +1,16 @@
+id: donde-queda-la-clinica
+perfil: paciente
+actor: jorge
+categoria: negocio
+pregunta: donde queda la clinica? es q nunca he ido
+intencion: La dirección de la clínica (Calle 10 # 43-20, consultorio 301, Medellín).
+herramientas:
+  esperadas: [datos_del_negocio]
+  prohibidas: [pedir_contacto]
+contexto:
+  - llamada: datos_del_negocio
+    args: {}
+    incluye: ["Calle 10 # 43-20", "consultorio 301", "Medellín", "Blissens Odontología"]
+respuesta:
+  incluye: ["Calle 10", "43-20", "301"]
+  propuestas: []

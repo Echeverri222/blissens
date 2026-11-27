@@ -1,0 +1,30 @@
+id: abreme-la-que-sigue
+perfil: especialista
+actor: rios
+categoria: agenda
+pregunta:
+  - quien sigue?
+  - abreme esa cita, ya confirmo?
+intencion: >-
+  La siguiente es la de Tomás a las 11:00 (control de ortodoncia). Al abrirla, el detalle dice que está programada: no ha
+  confirmado.
+herramientas:
+  una_de: [[mi_dia, mi_agenda]]
+  esperadas: [detalle_cita]
+  prohibidas: [ficha_paciente, buscar_pacientes]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Tomás", "11:00"]
+  - llamada: detalle_cita
+    args: {cita_id: "{cita.tomas_hoy}"}
+    incluye: ["Tomás Gómez Arango", "programada", "Control de ortodoncia", "historial"]
+    excluye: ["Laura", "+57", "1020304050"]
+respuesta:
+  incluye: ["Tomás"]
+  incluye_alguno: ["no ha confirmado", "sin confirmar", "no esta confirmada", "programada", "no confirmo", "no confirmó"]
+  excluye: ["Paula", "Lucía"]
+  propuestas: []
+notas: >-
+  El segundo turno depende del primero («esa cita»): el modelo debe reusar el id de Tomás, no volver a preguntar. El
+  detalle no trae datos de contacto del responsable (Laura) ni el documento.

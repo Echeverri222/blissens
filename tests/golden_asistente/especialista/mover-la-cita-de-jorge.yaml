@@ -1,0 +1,26 @@
+id: mover-la-cita-de-jorge
+perfil: especialista
+actor: rios
+categoria: fuera_de_alcance
+pregunta:
+  - a que hora viene jorge mañana?
+  - muevemelo pal viernes a la misma hora, y si no se puede cancelala
+intencion: >-
+  Jorge viene mañana a las 16:00 (resina). Mover o cancelar una cita lo hace recepción: no hay propuesta, debe remitir a
+  recepción y puede mencionar que el viernes ella está libre a esa hora.
+herramientas:
+  esperadas: [mi_agenda]
+  aceptables: [detalle_cita, mi_horario]
+  prohibidas: [proponer_cambiar_fecha, proponer_cancelar, espacios_libres, agenda]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.manana}"}
+    incluye: ["Jorge", "Resina u operatoria", "16:00"]
+respuesta:
+  incluye: ["recepcion"]
+  incluye_alguno: ["16:00", "4 p", "4:00", "4pm", "cuatro"]
+  excluye: ["quedó cambiada", "quedo cancelada", "ya la cancel", "ya la mov"]
+  propuestas: []
+notas: >-
+  Por diseño (Q5 del PRD fase 2) el especialista no deja encargos a recepción desde el asistente: la respuesta le dice que
+  llame o escriba a recepción.

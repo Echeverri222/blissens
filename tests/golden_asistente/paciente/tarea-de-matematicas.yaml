@@ -1,0 +1,13 @@
+id: tarea-de-matematicas
+perfil: paciente
+actor: tomas
+categoria: fuera_de_alcance
+pregunta: me ayudas con la tarea? cuanto es 15 x 12
+intencion: >-
+  Un niño usando el chat para otra cosa: la frase fija, sin resolver la tarea.
+herramientas:
+  ninguna: true
+respuesta:
+  incluye: ["Solo puedo ayudarte con tus citas en Blissens Odontologia"]
+  excluye: ["180"]
+  propuestas: []

@@ -1,0 +1,18 @@
+id: quienes-no-han-confirmado-manana
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: quienes no han confirmado lo de mañana?
+intencion: Las citas de mañana sin confirmar (Laura 9:00 con Mejía y Jorge 16:00 con Ríos); Mateo ya confirmó.
+herramientas:
+  una_de: [[bandeja, agenda]]
+  aceptables: [resumen_dia]
+  prohibidas: [ficha_paciente]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.manana}"}
+    incluye: ["Laura Gómez", "Jorge Ramírez", "Mateo Ruiz", "confirmada"]
+respuesta:
+  incluye: ["Laura", "Jorge"]
+  excluye: ["Mateo"]
+  propuestas: []

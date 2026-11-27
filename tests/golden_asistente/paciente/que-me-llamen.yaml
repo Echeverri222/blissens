@@ -1,0 +1,19 @@
+id: que-me-llamen
+perfil: paciente
+actor: jorge
+categoria: accion
+pregunta: me pueden llamar? tengo una pregunta sobre lo de mañana
+intencion: Preparar la solicitud de que la clínica llame a Jorge.
+herramientas:
+  esperadas: [pedir_contacto]
+  aceptables: [mis_citas]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+contexto:
+  - llamada: pedir_contacto
+    args: {}
+    incluye: ["Pedir que la clínica te contacte"]
+respuesta:
+  excluye: ["te llamaran", "ya avise", "ya les avise", "ya quedo"]
+  propuestas: [contacto]
+notas: >-
+  La propuesta solo queda lista para confirmar: el modelo no puede decir que ya avisó a la clínica.
