@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BellOff } from "lucide-react";
@@ -153,13 +153,16 @@ const ORIGEN_MARCA = {
 /** Internacional y deportista de alto nivel: los segmentos que la clínica quiere atender primero. Se guardan al marcar. */
 function MarcasAltoValor({ f }: { f: FichaCompleta }) {
   const p = f.paciente;
-  // Lo último que se guardó manda hasta que llegue la ficha nueva: así marcar una casilla tras otra no deshace la primera.
-  const [guardado, setGuardado] = useState<Segmentos | null>(null);
-  const m = useAccion((s: Segmentos) => api.pacientes.segmentos(p.id, s),
-    { ok: "Marca guardada", alExito: (d) => setGuardado({ internacional: d.internacional, deportista: d.deportista }) });
+  // Lo último que se guardó manda mientras la ficha siga siendo la de antes de guardar: así marcar una casilla tras
+  // otra no deshace la primera. En cuanto llega la ficha nueva, manda ella.
   const desdeFicha = { internacional: p.internacional, deportista: p.deportista };
-  const vigente = m.isPending ? m.variables! : guardado && (guardado.internacional !== desdeFicha.internacional || guardado.deportista !== desdeFicha.deportista) ? guardado : desdeFicha;
-  useEffect(() => { if (guardado && vigente === desdeFicha) setGuardado(null); }, [guardado, vigente, desdeFicha]);
+  const [guardado, setGuardado] = useState<{ valor: Segmentos; antes: Segmentos } | null>(null);
+  const m = useAccion((s: Segmentos) => api.pacientes.segmentos(p.id, s), {
+    ok: "Marca guardada",
+    alExito: (d) => setGuardado({ valor: { internacional: d.internacional, deportista: d.deportista }, antes: desdeFicha }),
+  });
+  const fichaVieja = guardado && guardado.antes.internacional === desdeFicha.internacional && guardado.antes.deportista === desdeFicha.deportista;
+  const vigente = m.isPending ? m.variables! : fichaVieja ? guardado.valor : desdeFicha;
   const cambiar = (s: Partial<Segmentos>) => m.mutate({ ...vigente, ...s });
   const nota = p.segmento_origen ? ORIGEN_MARCA[p.segmento_origen] : null;
   return (
