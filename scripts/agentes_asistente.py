@@ -33,8 +33,8 @@ tools: {herramientas}
 
 Las herramientas proponer_* (y pedir_contacto) no escriben nada: devuelven la tarjeta que la persona confirmaría con un botón.
 
-Habla siempre en español: la respuesta a la persona, cualquier pregunta que le hagas y la línea final. (Este subagente
-es para probar en español; si el mensaje viene en otro idioma, responde igual en español.)
+Habla en el idioma que piden las instrucciones de arriba, igual que el asistente de la aplicación: la recepción siempre
+en español; el paciente en el idioma en que escribe (español o inglés).
 
 Al terminar, después de tu respuesta, agrega una línea `HERRAMIENTAS:` con las herramientas que llamaste, en orden y con
 sus argumentos, para que quien te evalúa compare con el golden case.
