@@ -811,7 +811,7 @@ def crear_app(entorno: str | None = None, asistente: bool | None = None) -> Fast
     """
     entorno = entorno or settings.ENTORNO
     if asistente is None:
-        asistente = bool(settings.ANTHROPIC_API_KEY)
+        asistente = settings.asistente_configurado()
     if entorno != "local" and not os.environ.get("PYTEST_CURRENT_TEST"):
         arranque.exigir(entorno)
     app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas")

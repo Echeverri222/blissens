@@ -127,9 +127,13 @@ prepara propuestas que la persona confirma, y la acción corre por la ruta que y
 `docs/prd-asistente.md`; decisión en `docs/adr/0009-asistente.md`.
 
 Es la única función que hace una petición a un tercero (la API de Claude, desde el servidor). Sin `ANTHROPIC_API_KEY` sus
-rutas no existen y nada cambia. Para probarlo en local:
+rutas no existen y nada cambia (en Bedrock, sin `AWS_REGION`). Para probarlo en local:
 
 1. `make migrar ARGS=subir` (migración 015).
+   - **En Amazon Bedrock** en vez de la API de Claude: en `.env`, `ASISTENTE_PROVEEDOR=bedrock`, `AWS_REGION=us-east-1` y,
+     si el perfil de `~/.aws` no es el default, `AWS_PROFILE=...` (por ejemplo tras `aws login --profile ...`). El modelo debe
+     tener aceptado el acuerdo en Bedrock; el código le pone el prefijo `anthropic.` al id, y la reserva del servidor
+     (`fallbacks`) no existe allí.
 2. Agrega `ANTHROPIC_API_KEY=...` a `.env` y reinicia `make dev`. El modelo se elige con `ASISTENTE_MODELO` y
    `ASISTENTE_MODELO_PACIENTE` (por defecto `claude-opus-5-5`).
 3. Enciéndelo para el negocio: `make negocio ARGS="config blissens asistente_equipo true"` y, para los pacientes,
@@ -150,6 +154,8 @@ mundo en `tests/golden_asistente/README.md`.
 
 - `make golden-asistente`: sin modelo. Comprueba que cada pregunta se puede responder con el catálogo del perfil, que las
   llamadas canónicas traen el contexto correcto y que cada herramienta tiene al menos un caso.
+- En Bedrock, en lugar de `ASISTENTE_EVAL_KEY=...`: `ASISTENTE_EVAL_PROVEEDOR=bedrock` (con la región y el perfil de `.env`); las
+  pruebas no leen `ASISTENTE_MODELO` de `.env`, así que el modelo va en `ASISTENTE_EVAL_MODELO` (por ejemplo `claude-sonnet-5-5`).
 - `ASISTENTE_EVAL_KEY=... make golden-asistente-vivo [K=paciente]`: con el modelo real (`ASISTENTE_EVAL_MODELO` para probar
   otro). Califica qué herramientas eligió, qué propuestas preparó y qué dijo, y resume el informe de `.logs/golden-asistente/`.
 - `ASISTENTE_EVAL_KEY=... make asistente-charla ACTOR=rios PREGUNTA="¿quién sigue? || ábreme esa cita"`: una conversación libre.

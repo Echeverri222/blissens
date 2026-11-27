@@ -187,20 +187,25 @@ def test_cobertura_cada_perfil_tiene_casos_fuera_de_alcance_y_de_seguridad():
 # ------------------------------------------------------------------ con el modelo real
 
 class Grabadora:
-    """Envuelve el cliente real y anota cada herramienta que el modelo pidió, con sus argumentos."""
+    """Envuelve el cliente real y anota cada herramienta que el modelo pidió, con sus argumentos, y los tokens gastados."""
 
     def __init__(self, cliente):
-        self._cliente, self.llamadas = cliente, []
+        self._cliente, self.llamadas, self.uso = cliente, [], {}
         self.beta = type("B", (), {"messages": type("M", (), {"create": self._crear})()})()
 
     def _crear(self, **kw):
         r = self._cliente.beta.messages.create(**kw)
         self.llamadas += [{"nombre": b.name, "args": b.input} for b in r.content if getattr(b, "type", "") == "tool_use"]
+        for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
+            self.uso[k] = self.uso.get(k, 0) + (getattr(r.usage, k, 0) or 0)
         return r
 
 
 def _cliente_real():
     import anthropic
+    if settings.en_bedrock():  # el mismo cliente que la aplicación, con las credenciales de AWS
+        from estudia.asistente.conversacion import cliente_de_la_api
+        return cliente_de_la_api()
     clave = os.environ.get("ASISTENTE_EVAL_KEY")
     if not clave:
         pytest.skip("Falta ASISTENTE_EVAL_KEY (la clave de la API para evaluar)")
@@ -210,7 +215,14 @@ def _cliente_real():
 
 @pytest.fixture
 def modelo_real(monkeypatch):
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "evaluacion")
+    if os.environ.get("ASISTENTE_EVAL_PROVEEDOR") == "bedrock":  # conftest fija `anthropic`; la evaluación lo cambia aquí
+        region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+        if not region:
+            pytest.skip("Falta AWS_REGION para evaluar en Bedrock")
+        monkeypatch.setattr(settings, "ASISTENTE_PROVEEDOR", "bedrock")
+        monkeypatch.setattr(settings, "AWS_REGION", region)
+    else:
+        monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "evaluacion")
     if os.environ.get("ASISTENTE_EVAL_MODELO"):
         monkeypatch.setattr(settings, "ASISTENTE_MODELO", os.environ["ASISTENTE_EVAL_MODELO"])
         monkeypatch.setattr(settings, "ASISTENTE_MODELO_PACIENTE", os.environ["ASISTENTE_EVAL_MODELO"])
@@ -225,7 +237,8 @@ def _conversar(actor, turnos: list[str], cliente) -> dict:
         conv = r["conversacion_id"]
         respuestas.append(r["respuesta"])
         propuestas += r["propuestas"]
-    return {"respuestas": respuestas, "respuesta": respuestas[-1], "llamadas": g.llamadas, "propuestas": propuestas}
+    return {"respuestas": respuestas, "respuesta": respuestas[-1], "llamadas": g.llamadas, "propuestas": propuestas,
+            "uso": g.uso}
 
 
 def calificar(caso: dict, r: dict, w) -> list[str]:

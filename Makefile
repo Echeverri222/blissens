@@ -39,6 +39,7 @@ golden-asistente: db-up
 	uv run pytest tests/test_golden_asistente.py -q
 
 # Con el modelo real, sobre el mundo ficticio: ASISTENTE_EVAL_KEY=... make golden-asistente-vivo [K=especialista]
+#   o en Bedrock: ASISTENTE_EVAL_PROVEEDOR=bedrock ASISTENTE_EVAL_MODELO=claude-sonnet-5-5 make golden-asistente-vivo
 golden-asistente-vivo: db-up
 	ASISTENTE_EN_VIVO=1 uv run pytest tests/test_golden_asistente.py -q -k "en_vivo $(if $(K),and $(K),)" ; \
 	uv run python scripts/informe_golden_asistente.py

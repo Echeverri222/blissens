@@ -242,6 +242,33 @@ def test_el_paciente_usa_su_modelo_su_tope_de_salida_y_solo_sus_herramientas(mun
     assert "Ana" in p["messages"][0]["content"][0]["text"] and "Pérez" not in p["messages"][0]["content"][0]["text"]
 
 
+def test_en_bedrock_el_modelo_lleva_el_prefijo_y_no_se_pide_la_reserva_del_servidor(mundo, monkeypatch):
+    monkeypatch.setattr(settings, "ASISTENTE_PROVEEDOR", "bedrock")
+    monkeypatch.setattr(settings, "AWS_REGION", "us-east-1")
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    falso = Falso(responde("ok"))
+    conversar(mundo.aux, "Hola", cliente=falso)
+    p = falso.peticiones[0]
+    assert p["model"] == "anthropic.claude-opus-5-5"
+    assert "fallbacks" not in p and "betas" not in p  # Bedrock no tiene `fallbacks`: un rechazo da la respuesta fija
+    assert p["output_config"] == {"effort": "medium"} and p["cache_control"] == {"type": "ephemeral"}
+    assert conversacion.id_del_modelo("anthropic.claude-haiku-5-5") == "anthropic.claude-haiku-5-5"  # no se duplica
+
+
+def test_el_asistente_esta_configurado_con_la_clave_o_con_bedrock_y_su_region(monkeypatch):
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(settings, "AWS_REGION", "")
+    for proveedor, clave, region, esperado in (("anthropic", "", "", False), ("anthropic", "k", "", True),
+                                                ("bedrock", "k", "", False), ("bedrock", "", "us-east-1", True)):
+        monkeypatch.setattr(settings, "ASISTENTE_PROVEEDOR", proveedor)
+        monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", clave)
+        monkeypatch.setattr(settings, "AWS_REGION", region)
+        assert settings.asistente_configurado() is esperado, (proveedor, clave, region)
+    monkeypatch.setattr(conversacion, "_CLIENTE", None)
+    import anthropic
+    assert isinstance(conversacion.cliente_de_la_api(), anthropic.AnthropicBedrockMantle)  # sin llamar a la red
+
+
 def test_el_prompt_del_paciente_lleva_las_frases_fijas_del_prd():
     p = INSTRUCCIONES["paciente"]
     assert "Solo puedo ayudarte con tus citas en" in p and "Llama a la clínica" in p and "pedir_contacto" in p

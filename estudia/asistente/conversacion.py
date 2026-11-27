@@ -113,7 +113,7 @@ def _tokens_hoy(conn) -> int:
 
 
 def _encendido(conn, actor: Actor) -> bool:
-    return bool(settings.ANTHROPIC_API_KEY) and bool(config.get(conn, INTERRUPTOR[actor.perfil]))
+    return settings.asistente_configurado() and bool(config.get(conn, INTERRUPTOR[actor.perfil]))
 
 
 def estado(actor: Actor) -> dict:
@@ -233,10 +233,22 @@ def _reenviable(contenido: list[dict]) -> list[dict]:
 def cliente_de_la_api():
     """El cliente real de la API (una sola instancia). Las pruebas pasan uno falso a `conversar`."""
     global _CLIENTE
-    if _CLIENTE is None or _CLIENTE[0] != settings.ANTHROPIC_API_KEY:
+    llave = (settings.ASISTENTE_PROVEEDOR, settings.AWS_REGION if settings.en_bedrock() else settings.ANTHROPIC_API_KEY)
+    if _CLIENTE is None or _CLIENTE[0] != llave:
         import anthropic
-        _CLIENTE = (settings.ANTHROPIC_API_KEY, anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=1))
+        if settings.en_bedrock():  # credenciales de AWS por la cadena de siempre (o AWS_BEARER_TOKEN_BEDROCK)
+            cliente = anthropic.AnthropicBedrockMantle(aws_region=settings.AWS_REGION, max_retries=1)
+        else:
+            cliente = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=1)
+        _CLIENTE = (llave, cliente)
     return _CLIENTE[1]
+
+
+def id_del_modelo(modelo: str) -> str:
+    """El id que entiende el proveedor: en Bedrock los modelos de Claude llevan el prefijo `anthropic.`."""
+    if settings.en_bedrock() and not modelo.startswith("anthropic."):
+        return f"anthropic.{modelo}"
+    return modelo
 
 
 _CLIENTE = None
@@ -246,12 +258,12 @@ def _peticion(actor: Actor, aj: Ajustes, mensajes: list[dict]) -> dict:
     """La petición a `client.beta.messages.create`. El sistema y las herramientas son fijos por perfil, así que se cachean:
     `cache_control` en la raíz marca el último bloque cacheable (el historial crece sin cambiar lo anterior)."""
     modelo = aj.modelo()
-    p = {"model": modelo, "max_tokens": aj.max_tokens, "system": INSTRUCCIONES[actor.perfil],
+    p = {"model": id_del_modelo(modelo), "max_tokens": aj.max_tokens, "system": INSTRUCCIONES[actor.perfil],
          "tools": definiciones_api(actor.perfil), "messages": mensajes, "cache_control": {"type": "ephemeral"},
          "output_config": {"effort": aj.esfuerzo}}
     # El razonamiento siempre va activo en estos modelos (se omite `thinking`); no se envían `temperature`, `tool_choice` forzado
     # ni un turno del asistente al final (prefill): los rechazan.
-    if modelo in CON_RESERVA:
+    if modelo in CON_RESERVA and not settings.en_bedrock():  # Bedrock no tiene la reserva del servidor (`fallbacks`)
         p.update(betas=[BETA_FALLBACKS], fallbacks="default")
     return p
 
@@ -298,7 +310,7 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
     texto = (texto or "").strip()
     if not texto or len(texto) > aj.largo_mensaje:
         raise TextoInvalido(f"El mensaje debe tener entre 1 y {aj.largo_mensaje} caracteres.")
-    if cliente is None and not settings.ANTHROPIC_API_KEY:
+    if cliente is None and not settings.asistente_configurado():
         raise AsistenteApagado()
     inicio = time.monotonic()
     limite = inicio + TIEMPO_MAXIMO_S

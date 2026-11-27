@@ -16,6 +16,7 @@ dependencies = [
   "tzdata",
   "anthropic>=2.14.0",
   "mcp>=2,<3",
+  "boto3[crt]>=1.40",
 ]
 
 [dependency-groups]
