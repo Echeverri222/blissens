@@ -1,0 +1,18 @@
+id: direccion-y-si-abrimos-sabados
+perfil: auxiliar
+actor: marta
+categoria: negocio
+pregunta: un paciente pregunta la direccion exacta y si atendemos los sabados
+intencion: Calle 10 # 43-20, consultorio 301, Medellín; se atiende de lunes a viernes, los sábados no.
+herramientas:
+  esperadas: [datos_del_negocio]
+contexto:
+  - llamada: datos_del_negocio
+    incluye: ["Calle 10 # 43-20", "consultorio 301", "viernes", '"dias_sin_atencion": ["sábado", "domingo"]', '"hasta": "12:00"', '"desde": "13:00"']
+respuesta:
+  incluye: ["Calle 10", "301"]
+  incluye_alguno: ["no atendemos", "no se atiende", "lunes a viernes", "no abrimos", "sabados no"]
+  propuestas: []
+notas: >-
+  El horario trae sus franjas (cierra de 12:00 a 13:00) y los días sin atención, así que el sábado se responde con un dato
+  y no por ausencia.

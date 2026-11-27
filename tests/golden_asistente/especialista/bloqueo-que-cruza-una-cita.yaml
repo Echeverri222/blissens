@@ -1,0 +1,28 @@
+id: bloqueo-que-cruza-una-cita
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta: mañana en la tarde no voy a estar, bloqueame toda la tarde
+intencion: >-
+  El bloqueo de mañana 13:00–17:30 se cruza con la resina de Jorge a las 16:00: la herramienta lo rechaza. Debe decirlo,
+  nombrar la cita y sugerir que recepción la mueva (o bloquear solo hasta las 16:00). Sin propuesta.
+herramientas:
+  esperadas: [proponer_bloqueo]
+  aceptables: [mi_agenda, mi_horario, detalle_cita]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+contexto:
+  - llamada: proponer_bloqueo
+    args: {inicio: "{fecha.manana}T13:00:00", fin: "{fecha.manana}T17:30:00"}
+    error: accion_no_permitida
+    incluye: ["cruza"]
+  - llamada: mi_agenda
+    args: {desde: "{fecha.manana}"}
+    incluye: ["Jorge", "16:00"]
+respuesta:
+  incluye: ["Jorge"]
+  incluye_alguno: ["recepcion", "mover", "reprogramar", "hasta las 4", "hasta las 16"]
+  excluye: ["ya quedó bloqueado", "listo, bloqueado"]
+  propuestas: []
+notas: >-
+  Nunca se bloquea encima de una cita viva. Si el modelo ofrece bloquear 13:00–16:00 como alternativa y el usuario no lo
+  ha pedido, no debe prepararla sin preguntar.

@@ -119,6 +119,8 @@ def _tarjeta(pr: dict, token: str) -> dict | None:
                     "campos": [("inicio", inicio.isoformat())], "alternativa": f"/p/{token}/cambiar/{cita}"}
         if tipo == "cancelar":  # abre la pantalla que pide el motivo: el asistente no cancela
             return {**base, "metodo": "get", "accion": f"/p/{token}/cancelar/{int(par['cita_id'])}", "boton": "Continuar para cancelar"}
+        if tipo == "confirmar":
+            return {**base, "accion": f"/p/{token}/confirmar/{int(par['cita_id'])}", "boton": "Confirmar asistencia"}
         if tipo == "contacto":
             return {**base, "accion": f"/p/{token}/contacto", "boton": "Que me llamen"}
     except (KeyError, TypeError, ValueError, AttributeError):

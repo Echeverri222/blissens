@@ -1,0 +1,21 @@
+id: que-servicios-hay
+perfil: paciente
+actor: jorge
+categoria: negocio
+pregunta: q servicios tienen?
+intencion: Los servicios que un paciente puede agendar solo (valoración, limpieza, control de ortodoncia, urgencia), sin precios.
+herramientas:
+  esperadas: [servicios]
+  prohibidas: [pedir_contacto]
+contexto:
+  - llamada: servicios
+    args: {}
+    incluye: ["Valoración", "Limpieza", "Control de ortodoncia", "Urgencia"]
+    excluye: ["Blanqueamiento", "Cirugía", "Resina", '"valor"', "autoagendable"]
+respuesta:
+  incluye: ["Limpieza", "Valoracion"]
+  excluye: ["$", "precio", "Blanqueamiento", "Cirugia"]
+  propuestas: []
+notas: >-
+  El paciente solo ve lo que su página de agendar ofrece. Que el modelo no invente servicios que no le devolvió la
+  herramienta (blanqueamiento, cirugía) ni hable de precios.

@@ -1,0 +1,26 @@
+id: citas-del-hogar-y-con-quien
+perfil: paciente
+actor: laura
+categoria: agenda
+pregunta:
+  - hola q citas tenemos?
+  - y la mia de mañana es con quien?
+intencion: >-
+  Las citas próximas del hogar de Laura (Tomás hoy 11:00 control de ortodoncia con la Dra. Ríos; Laura mañana 09:00
+  valoración con el Dr. Mejía). En el segundo turno, «la mía de mañana» es la valoración con el Dr. Andrés Mejía.
+herramientas:
+  esperadas: [mis_citas]
+  prohibidas: [pedir_contacto, espacios_libres]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Tomás", "Laura", "Control de ortodoncia", "Valoración", "Andrés Mejía", "miércoles 18 de noviembre a las 9:00 a. m."]
+    excluye: ["Jorge", "Diego", "Lucía", "Gómez Arango", "Limpieza"]
+respuesta:
+  incluye: ["Mejia"]
+  incluye_alguno: ["9:00", "9 a", "9am", "nueve"]
+  excluye: ["Jorge", "Diego", "Limpieza"]
+  propuestas: []
+notas: >-
+  La limpieza de Laura de hoy a las 8:00 ya pasó (atendida): no debe salir como «próxima». El segundo turno depende del
+  primero y no debería necesitar otra llamada, aunque repetirla no es un error.

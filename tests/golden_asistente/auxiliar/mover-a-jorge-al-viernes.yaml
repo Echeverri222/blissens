@@ -1,0 +1,29 @@
+id: mover-a-jorge-al-viernes
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta:
+  - Jorge Ramirez llamo que mañana a las 4 no puede. que tiene la dra Rios el viernes por la mañana para pasarlo?
+  - pasalo a las 8 entonces
+intencion: >-
+  La resina de Jorge (mañana 16:00, Dra. Ríos, 60 min) se mueve: horas libres de resina con la Dra. Ríos el viernes por la
+  mañana y, con la de las 8, la propuesta de cambio de fecha.
+herramientas:
+  esperadas: [espacios_libres, proponer_cambiar_fecha]
+  una_de: [[agenda, buscar_pacientes, ficha_paciente]]
+  aceptables: [detalle_cita, servicios]
+  prohibidas: [proponer_cancelar, proponer_agendar]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.manana}", profesional_id: "{pro.rios}"}
+    incluye: ["Jorge Ramírez Soto", "Resina u operatoria", "{fecha.manana}T16:00"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.resina}", profesional_id: "{pro.rios}", desde: "{fecha.viernes}", dias: 1}
+    incluye: ["{fecha.viernes}T08:00", '"duracion_min": 60']
+  - llamada: proponer_cambiar_fecha
+    args: {cita_id: "{cita.jorge_manana}", inicio: "{fecha.viernes}T08:00:00"}
+    incluye: ["Jorge Ramírez Soto", "viernes 20 de noviembre a las 8:00"]
+respuesta:
+  incluye: ["Jorge", "viernes", "confirmar"]
+  incluye_alguno: ["8:00", "8 a. m.", "8am", "8 am"]
+  propuestas: [cambiar_fecha]

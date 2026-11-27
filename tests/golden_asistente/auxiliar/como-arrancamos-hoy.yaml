@@ -1,0 +1,16 @@
+id: como-arrancamos-hoy
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: buenos dias, como arrancamos hoy?
+intencion: Los cuatro contadores del día al abrir recepción (5 citas vivas hoy, 5 sin confirmar, 2 mensajes sin interpretar, 3 citas por cerrar).
+herramientas:
+  esperadas: [resumen_dia]
+  aceptables: [agenda, bandeja]
+contexto:
+  - llamada: resumen_dia
+    incluye: ['"citas_hoy": 5', '"sin_confirmar": 5', '"mensajes": 2', '"por_cerrar": 3']
+respuesta:
+  incluye: ["5", "2", "3"]
+  incluye_alguno: ["mensaje", "mensajes"]
+  propuestas: []

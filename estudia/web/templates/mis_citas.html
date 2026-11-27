@@ -25,6 +25,11 @@
     {{ c.profesional }} · {{ c.servicio }}<br>
     <small class="muted">Estado: {{ c.estado.replace('_', ' ') }}</small>
     <div class="acciones" style="margin-top:.75rem">
+      {% if c.id in confirmables %}
+        <form method="post" action="/p/{{ token }}/confirmar/{{ c.id }}" style="margin:0">
+          <button type="submit">Confirmar asistencia</button>
+        </form>
+      {% endif %}
       <a role="button" class="outline" href="/p/{{ token }}/cambiar/{{ c.id }}">Cambiar fecha</a>
       <a role="button" class="outline secondary" href="/p/{{ token }}/cancelar/{{ c.id }}">Cancelar</a>
     </div>

@@ -1,0 +1,25 @@
+id: laura-llamo-y-confirma-manana
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: Laura Gomez acaba de llamar y confirma lo de mañana
+intencion: Preparar el registro de confirmación telefónica de la valoración de Laura mañana 9:00 con el Dr. Mejía.
+herramientas:
+  esperadas: [proponer_confirmar_telefono]
+  una_de: [[agenda, buscar_pacientes, ficha_paciente, bandeja]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.manana}"}
+    incluye: ["Laura Gómez Arango", "Dr. Andrés Mejía"]
+  - llamada: proponer_confirmar_telefono
+    args: {cita_id: "{cita.laura_manana}"}
+    incluye: ["confirmar_telefono", "Laura Gómez Arango", "9:00"]
+respuesta:
+  incluye: ["Laura", "confirmar"]
+  excluye: ["ya quedo confirmada", "ya la confirme"]
+  propuestas: [confirmar_telefono]
+notas: >-
+  «Gomez» sin tilde: si el modelo busca así, `buscar_pacientes` no la encuentra (ver el caso buscar-la-senora-gomez); la agenda
+  de mañana sí la trae. El resumen de la propuesta repite el nombre («confirmó por teléfono su cita de Valoración de Laura
+  Gómez Arango»): se lee raro pero no es un error.

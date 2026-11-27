@@ -1,0 +1,17 @@
+id: cupos-libres-esta-semana
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: que cupos quedaron libres esta semana por cancelaciones?
+intencion: El cupo liberado por la cancelación de Lucía, jueves 9:00 con la Dra. Ríos, todavía sin ofrecer a nadie.
+herramientas:
+  una_de: [[bandeja, agenda]]
+  prohibidas: [proponer_agendar]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: cupos_libres}
+    incluye: ["{fecha.jueves}T09:00", "Dra. Valentina Ríos", "cancelacion"]
+respuesta:
+  incluye: ["jueves", "Ríos"]
+  incluye_alguno: ["9:00", "9 a. m.", "9am", "9 am"]
+  propuestas: []

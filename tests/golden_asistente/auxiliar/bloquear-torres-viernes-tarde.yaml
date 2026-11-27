@@ -1,0 +1,19 @@
+id: bloquear-torres-viernes-tarde
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: la dra Torres tiene cita medica el viernes en la tarde, bloqueale la agenda
+intencion: Preparar el bloqueo de la agenda de la Dra. Torres el viernes de 13:00 a 17:30, motivo cita médica. No cruza citas.
+herramientas:
+  esperadas: [proponer_bloqueo]
+  aceptables: [agenda, datos_del_negocio]
+contexto:
+  - llamada: proponer_bloqueo
+    args: {profesional_id: "{pro.torres}", inicio: "{fecha.viernes}T13:00:00", fin: "{fecha.viernes}T17:30:00", motivo: "Cita médica"}
+    incluye: ["Dra. Camila Torres", "viernes 20 de noviembre a las 1:00 p. m.", "5:30 p. m."]
+respuesta:
+  incluye: ["Torres", "viernes", "confirmar"]
+  excluye: ["ya quedo bloqueada", "ya la bloquee"]
+  propuestas: [bloqueo]
+notas: >-
+  El id de la Dra. Torres sale de `datos_del_negocio`, que lista los profesionales.

@@ -1,0 +1,25 @@
+id: bloquear-viernes-en-la-manana
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta: Bloquéame el viernes en la mañana
+intencion: >-
+  Preparar el bloqueo del viernes en la franja de la mañana de la Dra. Ríos (07:30–12:00). No tiene citas ese día; la de
+  Diego del viernes es del Dr. Mejía.
+herramientas:
+  esperadas: [proponer_bloqueo]
+  aceptables: [mi_horario, mi_agenda]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.viernes}"}
+    excluye: ["Diego"]
+  - llamada: proponer_bloqueo
+    args: {inicio: "{fecha.viernes}T07:30:00", fin: "{fecha.viernes}T12:00:00"}
+    incluye: ["Bloquear la agenda de Dra. Valentina Ríos"]
+respuesta:
+  incluye_alguno: ["confirmar", "confirma"]
+  excluye: ["Diego"]
+  propuestas: [bloqueo]
+notas: >-
+  «En la mañana» se traduce con su horario propio (07:30–12:00, de `mi_horario`). Un rango 00:00–12:00 también pasaría la
+  herramienta, pero sería menos correcto.

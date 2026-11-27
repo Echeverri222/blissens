@@ -34,6 +34,9 @@ MATRIZ = {
     "agenda": ("", "", "L", None),
     "detalle_cita": ("", "L", "L", "ver_cita"),
     "mi_horario": ("", "L", "", None),
+    "mi_dia": ("", "L", "", None),
+    "citas_sin_desenlace": ("", "L", "", None),
+    "motivos_cancelacion": ("", "", "L", None),
     "buscar_pacientes": ("", "", "L", "buscar_paciente"),
     "ficha_paciente": ("", "", "L", "ver_ficha"),
     "resumen_dia": ("", "", "L", None),
@@ -42,6 +45,7 @@ MATRIZ = {
     "proponer_agendar": ("P", "", "P", "asistente:propuesta"),
     "proponer_cambiar_fecha": ("P", "", "P", "asistente:propuesta"),
     "proponer_cancelar": ("P", "", "P", "asistente:propuesta"),
+    "proponer_confirmar": ("P", "", "", "asistente:propuesta"),
     "proponer_confirmar_telefono": ("", "", "P", "asistente:propuesta"),
     "proponer_desenlace": ("", "P", "P", "asistente:propuesta"),
     "proponer_bloqueo": ("", "P", "P", "asistente:propuesta"),
@@ -235,7 +239,9 @@ def test_lecturas_espacios_libres_son_horas_futuras_y_como_mucho_doce(mundo):
     assert 0 < len(r["espacios"]) <= 12 and r["hay_mas"]
     inicios = [e["inicio"] for e in r["espacios"]]
     assert inicios == sorted(inicios) and inicios[0].endswith("-05:00")
-    assert all(set(e) == {"inicio", "cuando"} for e in r["espacios"])  # horas libres, nada de quién ocupa las otras
+    # Horas libres y con quién quedaría cada una; nada de quién ocupa las otras.
+    assert all(set(e) == {"inicio", "cuando", "profesional_id", "profesional"} for e in r["espacios"])
+    assert {e["profesional_id"] for e in r["espacios"]} <= {mundo.pro1, mundo.pro2}
     con_pro = ok(ej(mundo.a_aux, "espacios_libres", servicio_id=mundo.svc, profesional_id=mundo.pro1, desde=at(2, "00:00").date().isoformat()))
     assert con_pro["profesional"] == "Dra. Uno" and "2026-11-18" <= con_pro["espacios"][0]["inicio"][:10]
     assert at(2, "10:00").isoformat() not in [e["inicio"] for e in con_pro["espacios"]]  # esa hora la tiene la cita de Ana
@@ -243,8 +249,10 @@ def test_lecturas_espacios_libres_son_horas_futuras_y_como_mucho_doce(mundo):
 
 def test_lecturas_datos_del_negocio_y_servicios(mundo):
     r = ok(ej(mundo.a_ana, "datos_del_negocio"))
-    assert r["nombre"] and r["direccion"] and r["horario"][0] == {"dia": "lunes", "desde": "07:30", "hasta": "17:30"}
-    assert len(r["horario"]) == 5
+    assert r["nombre"] and r["direccion"] and r["horario"][0] == {"dia": "lunes", "franjas": [
+        {"desde": "07:30", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:30"}]}  # el cierre del mediodía se ve
+    assert len(r["horario"]) == 5 and r["dias_sin_atencion"] == ["sábado", "domingo"]
+    assert {p["id"] for p in r["profesionales"]} == {mundo.pro1, mundo.pro2}
     assert ok(ej(mundo.a_ana, "servicios"))["servicios"]
 
 
@@ -276,6 +284,57 @@ def test_lecturas_de_la_auxiliar_pacientes_bandejas_e_indicadores(mundo, conn):
     assert codigo(ej(mundo.a_aux, "ficha_paciente", paciente_id=999999)) == "no_existe"
 
 
+def test_lecturas_buscar_pacientes_sin_tildes_y_con_nombre_completo(mundo):
+    for q in ("perez", "PEREZ", "ana perez", "Pérez Ana"):
+        assert mundo.ana in {p["id"] for p in ok(ej(mundo.a_aux, "buscar_pacientes", q=q))["pacientes"]}, q
+    assert {p["id"] for p in ok(ej(mundo.a_aux, "buscar_pacientes", q="sofia perez"))["pacientes"]} == {mundo.hija}
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="ana gomez"))["pacientes"] == []  # cada palabra debe aparecer
+    assert {p["id"] for p in ok(ej(mundo.a_aux, "buscar_pacientes", q=DOC_ANA[-4:]))["pacientes"]} == {mundo.ana}
+
+
+def test_lecturas_espacios_libres_para_cambiar_una_cita_usan_su_servicio_y_profesional(mundo, conn):
+    conn.execute("update servicio set autoagendable=false where id=%s", (mundo.svc,))
+    conn.commit()
+    assert codigo(ej(mundo.a_ana, "espacios_libres", servicio_id=mundo.svc)) == "no_existe"  # agendar en línea: no
+    r = ok(ej(mundo.a_ana, "espacios_libres", cita_id=mundo.c_hija))  # cambiar la fecha de la suya: sí, como en «Mis citas»
+    assert r["profesional"] == "Dra. Uno" and r["profesional_id"] == mundo.pro1 and r["espacios"]
+    assert ej(mundo.a_ana, "espacios_libres", cita_id=mundo.c_luis) == ej(mundo.a_ana, "espacios_libres", cita_id=999999)
+    assert codigo(ej(mundo.a_ana, "espacios_libres", cita_id=mundo.c_luis)) == "no_existe"
+    assert ok(ej(mundo.a_aux, "espacios_libres", cita_id=mundo.c_luis))["profesional"] == "Dr. Dos"
+    assert codigo(ej(mundo.a_ana, "espacios_libres")) == "datos_invalidos"
+
+
+def test_lecturas_motivos_de_cancelacion_para_la_auxiliar(mundo):
+    m = ok(ej(mundo.a_aux, "motivos_cancelacion"))["motivos"]
+    assert m and set(m[0]) == {"id", "etiqueta"} and mundo.motivo in {x["id"] for x in m}
+
+
+def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):
+    clock.freeze(at(2, "10:10"))  # la cita de Ana (10:00) va en curso; la de Sofía (11:00) sigue
+    d = ok(ej(mundo.a_esp1, "mi_dia"))
+    assert d["total"] == 2 and d["en_curso"]["id"] == mundo.c_ana and d["siguiente"]["id"] == mundo.c_hija
+    assert d["quedan_por_empezar"] == 1 and [c["id"] for c in d["sin_desenlace"]] == [mundo.c_ana]
+    assert mundo.c_luis not in {c["id"] for c in d["citas"]}
+    assert all(h["desde"] >= at(2, "10:10").isoformat() for h in d["huecos_libres"])
+    huecos = [(h["desde"], h["hasta"]) for h in d["huecos_libres"]]
+    assert (at(2, "10:30").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana y Sofía
+    assert (at(2, "11:30").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
+    assert [c["id"] for c in ok(ej(mundo.a_esp1, "citas_sin_desenlace"))["filas"]] == [mundo.c_ana]
+    assert [c["id"] for c in ok(ej(mundo.a_esp2, "citas_sin_desenlace"))["filas"]] == [mundo.c_luis]
+    otro = ok(ej(mundo.a_esp2, "mi_dia"))
+    assert {c["id"] for c in otro["citas"]} == {mundo.c_luis}
+    sin = Actor.de_usuario(usuario(mundo.a_esp1.usuario_id, "especialista", None))
+    assert codigo(ej(sin, "mi_dia")) == "no_existe" and codigo(ej(sin, "citas_sin_desenlace")) == "no_existe"
+
+
+def test_lecturas_la_bandeja_de_contactos_trae_ultimos4_y_el_paciente_si_se_conoce(mundo, conn):
+    conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,'Llamar',%s)", (DOC_ANA, CEL_ANA, NOW))
+    conn.commit()
+    f = ok(ej(mundo.a_aux, "bandeja", bandeja="contactos"))["filas"][0]
+    assert f["documento_ultimos4"] == DOC_ANA[-4:] and f["celular_ultimos4"] == CEL_ANA[-4:]
+    assert f["paciente"]["id"] == mundo.ana
+
+
 # ------------------------------------------------------------------ propuestas
 
 def test_propuestas_del_paciente_tienen_la_forma_y_los_parametros_de_los_formularios_existentes(mundo):
@@ -290,6 +349,8 @@ def test_propuestas_del_paciente_tienen_la_forma_y_los_parametros_de_los_formula
     assert ca["tipo"] == "cambiar_fecha" and ca["parametros"] == {"cita_id": mundo.c_ana, "inicio": h2}
     ca = ok(ej(mundo.a_ana, "proponer_cancelar", cita_id=mundo.c_hija))["propuesta"]
     assert ca == {"tipo": "cancelar", "parametros": {"cita_id": mundo.c_hija}, "resumen": ca["resumen"]} and "Sofía" in ca["resumen"]
+    cf = ok(ej(mundo.a_ana, "proponer_confirmar", cita_id=mundo.c_hija))["propuesta"]
+    assert cf["tipo"] == "confirmar" and cf["parametros"] == {"cita_id": mundo.c_hija} and "Sofía" in cf["resumen"]
     co = ok(ej(mundo.a_ana, "pedir_contacto"))["propuesta"]
     assert co["tipo"] == "contacto" and co["parametros"] == {}
 
@@ -343,6 +404,15 @@ def test_propuestas_validan_lo_que_se_puede_ver_sin_escribir(mundo):
     assert codigo(ej(mundo.a_aux, "proponer_cancelar", cita_id=mundo.c_luis)) == "datos_invalidos"  # falta el motivo
 
 
+def test_propuestas_confirmar_solo_citas_futuras_sin_confirmar_del_hogar(mundo, conn):
+    assert codigo(ej(mundo.a_ana, "proponer_confirmar", cita_id=mundo.c_luis)) == "no_existe"
+    conn.execute("update cita set estado='confirmada' where id=%s", (mundo.c_hija,))
+    conn.commit()
+    assert codigo(ej(mundo.a_ana, "proponer_confirmar", cita_id=mundo.c_hija)) == "accion_no_permitida"
+    clock.freeze(at(2, "10:10"))
+    assert codigo(ej(mundo.a_ana, "proponer_confirmar", cita_id=mundo.c_ana)) == "accion_no_permitida"  # ya empezó
+
+
 def test_propuestas_no_se_hacen_sobre_citas_que_ya_no_estan_vivas(mundo, conn):
     conn.execute("update cita set estado='cancelada' where id=%s", (mundo.c_luis,))
     conn.commit()
@@ -361,6 +431,7 @@ def test_p2_ninguna_propuesta_escribe_en_la_base(mundo, conn):
         (mundo.a_ana, "proponer_cambiar_fecha", dict(cita_id=mundo.c_ana, inicio=h2)),
         (mundo.a_ana, "proponer_cancelar", dict(cita_id=mundo.c_ana)),
         (mundo.a_ana, "pedir_contacto", {}),
+        (mundo.a_ana, "proponer_confirmar", dict(cita_id=mundo.c_hija)),
         (mundo.a_aux, "proponer_agendar", dict(paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1, inicio=h1)),
         (mundo.a_aux, "proponer_cambiar_fecha", dict(cita_id=mundo.c_luis, inicio=h2)),
         (mundo.a_aux, "proponer_cancelar", dict(cita_id=mundo.c_luis, motivo_id=mundo.motivo)),
@@ -449,7 +520,7 @@ def llamadas_del_paciente(mundo):
     return [("mis_citas", {}), ("mis_citas", {"para": mundo.hija}), ("servicios", {}), ("espacios_libres", {"servicio_id": mundo.svc}),
             ("datos_del_negocio", {}), ("proponer_agendar", {"servicio_id": mundo.svc, "inicio": h1, "para": mundo.hija}),
             ("proponer_cambiar_fecha", {"cita_id": mundo.c_ana, "inicio": h2}), ("proponer_cancelar", {"cita_id": mundo.c_ana}),
-            ("pedir_contacto", {})]
+            ("proponer_confirmar", {"cita_id": mundo.c_ana}), ("pedir_contacto", {})]
 
 
 def test_p5_ninguna_salida_del_paciente_trae_datos_personales_ni_el_valor_del_servicio(mundo):

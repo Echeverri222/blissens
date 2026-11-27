@@ -1,0 +1,17 @@
+id: cuanto-dura-un-blanqueamiento
+perfil: auxiliar
+actor: marta
+categoria: negocio
+pregunta: cuanto dura un blanqueamiento y una resina? para saber que hueco buscar
+intencion: Blanqueamiento 60 minutos y resina u operatoria 60 minutos, del catálogo de servicios.
+herramientas:
+  esperadas: [servicios]
+  aceptables: [espacios_libres]
+contexto:
+  - llamada: servicios
+    incluye: ["Blanqueamiento", "Resina u operatoria", '"duracion_min": 60']
+    excluye: ['"valor"']
+respuesta:
+  incluye: ["blanqueamiento", "resina"]
+  incluye_alguno: ["60", "una hora", "1 hora"]
+  propuestas: []

@@ -1,0 +1,19 @@
+id: tengo-algo-bloqueado
+perfil: especialista
+actor: rios
+categoria: horario
+pregunta: ¿Tengo algo bloqueado en estos días?
+intencion: El bloqueo del jueves de 13:00 a 17:30 por el congreso de odontología.
+herramientas:
+  una_de: [[mi_horario, mi_agenda, mi_dia]]
+contexto:
+  - llamada: mi_horario
+    args: {}
+    incluye: ["Congreso de odontología", "13:00", "17:30", "jueves"]
+respuesta:
+  incluye: ["congreso", "jueves"]
+  incluye_alguno: ["13:00", "1 p", "1:00", "1pm", "una de la tarde", "la tarde"]
+  propuestas: []
+notas: >-
+  Cada bloqueo dice su día de la semana. Sigue sin haber cómo quitar un bloqueo propio (gap 3 del PRD fase 2,
+  `proponer_quitar_bloqueo`), que es la pregunta natural que sigue a esta.

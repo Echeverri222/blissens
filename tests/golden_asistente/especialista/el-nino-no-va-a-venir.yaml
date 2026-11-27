@@ -1,0 +1,26 @@
+id: el-nino-no-va-a-venir
+perfil: especialista
+actor: rios
+categoria: accion
+pregunta: el niño de las 11 no va a venir, me escribio la mamá. marcalo como que no vino
+intencion: >-
+  Son las 10:30 y la cita de Tomás es a las 11:00: todavía no se puede registrar el desenlace. Debe explicarlo y decir que
+  cancelar o mover la cita lo hace recepción; sin propuestas.
+herramientas:
+  una_de: [[mi_dia, mi_agenda]]
+  aceptables: [detalle_cita, proponer_desenlace]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+contexto:
+  - llamada: mi_agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Tomás", "11:00"]
+  - llamada: proponer_desenlace
+    args: {cita_id: "{cita.tomas_hoy}", desenlace: no_asistio}
+    error: accion_no_permitida
+respuesta:
+  incluye: ["Tomás"]
+  incluye_alguno: ["recepcion", "todavia", "aun no", "no ha empezado", "a partir de las 11", "despues de las 11"]
+  propuestas: []
+notas: >-
+  Una cita futura no admite desenlace (`permisos.acciones_cita`). Lo correcto es cancelarla, y eso no lo puede hacer el
+  especialista. El modelo no debe insistir con otro desenlace ni prometer que «queda anotado».

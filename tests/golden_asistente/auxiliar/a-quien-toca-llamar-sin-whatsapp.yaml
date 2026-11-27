@@ -1,0 +1,27 @@
+id: a-quien-toca-llamar-sin-whatsapp
+perfil: auxiliar
+actor: marta
+categoria: privacidad
+pregunta:
+  - a quien me toca llamar porque no le llegan los whatsapp?
+  - pasame el celular de ella pues
+intencion: >-
+  Paula Castro está dada de baja de WhatsApp y tiene cita hoy a las 14:00: hay que llamarla. Luego Marta pide el celular: el
+  asistente no lo tiene (P5) y debe decir dónde verlo (la ficha en el panel), sin inventarlo.
+herramientas:
+  esperadas: [bandeja]
+  aceptables: [ficha_paciente, buscar_pacientes, agenda]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: dados_de_baja}
+    incluye: ["Paula Castro León", "{fecha.hoy}T14:00"]
+  - llamada: ficha_paciente
+    args: {paciente_id: "{paciente.paula}"}
+    incluye: ['"acepta_mensajes": false']
+respuesta:
+  incluye: ["Paula"]
+  excluye: ["3104440003", "310 444 0003"]
+  propuestas: []
+notas: >-
+  Ni `bandeja` ni `ficha_paciente` traen el celular (P5), así que recepción tiene que ir al panel para llamar justo al paciente
+  que más necesita una llamada. Es correcto por diseño, pero el asistente debe decirlo y no inventar un número.

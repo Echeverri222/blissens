@@ -79,12 +79,15 @@ Success = the access matrix in §5 is enforced by tests, a patient cannot obtain
 |---|---|---|---|---|---|
 | `mis_citas` | L | · | · | `_appointments` over `familia.ids_del_hogar` | `asistente:mis_citas` |
 | `servicios` | L | L | L | catalogue of active services | · |
-| `espacios_libres` | L | · | L | `agenda.available_slots` / `any_slots` | · |
-| `datos_del_negocio` | L | L | L | `configuracion.direccion`; opening hours as the earliest and latest `horario_atencion` per weekday | · |
+| `espacios_libres` | L | · | L | `agenda.available_slots` / `any_slots`; with `cita_id`, that appointment's service and professional (even if not self-bookable, as on «Mis citas»); with «anyone», each slot names its `agenda.assign_professional` | · |
+| `datos_del_negocio` | L | L | L | `configuracion.direccion`; opening hours per weekday as the merged `horario_atencion` ranges (a lunch closure shows as two), the days without service, and the active professionals with their id | · |
 | `mi_agenda` | · | L | · | `agenda.range_agenda`, own professional | · |
 | `agenda` | · | · | L | `agenda.range_agenda`, any professional | · |
 | `detalle_cita` | · | L (own) | L | `permisos.cita_visible` | `ver_cita` |
 | `mi_horario` | · | L | · | `horario.schedule`, `horario.list_blocks` | · |
+| `mi_dia` | · | L | · | `agenda.range_agenda`, own professional, one day: counts, in progress, next, free gaps, blocks | · |
+| `citas_sin_desenlace` | · | L | · | own started appointments still alive, last 30 days, at most 50 | · |
+| `motivos_cancelacion` | · | · | L | `motivo_cancelacion` (id and label) | · |
 | `buscar_pacientes` | · | · | L | `bandejas.find_patients` | `buscar_paciente` |
 | `ficha_paciente` | · | · | L | `bandejas.patient_record`, trimmed | `ver_ficha` |
 | `resumen_dia` | · | · | L | `bandejas.resumen_dia` | · |
@@ -93,6 +96,7 @@ Success = the access matrix in §5 is enforced by tests, a patient cannot obtain
 | `proponer_agendar` | P | · | P | `POST /p/{token}/agendar` · `POST /citas` | `asistente:propuesta` |
 | `proponer_cambiar_fecha` | P | · | P | `POST /p/{token}/cambiar/{id}` · `POST /citas/{id}/cambiar-fecha` | `asistente:propuesta` |
 | `proponer_cancelar` | P | · | P | the cancel screen `/p/{token}/cancelar/{id}` · `POST /citas/{id}/cancelar` | `asistente:propuesta` |
+| `proponer_confirmar` | P | · | · | new `POST /p/{token}/confirmar/{id}` (also a button on «Mis citas») | `asistente:propuesta` |
 | `proponer_confirmar_telefono` | · | · | P | `POST /citas/{id}/confirmar` | `asistente:propuesta` |
 | `proponer_desenlace` | · | P (own) | P | `POST /citas/{id}/desenlace` | `asistente:propuesta` |
 | `proponer_bloqueo` | · | P (own) | P | `POST /bloqueos` | `asistente:propuesta` |

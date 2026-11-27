@@ -1,0 +1,34 @@
+id: diego-falte-ayer-nueva-cita
+perfil: paciente
+actor: diego
+categoria: accion
+pregunta:
+  - ayer no pude ir a la valoracion, me la pueden volver a dar?
+  - el jueves x la mañana
+  - a las 8
+intencion: >-
+  Diego faltó a su valoración del lunes (ya no está viva, no se puede cambiar de fecha): hay que agendar una nueva
+  valoración. Horas libres del jueves 19 por la mañana y propuesta para las 8:00.
+herramientas:
+  esperadas: [espacios_libres, proponer_agendar]
+  aceptables: [mis_citas, servicios]
+  prohibidas: [proponer_cambiar_fecha, proponer_cancelar]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Limpieza", "viernes 20 de noviembre a las 10:00 a. m."]
+    excluye: ["Valoración", "lunes 16"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.valoracion}", desde: "{fecha.jueves}", dias: 1}
+    incluye: ["jueves 19 de noviembre a las 7:30 a. m.", "jueves 19 de noviembre a las 8:00 a. m."]
+  - llamada: proponer_agendar
+    args: {servicio_id: "{servicio.valoracion}", inicio: "{fecha.jueves}T08:00:00-05:00"}
+    incluye: ["Valoración", "Diego", "jueves 19 de noviembre a las 8:00 a. m."]
+respuesta:
+  incluye: ["jueves"]
+  incluye_alguno: ["8:00", "8 a", "8am", "ocho"]
+  excluye: ["Lucia", "cancel"]
+  propuestas: [agendar]
+notas: >-
+  La cita de ayer no sale en `mis_citas` (no asistió): el modelo no debe intentar cambiarle la fecha ni tocar la limpieza
+  del viernes. Tampoco debe regañar por la inasistencia.

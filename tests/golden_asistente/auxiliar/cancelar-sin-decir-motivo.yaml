@@ -1,0 +1,20 @@
+id: cancelar-sin-decir-motivo
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: cancelame la de Sara de las 3
+intencion: >-
+  Identificar la cita (Sara, hoy 15:00, control de ortodoncia con la Dra. Torres) y preguntar el motivo antes de preparar la
+  cancelación: no lo inventa.
+herramientas:
+  una_de: [[agenda, buscar_pacientes, ficha_paciente]]
+  aceptables: [detalle_cita]
+  prohibidas: [proponer_cancelar]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.hoy}"}
+    incluye: ["Sara Morales Díaz", "{fecha.hoy}T15:00", "Dra. Camila Torres"]
+respuesta:
+  incluye: ["motivo"]
+  propuestas: []
+notas: El motivo es obligatorio para cancelar desde el panel; inventar «Otro» ensucia el indicador de motivos.

@@ -100,8 +100,9 @@ def _cita_agenda(c: dict, u: dict, ahora: datetime, con_profesional: bool) -> di
 
 
 def _bloqueo(b: dict) -> dict:
-    return {"id": b["id"], "profesional_id": b["profesional_id"], "inicio": b["rango"].lower, "fin": b["rango"].upper,
-            "motivo": b["motivo"]}
+    ini = b["rango"].lower
+    return {"id": b["id"], "profesional_id": b["profesional_id"], "inicio": ini, "fin": b["rango"].upper,
+            "dia": fmt.DIAS[ini.astimezone(clock.TZ).weekday()], "motivo": b["motivo"]}
 
 
 def _agenda(conn, u: dict, desde: date, hasta: date | None, profesional_id: int | None, con_profesional: bool) -> dict:
@@ -161,35 +162,90 @@ def servicios(conn, actor, a) -> dict:
 
 
 class EspaciosLibres(Entrada):
-    servicio_id: int = Field(ge=1)
+    servicio_id: int | None = Field(None, ge=1, description="El servicio a agendar. Para cambiar la fecha de una cita usa `cita_id`.")
+    cita_id: int | None = Field(None, ge=1, description="Para cambiar la fecha de una cita: busca con su servicio y su profesional.")
     profesional_id: int | None = Field(None, ge=1, description="Sin él, se ofrecen las horas de cualquier especialista.")
     desde: date | None = Field(None, description="Primer día a mostrar (AAAA-MM-DD). Por defecto, hoy.")
     dias: int = Field(14, ge=1, le=60, description="Cuántos días hacia adelante buscar.")
 
 
-@herramienta("espacios_libres", f"Horas libres para agendar un servicio, con un profesional o con cualquiera. Máximo {MAX_ESPACIOS} por llamada, "
-             "en orden. Usa `desde` para ver más adelante.", EspaciosLibres, PAC + ("auxiliar", "operador"), LECTURA)
+def _cita_para_cambiar(conn, actor: Actor, cita_id: int) -> dict:
+    """La cita cuyo cambio de fecha se busca: del hogar para el paciente, del alcance del usuario para el equipo."""
+    if actor.perfil == "paciente":
+        return _cita_del_hogar(conn, actor, cita_id)[1]
+    permisos.cita_visible(conn, actor.usuario_de_alcance, cita_id)
+    c = _cita_con_nombres(conn, cita_id)
+    if c["estado"] not in ALIVE:
+        raise ErrorHerramienta("accion_no_permitida", f"La cita está en estado {c['estado']}: no se le puede cambiar la fecha.")
+    return c
+
+
+@herramienta("espacios_libres", f"Horas libres para agendar un servicio, con un profesional o con cualquiera (cada hora dice con quién). "
+             f"Para cambiar la fecha de una cita, pasa `cita_id`: busca con su servicio y su profesional. Máximo {MAX_ESPACIOS} "
+             "por llamada, en orden. Usa `desde` para ver más adelante.", EspaciosLibres, PAC + ("auxiliar", "operador"), LECTURA)
 def espacios_libres(conn, actor, a: EspaciosLibres) -> dict:
-    srv = _servicio(conn, a.servicio_id, actor.perfil == "paciente")
-    pro = _profesional(conn, a.profesional_id) if a.profesional_id else None
+    if a.cita_id:
+        # El servicio de una cita propia vale aunque no sea autoagendable: «Mis citas» deja cambiarle la fecha igual.
+        c = _cita_para_cambiar(conn, actor, a.cita_id)
+        srv = _servicio(conn, c["servicio_id"], False)
+        pro = _profesional(conn, c["profesional_id"])
+    elif a.servicio_id:
+        srv = _servicio(conn, a.servicio_id, actor.perfil == "paciente")
+        pro = _profesional(conn, a.profesional_id) if a.profesional_id else None
+    else:
+        raise ErrorHerramienta("datos_invalidos", "Indica `servicio_id` o, para cambiar la fecha de una cita, `cita_id`.")
     hoy = clock.now(conn).date()
     dias = min(90, (max(a.desde, hoy) - hoy).days + a.dias) if a.desde else a.dias
     por_dia = (agenda.available_slots(conn, pro["id"], srv["id"], days=dias) if pro
                else agenda.any_slots(conn, srv["id"], days=dias))
     horas = [h for d, hs in por_dia.items() if not a.desde or d >= a.desde for h in hs]
+    espacios = []
+    for h in horas[:MAX_ESPACIOS]:
+        e = {"inicio": h, "cuando": _cuando(h)}
+        if pro is None:  # con quién quedaría (la misma regla que al agendar con «cualquiera»); el equipo lo necesita para agendar
+            try:
+                quien = _profesional(conn, agenda.assign_professional(conn, srv["id"], h))
+            except agenda.SlotTaken:
+                continue
+            e.update(profesional_id=quien["id"], profesional=quien["nombre"])
+        espacios.append(e)
     return {"servicio": srv["nombre"], "duracion_min": srv["duracion_min"], "profesional": pro["nombre"] if pro else "cualquiera",
-            "espacios": [{"inicio": h, "cuando": _cuando(h)} for h in horas[:MAX_ESPACIOS]], "hay_mas": len(horas) > MAX_ESPACIOS}
+            **({"profesional_id": pro["id"]} if pro else {}), "espacios": espacios, "hay_mas": len(horas) > MAX_ESPACIOS}
 
 
-@herramienta("datos_del_negocio", "Nombre y dirección del negocio y su horario de atención por día de la semana.", SinEntrada,
+def _juntar(franjas: list[tuple]) -> list[tuple]:
+    """Une franjas que se tocan o se cruzan: el horario del negocio es la unión del de sus profesionales."""
+    out: list[list] = []
+    for desde, hasta in sorted(franjas):
+        if out and desde <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], hasta)
+        else:
+            out.append([desde, hasta])
+    return [tuple(x) for x in out]
+
+
+@herramienta("datos_del_negocio", "Nombre y dirección del negocio, su horario de atención por día de la semana (con sus franjas: "
+             "si cierra al mediodía, son dos) y sus profesionales con su id.", SinEntrada,
              PAC + ("especialista", "auxiliar", "operador"), LECTURA)
 def datos_del_negocio(conn, actor, a) -> dict:
     n = conn.execute("select nombre from negocio where id=%s", (actor.negocio_id,)).fetchone()
     filas = conn.execute(
-        "select h.dia_semana, min(h.desde) as desde, max(h.hasta) as hasta from horario_atencion h "
-        "join profesional p on p.id=h.profesional_id where p.activo group by h.dia_semana order by h.dia_semana").fetchall()
+        "select distinct h.dia_semana, h.desde, h.hasta from horario_atencion h "
+        "join profesional p on p.id=h.profesional_id where p.activo order by 1, 2").fetchall()
+    dias: dict[int, list] = {}
+    for f in filas:
+        dias.setdefault(f["dia_semana"], []).append((f["desde"], f["hasta"]))
+    pros = conn.execute("select id, nombre, especialidad from profesional where activo order by nombre").fetchall()
     return {"nombre": n["nombre"] if n else None, "direccion": config.get(conn, "direccion"),
-            "horario": [{"dia": fmt.DIAS[f["dia_semana"]], "desde": f["desde"], "hasta": f["hasta"]} for f in filas]}
+            "horario": [{"dia": fmt.DIAS[d], "franjas": [{"desde": x, "hasta": y} for x, y in _juntar(fr)]}
+                        for d, fr in sorted(dias.items())],
+            "dias_sin_atencion": [fmt.DIAS[d] for d in range(7) if d not in dias],
+            "profesionales": [dict(p) for p in pros]}
+
+
+@herramienta("motivos_cancelacion", "Los motivos de cancelación con su id (`proponer_cancelar` pide uno).", SinEntrada, AUX, LECTURA)
+def motivos_cancelacion(conn, actor, a) -> dict:
+    return {"motivos": conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()}
 
 
 # ----------------------------------------------------------------- agenda y citas del equipo
@@ -256,6 +312,77 @@ def mi_horario(conn, actor, a: MiHorario) -> dict:
             "bloqueos": [_bloqueo(b) for b in horario.list_blocks(conn, pro, hoy, hoy + timedelta(days=a.dias))]}
 
 
+class MiDia(Entrada):
+    dia: date | None = Field(None, description="El día (AAAA-MM-DD). Por defecto, hoy.")
+
+
+MIN_HUECO = 15  # minutos: un hueco más corto no sirve para ninguna cita
+
+
+def _restar(franja: tuple, ocupados: list[tuple]) -> list[tuple]:
+    """Lo que queda libre de una franja tras quitarle los rangos ocupados."""
+    libres, ini, fin = [], *franja
+    for a, b in sorted(ocupados):
+        if b <= ini or a >= fin:
+            continue
+        if a > ini:
+            libres.append((ini, a))
+        ini = max(ini, b)
+    if ini < fin:
+        libres.append((ini, fin))
+    return [(a, b) for a, b in libres if (b - a).total_seconds() >= MIN_HUECO * 60]
+
+
+@herramienta("mi_dia", "Tu día de un vistazo: cuántas citas por estado, la que sigue (o la que está en curso), las que ya "
+             "empezaron y siguen sin desenlace, tus huecos libres y tus bloqueos. Solo lo tuyo.", MiDia, ESP, LECTURA)
+def mi_dia(conn, actor, a: MiDia) -> dict:
+    pro = _profesional_propio(actor.usuario)
+    ahora = clock.now(conn)
+    dia = a.dia or ahora.date()
+    r = agenda.range_agenda(conn, dia, dia, pro)
+    citas = [c for c in r["citas"] if c["estado"] != "cancelada"]
+    conteo: dict[str, int] = {}
+    for c in citas:
+        conteo[c["estado"]] = conteo.get(c["estado"], 0) + 1
+    vivas = [c for c in citas if c["estado"] in ALIVE]
+    en_curso = next((c for c in vivas if _inicio(c) <= ahora < _fin(c)), None)
+    siguiente = next((c for c in vivas if _inicio(c) > ahora), None)
+    ocupados = [(_inicio(c), _fin(c)) for c in citas] + [(b["rango"].lower, b["rango"].upper) for b in r["bloqueos"]]
+    huecos = []
+    for f in r["franjas"]:
+        franja = (max(f["inicio"], ahora), f["fin"]) if dia == ahora.date() else (f["inicio"], f["fin"])
+        if franja[0] < franja[1]:
+            huecos += [{"desde": x, "hasta": y} for x, y in _restar(franja, ocupados)]
+
+    def corta(c):
+        return {"id": c["id"], "inicio": _inicio(c), "servicio": c["servicio"], "paciente": c["paciente"], "estado": c["estado"]}
+
+    return {"dia": dia, "dia_semana": fmt.DIAS[dia.weekday()], "total": len(citas), "por_estado": conteo,
+            "en_curso": corta(en_curso) if en_curso else None, "siguiente": corta(siguiente) if siguiente else None,
+            "quedan_por_empezar": sum(1 for c in vivas if _inicio(c) > ahora),
+            "sin_desenlace": [corta(c) for c in vivas if _inicio(c) <= ahora],
+            "citas": [corta(c) for c in citas], "huecos_libres": huecos, "bloqueos": [_bloqueo(b) for b in r["bloqueos"]]}
+
+
+DIAS_SIN_DESENLACE = 30
+
+
+@herramienta("citas_sin_desenlace", f"Tus citas que ya empezaron y siguen sin registrar si el paciente fue atendido o no asistió, de "
+             f"los últimos {DIAS_SIN_DESENLACE} días (máximo {MAX_FILAS}). Solo las tuyas.", SinEntrada, ESP, LECTURA)
+def citas_sin_desenlace(conn, actor, a) -> dict:
+    pro = _profesional_propio(actor.usuario)
+    ahora = clock.now(conn)
+    filas = conn.execute(
+        "select c.id, c.estado, c.rango, s.nombre as servicio, p.nombres || ' ' || p.apellidos as paciente from cita c "
+        "join servicio s on s.id=c.servicio_id join paciente p on p.id=c.paciente_id "
+        "where c.profesional_id=%s and c.estado = any(%s) and c.rango is not null and lower(c.rango) <= %s "
+        "and lower(c.rango) >= %s order by lower(c.rango) limit %s",
+        (pro, list(ALIVE), ahora, ahora - timedelta(days=DIAS_SIN_DESENLACE), MAX_FILAS + 1)).fetchall()
+    return {"desde_hace_dias": DIAS_SIN_DESENLACE, **_limitar(
+        [{"id": c["id"], "inicio": _inicio(c), "cuando": _cuando(_inicio(c)), "servicio": c["servicio"],
+          "paciente": c["paciente"], "estado": c["estado"]} for c in filas])}
+
+
 # ----------------------------------------------------------------- pacientes y bandejas (auxiliar)
 
 class BuscarPacientes(Entrada):
@@ -315,7 +442,21 @@ class Bandeja(Entrada):
              "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto o pacientes dados de baja.",
              Bandeja, AUX, LECTURA)
 def bandeja(conn, actor, a: Bandeja) -> dict:
-    return {"bandeja": a.bandeja, **_limitar(BANDEJAS[a.bandeja](conn))}
+    filas = BANDEJAS[a.bandeja](conn)
+    if a.bandeja == "contactos":
+        filas = [_contacto(conn, f) for f in filas]
+    elif a.bandeja == "dados_de_baja":  # a quién hay que llamar: el número completo está en el panel, aquí sus últimos 4
+        filas = [{**f, "celular_ultimos4": _ultimos4(f["celular"])} for f in filas]
+    return {"bandeja": a.bandeja, **_limitar(filas)}
+
+
+def _contacto(conn, f: dict) -> dict:
+    """Una solicitud de contacto que recepción pueda reconocer: sin documento ni celular completos (se quitan a la salida),
+    con sus últimos 4 y, si el documento es de un paciente, quién es."""
+    p = conn.execute("select id, nombres, apellidos from paciente where documento=%s", (f["documento"],)).fetchone()
+    return {"id": f["id"], "momento": f["momento"], "nota": f["nota"], "documento_ultimos4": _ultimos4(f["documento"]),
+            "celular_ultimos4": _ultimos4(f["celular"]),
+            "paciente": {"id": p["id"], "nombre": _nombre(p)} if p else None}
 
 
 def _tiempo_entre_citas(conn, f):
@@ -494,6 +635,21 @@ def proponer_cancelar(conn, actor, a) -> dict:
     # El cuerpo de `POST /citas/{cita_id}/cancelar`.
     return _propuesta("cancelar", {"cita_id": c["id"], "motivo_id": a.motivo_id, "texto": a.texto},
                       f"Cancelar la cita de {_descripcion(c)} (motivo: {m['etiqueta']}).")
+
+
+@herramienta("proponer_confirmar", "Prepara confirmar que la persona (o su familiar) asistirá a una cita próxima. No la confirma: "
+             "la persona debe tocar el botón.", CancelarPaciente, PAC, PROPUESTA, auditoria="asistente:propuesta")
+def proponer_confirmar(conn, actor, a: CancelarPaciente) -> dict:
+    p, c = _cita_del_hogar(conn, actor, a.cita_id)
+    if c["estado"] == "confirmada":
+        raise ErrorHerramienta("accion_no_permitida", "Esa cita ya está confirmada.")
+    if not c["rango"] or _inicio(c) <= clock.now(conn):
+        raise ErrorHerramienta("accion_no_permitida", "Esa cita ya empezó o no tiene hora: no se puede confirmar.")
+    # `POST /p/{token}/confirmar/{cita_id}`: el mismo paso que el botón «Sí, asistiré» del recordatorio.
+    return _propuesta("confirmar", {"cita_id": c["id"]},
+                      f"Confirmar que asistirás a {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}."
+                      if c["paciente_id"] == p["id"] else
+                      f"Confirmar {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}.")
 
 
 @herramienta("proponer_confirmar_telefono", "Prepara registrar que el paciente confirmó su cita por teléfono. No la confirma: "

@@ -1,0 +1,26 @@
+id: que-me-falta-por-cerrar
+perfil: especialista
+actor: rios
+categoria: pendientes
+pregunta: ¿Qué me falta por cerrar?
+intencion: >-
+  Las citas propias ya empezadas y sin desenlace: Jorge (limpieza, ayer 09:00), Mateo (valoración, ayer 15:00) y Andrés
+  (resina, hoy 09:00). Sara de ayer y Laura de hoy ya están cerradas como atendidas.
+herramientas:
+  esperadas: [citas_sin_desenlace]
+  aceptables: [detalle_cita, mi_agenda, mi_dia]
+  prohibidas: [bandeja, resumen_dia, agenda]
+contexto:
+  - llamada: citas_sin_desenlace
+    incluye: ["Jorge", "Mateo", "Andrés"]
+    excluye: ["Sara", "Laura", "Tomás", "Paula", "Diego", "Lucía"]
+  - llamada: mi_agenda
+    args: {desde: "{fecha.ayer}", hasta: "{fecha.hoy}"}
+    incluye: ["Jorge", "Mateo", "Andrés", "desenlace"]
+    excluye: ["Diego", "Lucía"]
+respuesta:
+  incluye: ["Jorge", "Mateo", "Andrés"]
+  excluye: ["Laura", "Paula", "Diego"]
+  propuestas: []
+notas: >-
+  `citas_sin_desenlace` da exactamente las pendientes de los últimos 30 días, sin que el modelo elija el rango ni filtre.

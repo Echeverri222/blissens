@@ -1,0 +1,21 @@
+id: inasistencias-este-mes
+perfil: auxiliar
+actor: marta
+categoria: indicadores
+pregunta: como vamos este mes con las inasistencias?
+intencion: >-
+  La inasistencia de noviembre del 1 a ayer (consolidado): 1 de 2 citas con desenlace (50 %), y 3 citas aún sin desenlace,
+  que hacen la cifra provisional.
+herramientas:
+  esperadas: [indicadores]
+contexto:
+  - llamada: indicadores
+    args: {reporte: resumen, desde: "{fecha.hoy-16}", hasta: "{fecha.hoy}"}
+    incluye: ['"no_asistio": 1', '"inasistencia": 0.5', '"sin_desenlace": 3']
+respuesta:
+  incluye: ["50"]
+  incluye_alguno: ["noviembre", "este mes", "del 1 al"]
+  propuestas: []
+notas: >-
+  El tablero se consolida cada noche: lo de hoy no está en la cifra y las instrucciones piden decirlo. Una buena respuesta
+  menciona las 3 citas sin desenlace, porque cambian el porcentaje.

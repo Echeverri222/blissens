@@ -144,6 +144,17 @@ Topes por negocio (`make negocio ARGS="config ..."`): `asistente_mensajes_dia_us
 el repositorio: da las herramientas del perfil `operador` (las de lectura, `esquema` y `consulta_sql`, que solo acepta `select`) sobre la base
 local. Solo arranca con `ENTORNO=local`.
 
+**Golden cases.** `tests/golden_asistente/` guarda preguntas reales del día a día (recepción, especialistas y pacientes) sobre
+un mundo ficticio, cada una con las herramientas que deben responderla y lo que la respuesta debe y no debe decir. Formato y
+mundo en `tests/golden_asistente/README.md`.
+
+- `make golden-asistente`: sin modelo. Comprueba que cada pregunta se puede responder con el catálogo del perfil, que las
+  llamadas canónicas traen el contexto correcto y que cada herramienta tiene al menos un caso.
+- `ASISTENTE_EVAL_KEY=... make golden-asistente-vivo [K=paciente]`: con el modelo real (`ASISTENTE_EVAL_MODELO` para probar
+  otro). Califica qué herramientas eligió, qué propuestas preparó y qué dijo, y resume el informe de `.logs/golden-asistente/`.
+- `ASISTENTE_EVAL_KEY=... make asistente-charla ACTOR=rios PREGUNTA="¿quién sigue? || ábreme esa cita"`: una conversación libre.
+- El agente `.claude/agents/usuario-clinica.md` simula a una persona de la clínica y escribe casos nuevos.
+
 > **Solo con datos ficticios.** Todo lo que una herramienta devuelve se envía a Anthropic, tanto desde el asistente como desde
 > la sesión de Claude Code con el servidor MCP. No lo uses después de `make importar` con los Excel reales, y no enciendas el
 > asistente de pacientes en `produccion` hasta que la empresa confirme el tratamiento de datos por un tercero (ADR 0009).

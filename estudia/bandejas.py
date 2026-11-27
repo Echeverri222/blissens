@@ -131,11 +131,24 @@ def pending_tasks(conn) -> int:
     return conn.execute("select count(*) as n from tarea_programada where estado='pendiente'").fetchone()["n"]
 
 
+CON_TILDE, SIN_TILDE = "áéíóúüñàèìòù", "aeiouunaeiou"
+
+
+def _sin_tildes(texto: str) -> str:
+    return texto.lower().translate(str.maketrans(CON_TILDE, SIN_TILDE))
+
+
 def find_patients(conn, q: str):
-    like = f"%{q.strip()}%"
-    return conn.execute(
-        "select id, nombres, apellidos, documento, celular from paciente where nombres ilike %s or apellidos ilike %s "
-        "or documento like %s or celular like %s order by apellidos, nombres limit 30", (like, like, like, like)).fetchall()
+    """Pacientes cuyo nombre, apellido, documento o celular contienen CADA palabra de `q`, sin importar tildes ni mayúsculas:
+    «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes)."""
+    palabras = _sin_tildes(q).split()[:6]
+    if not palabras:
+        return []
+    nombre = f"translate(lower(nombres || ' ' || apellidos), '{CON_TILDE}', '{SIN_TILDE}')"
+    condicion = " and ".join(f"({nombre} like %s or documento like %s or celular like %s)" for _ in palabras)
+    args = [x for w in palabras for x in (f"%{w}%",) * 3]
+    return conn.execute(f"select id, nombres, apellidos, documento, celular from paciente where {condicion} "
+                        "order by apellidos, nombres limit 30", args).fetchall()
 
 
 def patient_record(conn, patient_id: int) -> dict:

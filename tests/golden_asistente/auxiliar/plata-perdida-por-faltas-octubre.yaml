@@ -1,0 +1,23 @@
+id: plata-perdida-por-faltas-octubre
+perfil: auxiliar
+actor: marta
+categoria: indicadores
+pregunta: cuanta plata perdimos por faltas en octubre?
+intencion: El valor perdido por inasistencia del 1 al 31 de octubre, citado tal cual y diciendo el periodo.
+herramientas:
+  esperadas: [indicadores]
+contexto:
+  - llamada: indicadores
+    args: {reporte: resumen, desde: "{fecha.hoy-47}", hasta: "{fecha.hoy-17}"}
+    incluye: ['"valor_perdido_inasistencia": 450000', '"no_asistio": 3', '"citas_sin_valor": 0']
+  - llamada: indicadores
+    args: {reporte: por_profesional, desde: "{fecha.hoy-47}", hasta: "{fecha.hoy-17}"}
+    incluye: ["Valentina Ríos", '"valor_perdido": 250000']
+respuesta:
+  incluye: ["octubre"]
+  incluye_alguno: ["450.000", "450000", "450 000", "450 mil"]
+  propuestas: []
+notas: >-
+  Las 3 faltas de octubre suman 450.000 (valores de servicio inventados del mundo). La pregunta es de dinero, no de tasa: en
+  octubre la Dra. Ríos perdió más plata (250.000) aunque el Dr. Mejía tuvo más faltas. Si `citas_sin_valor` fuera mayor que
+  cero, las instrucciones piden advertir que la cifra se queda corta.

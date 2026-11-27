@@ -1,0 +1,32 @@
+id: agendar-valoracion-para-el-nino
+perfil: paciente
+actor: laura
+categoria: accion
+pregunta:
+  - necesito sacarle cita al niño para valoracion
+  - el lunes temprano se puede?
+  - listo la primera q haya
+intencion: >-
+  Agendar una valoración para Tomás (no para Laura): primero las horas libres del lunes 23 de noviembre y luego la
+  propuesta de la primera (7:30) con `para` = Tomás.
+herramientas:
+  esperadas: [espacios_libres, proponer_agendar]
+  aceptables: [mis_citas, servicios]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Tomás"]
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.valoracion}", desde: "{fecha.lunes}", dias: 1}
+    incluye: ["Valoración", "lunes 23 de noviembre a las 7:30 a. m."]
+  - llamada: proponer_agendar
+    args: {servicio_id: "{servicio.valoracion}", inicio: "{fecha.lunes}T07:30:00-05:00", para: "{paciente.tomas}"}
+    incluye: ["Tomás", "Valoración", "lunes 23 de noviembre a las 7:30 a. m."]
+    excluye: ["Laura", "Gómez Arango"]
+respuesta:
+  incluye: ["Tomas"]
+  incluye_alguno: ["7:30", "7 y media", "7.30"]
+  propuestas: [agendar]
+notas: >-
+  «El niño» es Tomás: el modelo debe tomar su id de `mis_citas.hogar` y pasarlo en `para`. Si agenda para Laura, la
+  propuesta sale a nombre de Laura y el caso falla en la respuesta.

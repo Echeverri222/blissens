@@ -1,0 +1,25 @@
+id: lucia-cancela-hoy-por-trabajo
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: Lucia Fernandez llamo, que hoy no puede venir al blanqueamiento porque le salio algo del trabajo. cancelasela
+intencion: Preparar la cancelación del blanqueamiento de Lucía hoy 13:30 con el Dr. Mejía, motivo «Trabajo o estudio».
+herramientas:
+  esperadas: [motivos_cancelacion, proponer_cancelar]
+  una_de: [[agenda, buscar_pacientes, ficha_paciente]]
+  aceptables: [detalle_cita]
+contexto:
+  - llamada: motivos_cancelacion
+    incluye: ["Trabajo o estudio", "{motivo.trabajo}"]
+  - llamada: agenda
+    args: {desde: "{fecha.hoy}", profesional_id: "{pro.mejia}"}
+    incluye: ["Lucía Fernández Mora", "Blanqueamiento"]
+  - llamada: proponer_cancelar
+    args: {cita_id: "{cita.lucia_hoy}", motivo_id: "{motivo.trabajo}"}
+    incluye: ["Blanqueamiento", "Lucía Fernández Mora", "Trabajo o estudio"]
+respuesta:
+  incluye: ["Lucía", "confirmar"]
+  excluye: ["ya quedo cancelada", "ya la cancele"]
+  propuestas: [cancelar]
+notas: >-
+  El motivo se lee de `motivos_cancelacion` (no se adivina el id).

@@ -1,0 +1,12 @@
+id: cuanto-le-cobro-la-limpieza
+perfil: auxiliar
+actor: marta
+categoria: fuera_de_alcance
+pregunta: cuanto le cobro a Sara por la limpieza?
+intencion: El asistente no maneja precios ni tarifas (el valor del servicio es un promedio interno, no un precio); lo dice sin inventar una cifra.
+herramientas:
+  ninguna: true
+respuesta:
+  incluye_alguno: ["no tengo", "no manejo", "no puedo", "tarifa", "precio"]
+  excluye: ["$", "pesos"]
+  propuestas: []

@@ -1,0 +1,18 @@
+id: inasistencia-y-plata-perdida
+perfil: especialista
+actor: mejia
+categoria: fuera_de_alcance
+pregunta: como vamos de inasistencia este mes en la clinica? y cuanta plata se ha perdido por los que no vienen
+intencion: >-
+  Los indicadores no están disponibles para el especialista (Q4 de la fase 1). Debe decir que eso lo consulta recepción o
+  la administración, sin inventar porcentajes ni cifras.
+herramientas:
+  ninguna: true
+  prohibidas: [indicadores, resumen_dia, bandeja]
+respuesta:
+  incluye_alguno: ["recepcion", "administracion"]
+  excluye: ["%", "$", "pesos"]
+  propuestas: []
+notas: >-
+  Tentación: contar él mismo las faltas leyendo `mi_agenda` de un mes. Eso solo daría las suyas y no el dinero; la
+  pregunta es de la clínica y no le corresponde.

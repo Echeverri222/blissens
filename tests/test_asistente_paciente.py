@@ -468,3 +468,31 @@ def test_una_propuesta_mal_formada_no_pinta_ningun_boton():
                  {"tipo": "cancelar", "parametros": {"cita_id": "../../x"}}, {"tipo": "cambiar_fecha", "parametros": {"cita_id": 1, "inicio": "ayer"}}, {}):
         assert ap._tarjeta(malo, t) is None
     assert ap._tarjeta({"tipo": "contacto", "parametros": {}, "resumen": "r"}, t)["accion"] == "/p/tok/contacto"
+    assert ap._tarjeta({"tipo": "confirmar", "parametros": {"cita_id": "x"}, "resumen": "r"}, t) is None
+    cf = ap._tarjeta({"tipo": "confirmar", "parametros": {"cita_id": 7}, "resumen": "r"}, t)
+    assert cf["accion"] == "/p/tok/confirmar/7" and cf["boton"] == "Confirmar asistencia"
+
+
+def estado(conn, cita_id):
+    conn.rollback()
+    return conn.execute("select estado from cita where id=%s", (cita_id,)).fetchone()["estado"]
+
+
+def test_confirmar_desde_el_enlace_confirma_la_cita_del_hogar_y_solo_una_vez(mundo, cliente, conn):
+    assert "Confirmar asistencia" in cliente.get(f"/p/{mundo.t_ana}").text  # P1: la página lo ofrece, no solo el asistente
+    r = cliente.post(f"/p/{mundo.t_ana}/confirmar/{mundo.cita_mateo}", headers=HX)
+    assert r.status_code == 200 and "Mateo" in r.text and estado(conn, mundo.cita_mateo) == "confirmada"
+    historial = conn.execute("select actor from historial_estado where cita_id=%s order by id desc limit 1",
+                             (mundo.cita_mateo,)).fetchone()
+    assert historial["actor"] == "paciente"
+    assert "ya estaba confirmada" in cliente.post(f"/p/{mundo.t_ana}/confirmar/{mundo.cita_mateo}", headers=HX).text
+    r = cliente.post(f"/p/{mundo.t_ana}/confirmar/{mundo.cita_ana}")
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/p/{mundo.t_ana}?aviso=")
+    assert estado(conn, mundo.cita_ana) == "confirmada"
+
+
+def test_confirmar_una_cita_de_otro_hogar_o_un_enlace_invalido_es_404(mundo, cliente, conn):
+    assert cliente.post(f"/p/{mundo.t_luis}/confirmar/{mundo.cita_ana}").status_code == 404
+    assert cliente.post(f"/p/{mundo.t_mateo}/confirmar/{mundo.cita_ana}").status_code == 404  # el hijo no toca lo de su madre
+    assert cliente.post(f"/p/no-es-un-token/confirmar/{mundo.cita_ana}").status_code == 404
+    assert estado(conn, mundo.cita_ana) != "confirmada"

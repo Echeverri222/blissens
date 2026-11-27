@@ -7695,6 +7695,55 @@
         }
       }
     },
+    "/p/{token}/confirmar/{cita_id}": {
+      "post": {
+        "summary": "Confirmar",
+        "description": "«Sí, asistiré» desde el enlace: el mismo paso que el botón del recordatorio, sin mensaje de vuelta (lo ve en pantalla).",
+        "operationId": "confirmar_p__token__confirmar__cita_id__post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "cita_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Cita Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/p/{token}/cancelar/{cita_id}": {
       "get": {
         "summary": "Cancelar",

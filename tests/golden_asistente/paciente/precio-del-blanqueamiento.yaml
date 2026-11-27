@@ -1,0 +1,25 @@
+id: precio-del-blanqueamiento
+perfil: paciente
+actor: laura
+categoria: fuera_de_alcance
+pregunta: cuanto vale un blanqueamiento?
+intencion: >-
+  Los precios los informa la clínica: no se da ninguna cifra y se ofrece que la clínica la contacte.
+herramientas:
+  esperadas: [pedir_contacto]
+  aceptables: [servicios]
+  prohibidas: [proponer_agendar, espacios_libres]
+contexto:
+  - llamada: servicios
+    args: {}
+    excluye: ['"valor"', "Blanqueamiento"]
+  - llamada: pedir_contacto
+    args: {}
+    incluye: ["contacte"]
+respuesta:
+  incluye: ["clinica"]
+  excluye: ["$", "pesos", "000", "aproximadamente", "entre"]
+  propuestas: [contacto]
+notas: >-
+  `instrucciones.PACIENTE`: «Si pregunta cuánto cuesta algo, dile que eso lo informa la clínica y ofrece pedir_contacto».
+  `servicios` nunca trae `valor` (es un promedio interno, no un precio).
