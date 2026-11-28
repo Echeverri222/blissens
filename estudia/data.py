@@ -40,29 +40,78 @@ def _at(day: date, hhmm: time) -> datetime:
     return datetime.combine(day, hhmm, tzinfo=clock.TZ)
 
 
-def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
-    """Conjunto ficticio reproducible: 2 profesionales, ~250 pacientes, ~4 meses de historia y 3 semanas futuras."""
+def _cerrar_tratamiento(conn, rnd, tid, fin: str, today: date) -> None:
+    """Estado final del plan según cómo terminó su cadena de citas. Los que se perdieron hace poco siguen activos:
+    son los que la detección de riesgo debe encontrar."""
+    estado = "activo"
+    if fin == "finalizado":
+        estado = "finalizado"
+    elif fin == "perdido":
+        ultima = conn.execute("select max(dia) d from cita where tratamiento_id=%s", (tid,)).fetchone()["d"]
+        if ultima and ultima < today - timedelta(days=60) and rnd.random() < 0.5:
+            estado = "abandonado"
+    conn.execute("update tratamiento set estado=%s where id=%s", (estado, tid))
+
+
+# Equipo ficticio con las especialidades que describe la ficha del reto. El título es dato: no se deduce del nombre.
+PROFESIONALES = [
+    ("Dra. Laura Restrepo", "Rehabilitación oral"),
+    ("Dr. Santiago Gómez", "Cirugía oral e implantología"),
+    ("Dra. Natalia Vélez", "Periodoncia"),
+    ("Dr. Felipe Arango", "Ortodoncia"),
+]
+REHAB, CIRUGIA, PERIO, ORTO = range(4)
+SERVICIOS_POR_PROFESIONAL = {  # qué atiende cada uno y con qué peso
+    REHAB: {"Valoración o revisión": 20, "Preparación de rehabilitación": 40, "Resina u operatoria": 25,
+            "Blanqueamiento": 10, "Urgencia": 5},
+    CIRUGIA: {"Valoración o revisión": 25, "Cirugía": 60, "Urgencia": 15},
+    PERIO: {"Limpieza": 60, "Valoración o revisión": 25, "Urgencia": 15},
+    ORTO: {"Control de ortodoncia o alineadores": 92, "Valoración o revisión": 8},
+}
+# Perfiles de paciente: (fracción, profesional, sesiones del plan, días entre sesiones, ¿tiene plan?)
+PERFILES = {
+    "ortodoncia": (0.22, ORTO, (4, 12), (24, 35), True),
+    "rehabilitacion": (0.14, REHAB, (3, 8), (10, 21), True),
+    "implantes": (0.07, CIRUGIA, (2, 5), (14, 30), True),
+    "periodoncia": (0.12, PERIO, (2, 4), (20, 45), True),
+    "ocasional": (0.20, None, (1, 2), (45, 120), False),   # revisión, limpieza o urgencia sueltas
+    "inactivo": (0.16, None, (1, 2), (30, 90), False),     # vino hace más de 4 meses y no ha vuelto
+    "nuevo": (0.09, None, (1, 1), (0, 0), False),          # llegó en estos meses: valoración y, a veces, un plan
+}
+VENTANA_DIAS = 118     # historia: unos cuatro meses hasta ayer
+HORIZONTE_DIAS = 35    # citas futuras: hasta cinco semanas
+ESTADOS_PASADOS = (["atendida", "no_asistio", "cancelada", "reprogramada"], [46, 16, 25, 13])
+ABANDONO_POR_MES = [0.03, 0.06, 0.10, 0.15]  # el plan se cae cada vez más: nadie hace seguimiento
+PIERDE_TRAS_FALLA = 0.4  # tras cancelar o no asistir, muchos no vuelven a agendar (sin protocolo de seguimiento)
+SALIO_EN_VIVO = 21     # días: antes de esto el motivo de cancelación casi nunca se registraba
+
+
+def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
+    """Conjunto ficticio reproducible con la forma de la clínica que describe el reto (nunca sus cifras reales):
+    cuatro especialistas, pacientes de ortodoncia y de planes de rehabilitación que se van cayendo, cancelaciones que no
+    se reagendan, inasistencias, pacientes nuevos que no vuelven, antiguos inactivos, y cinco semanas futuras."""
     wipe(conn)
     catalog.load(conn)
     valores_demo(conn)
+    config.set_(conn, "direccion", "Blissens Odontología, Calle 10 # 43-20, consultorio 301, Medellín")
     rnd = random.Random(seed_value)
     fake = Faker("es_CO")
     Faker.seed(seed_value)
     now = clock.now(conn)
     today = now.date()
+    inicio = today - timedelta(days=VENTANA_DIAS)
 
     pros = []
-    for esp in ("Odontología general", "Ortodoncia"):
-        mujer = rnd.random() < 0.5
-        nombre = f"{'Dra.' if mujer else 'Dr.'} {fake.first_name_female() if mujer else fake.first_name_male()} {fake.last_name()}"
+    for nombre, esp in PROFESIONALES:
         pid = conn.execute("insert into profesional(nombre, especialidad) values (%s,%s) returning id",
                            (nombre, esp)).fetchone()["id"]
         catalog.default_hours(conn, pid)
         pros.append(pid)
     services = conn.execute("select * from servicio order by id").fetchall()
-    svc_weights = [25, 15, 30, 5, 15, 5, 3, 2]
+    svc_by_name = {s["nombre"]: s for s in services}
     reasons = [r["id"] for r in conn.execute("select id from motivo_cancelacion order by orden")]
     reason_weights = [14, 20, 10, 8, 14, 12, 6, 16]
+    umbral_tardia = config.get(conn, "umbral_tardia_horas")
 
     busy: dict[int, list[tuple[datetime, datetime]]] = {p: [] for p in pros}
 
@@ -83,6 +132,14 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
                 cur += timedelta(minutes=30)
         return rnd.choice(cands) if cands else None
 
+    def slot_from(pro, day, dur, after=None):
+        """El primer día hábil desde `day` (hasta una semana) con espacio para ese profesional."""
+        for k in range(7):
+            start = pick_slot(pro, day + timedelta(days=k), dur, after)
+            if start:
+                return start
+        return None
+
     def make_appt(pid, pro, svc, start, estado, origen="paciente", tid=None, detail="Datos ficticios"):
         dur = svc["duracion_min"]
         busy[pro].append((start, start + timedelta(minutes=dur)))
@@ -96,100 +153,162 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
                      (cid, estado, detail, min(now, start - timedelta(days=1))))
         return cid
 
-    def cancellation(cid, start, canal, hours_ahead, at):
+    def cancellation(cid, start, canal, hours_ahead, at, con_motivo=True):
         conn.execute(
             "insert into cancelacion(cita_id, motivo_id, canal, antelacion_horas, tardia, momento) values (%s,%s,%s,%s,%s,%s)",
-            (cid, rnd.choices(reasons, reason_weights)[0], canal, hours_ahead,
-             hours_ahead < config.get(conn, "umbral_tardia_horas"), at))
+            (cid, rnd.choices(reasons, reason_weights)[0] if con_motivo else None, canal, hours_ahead,
+             hours_ahead < umbral_tardia, at))
 
-    # --- Pacientes ---
-    pat_ids = []
+    def servicio_de(pro_idx, primera=False):
+        if primera:
+            return svc_by_name["Valoración o revisión"]
+        pesos = SERVICIOS_POR_PROFESIONAL[pro_idx]
+        return svc_by_name[rnd.choices(list(pesos), list(pesos.values()))[0]]
+
+    def pasado(pid, pro_idx, svc, start, tid):
+        """Una cita ya ocurrida, con lo que pasó: atendida, inasistencia, cancelación (a veces sin motivo) o cambio."""
+        pro = pros[pro_idx]
+        est = rnd.choices(*ESTADOS_PASADOS)[0]
+        cid = make_appt(pid, pro, svc, start, est, tid=tid)
+        if est == "cancelada":
+            tardia = rnd.random() < 0.4
+            horas = rnd.randint(1, umbral_tardia - 1) if tardia else rnd.randint(umbral_tardia, 96)
+            reciente = start.date() > today - timedelta(days=SALIO_EN_VIVO)
+            canal = rnd.choice(["whatsapp", "enlace", "auxiliar"]) if reciente else rnd.choices(["whatsapp", "auxiliar"], [70, 30])[0]
+            cancellation(cid, start, canal, horas, start - timedelta(hours=horas), con_motivo=reciente or rnd.random() < 0.3)
+        elif est in ("atendida", "no_asistio") and rnd.random() < 0.85:  # recordatorio automático del software
+            conn.execute("update cita set datos_origen='{\"recordatorio_enviado\": true}' where id=%s", (cid,))
+            if rnd.random() < (0.55 if est == "atendida" else 0.15):
+                conn.execute("insert into historial_estado(cita_id, estado_anterior, estado_nuevo, actor, detalle, momento) "
+                             "values (%s,'programada','confirmada','paciente','Confirmó por WhatsApp',%s)",
+                             (cid, start - timedelta(days=1)))
+        return cid, est
+
+    def futura(pid, pro_idx, svc, start, tid):
+        lead = start - now
+        est = "confirmada" if lead < timedelta(hours=24) else "programada"
+        cid = make_appt(pid, pros[pro_idx], svc, start, est, tid=tid)
+        if est == "programada":
+            agenda._schedule_reminders(conn, cid, start, now)
+        return cid
+
+    def recorrido(pid, pro_idx, tid, desde, sesiones, intervalo, plan):
+        """La cadena de citas de un paciente desde `desde`: avanza con cada atención, se reagenda tras una falla o se
+        pierde (sin seguimiento). Termina en la primera cita futura. Devuelve 'finalizado', 'perdido' o 'vigente'."""
+        day, hechas = desde, 0
+        primera = True
+        while hechas < sesiones:
+            if day > today + timedelta(days=HORIZONTE_DIAS):
+                return "vigente"
+            svc = servicio_de(pro_idx, primera=primera and not plan)
+            start = slot_from(pros[pro_idx], day, svc["duracion_min"],
+                              after=now + timedelta(hours=2) if day >= today else None)
+            if start is None:
+                day += timedelta(days=7)
+                continue
+            if start >= now:
+                futura(pid, pro_idx, svc, start, tid)
+                return "vigente"
+            cid, est = pasado(pid, pro_idx, svc, start, tid)
+            primera = False
+            mes = min(3, (start.date() - inicio).days // 30)
+            if est == "atendida":
+                hechas += 1
+                if plan and rnd.random() < ABANDONO_POR_MES[mes]:
+                    return "perdido"
+                day = start.date() + timedelta(days=rnd.randint(*intervalo))
+            elif est == "reprogramada":
+                day = start.date() + timedelta(days=rnd.randint(2, 10))
+            else:  # cancelada o no asistió
+                if rnd.random() < PIERDE_TRAS_FALLA:
+                    return "perdido"
+                if est == "cancelada":  # la reagendó: cuenta como cancelación recuperada
+                    conn.execute("update cita set estado='reprogramada' where id=%s", (cid,))
+                day = start.date() + timedelta(days=rnd.randint(3, 15))
+        return "finalizado"
+
+    # --- Pacientes por perfil ---
+    perfiles = []
+    for nombre, (frac, *_rest) in PERFILES.items():
+        perfiles += [nombre] * max(1, round(patients * frac))
+    perfiles = perfiles[:patients]
+    rnd.shuffle(perfiles)
     used_docs = set()
-    for i in range(patients):
+    pat_ids = []
+    for i, perfil in enumerate(perfiles):
         while True:
             doc = str(rnd.randint(10_000_000, 1_099_999_999))
             if doc not in used_docs:
                 used_docs.add(doc)
                 break
-        creado = now - timedelta(days=rnd.randint(30, 400))
+        _, pro_idx, sesiones, intervalo, plan = PERFILES[perfil]
+        if pro_idx is None:
+            pro_idx = rnd.choices([REHAB, PERIO, CIRUGIA], [45, 45, 10])[0]
+        if perfil == "nuevo":
+            primera = inicio + timedelta(days=rnd.randint(0, VENTANA_DIAS + 10))
+            creado = _at(primera, time(8, 0)) - timedelta(days=rnd.randint(2, 10))
+        else:
+            creado = now - timedelta(days=rnd.randint(VENTANA_DIAS + 15, 900))
+            # La mayoría de los planes ya iban a mitad de camino cuando empieza la ventana; unos pocos arrancan después.
+            arranca_ya = plan and rnd.random() < 0.75
+            primera = inicio + timedelta(days=rnd.randint(0, intervalo[1] if arranca_ya else VENTANA_DIAS))
+        alto_valor = perfil in ("rehabilitacion", "implantes")  # quienes viajan a rehabilitarse
+        segmento = rnd.choices(["local", "internacional", "deportista"],
+                               [77, 15, 8] if alto_valor else [92, 3, 5])[0]
         nombre, apellidos = fake.first_name(), f"{fake.last_name()} {fake.last_name()}"
-        celular = "+573" + str(rnd.randint(0, 999_999_999)).zfill(9)
-        nacimiento = fake.date_of_birth(minimum_age=6, maximum_age=80)
-        segmento = rnd.choices(["local", "internacional", "deportista"], [88, 6, 6])[0]  # mismo orden de sorteo de siempre
+        celular = ("+1" + str(rnd.randint(2_000_000_000, 9_999_999_999)) if segmento == "internacional" and rnd.random() < 0.6
+                   else "+573" + str(rnd.randint(0, 999_999_999)).zfill(9))
         pid = conn.execute(
             "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, "
             "internacional, deportista, segmento_origen, consentimiento_en, creado_en) "
             "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
-            (f"F{i + 1}", nombre, apellidos, doc, celular, f"paciente{i + 1}@ejemplo.com", nacimiento,
+            (f"F{i + 1}", nombre, apellidos, doc, celular, f"paciente{i + 1}@ejemplo.com",
+             fake.date_of_birth(minimum_age=12 if perfil == "ortodoncia" else 18, maximum_age=35 if perfil == "ortodoncia" else 80),
              segmento == "internacional", segmento == "deportista",
-             "importacion" if segmento != "local" else None, creado, creado)).fetchone()["id"]
+             "importacion" if segmento != "local" else None, creado, min(creado, now))).fetchone()["id"]
         pat_ids.append(pid)
 
-    # --- Tratamientos, historia y citas futuras ---
-    n_risk, active_with_future = 0, []
-    hist_status = ["atendida", "no_asistio", "cancelada", "reprogramada"]
-    hist_weights = [48, 14, 16, 12]
-    for idx, pid in enumerate(pat_ids):
-        pro = pros[idx % 2] if rnd.random() < 0.85 else rnd.choice(pros)
-        has_t = rnd.random() < 0.7
-        estado_t = rnd.choices(["activo", "finalizado", "abandonado"], [65, 20, 15])[0] if has_t else None
-        tid = None
-        if has_t:
-            tid = conn.execute(
-                "insert into tratamiento(paciente_id, profesional_id, tipo, estado, generado_en) values (%s,%s,%s,%s,%s) "
-                "returning id", (pid, pro, rnd.choice(["diagnostico", "tratamiento", "tratamiento"]), estado_t,
-                                 today - timedelta(days=rnd.randint(30, 120)))).fetchone()["id"]
-        at_risk_p = estado_t == "activo" and n_risk < 18 and idx % 3 == 0
-        latest_hist = today - timedelta(days=(40 if at_risk_p else 2))
-        if at_risk_p:
-            n_risk += 1
-        day = today - timedelta(days=rnd.randint(60, 118))
-        for _ in range(rnd.randint(1, 5)):
-            if day > latest_hist:
-                break
-            svc = rnd.choices(services, svc_weights)[0]
-            start = pick_slot(pro, day, svc["duracion_min"])
-            if start:
-                est = rnd.choices(hist_status, hist_weights)[0]
-                cid = make_appt(pid, pro, svc, start, est, tid=tid)
-                if est == "cancelada":
-                    cancellation(cid, start, rnd.choice(["whatsapp", "enlace", "auxiliar"]), rnd.randint(2, 70),
-                                 start - timedelta(hours=rnd.randint(2, 70)))
-                    if rnd.random() < 0.25:  # reagendó después de cancelar
-                        conn.execute("update cita set estado='reprogramada' where id=%s", (cid,))
-                elif est in ("atendida", "no_asistio") and rnd.random() < 0.7:
-                    conn.execute("update cita set datos_origen='{\"recordatorio_enviado\": true}' where id=%s", (cid,))
-                    if est == "atendida" and rnd.random() < 0.7:
-                        conn.execute("insert into historial_estado(cita_id, estado_anterior, estado_nuevo, actor, detalle, momento) "
-                                     "values (%s,'programada','confirmada','paciente','Confirmó por WhatsApp',%s)",
-                                     (cid, start - timedelta(days=1)))
-            day += timedelta(days=rnd.randint(7, 30))
-        if estado_t == "activo" and not at_risk_p:
-            active_with_future.append((pid, pro, tid))
-        if not has_t and rnd.random() < 0.25:
-            active_with_future.append((pid, pro, None))
+        if perfil == "inactivo":  # última visita hace más de cuatro meses
+            day = today - timedelta(days=rnd.randint(VENTANA_DIAS + 10, 330))
+            for _ in range(rnd.randint(*sesiones)):
+                svc = servicio_de(pro_idx, primera=True) if rnd.random() < 0.4 else servicio_de(pro_idx)
+                start = slot_from(pros[pro_idx], day, svc["duracion_min"])
+                if start and start.date() < inicio:
+                    make_appt(pid, pros[pro_idx], svc, start, "atendida")
+                day += timedelta(days=rnd.randint(*intervalo))
+            continue
 
-    # Citas futuras (3 semanas), más densas en los próximos días para poder probar 48 h y 24 h.
-    future_days = [today + timedelta(days=d) for d in range(0, 22) if (today + timedelta(days=d)).weekday() < 5]
-    for pid, pro, tid in active_with_future:
-        if rnd.random() < 0.9:
-            svc = rnd.choices(services, svc_weights)[0]
-            day = rnd.choice(future_days[:4] if rnd.random() < 0.35 else future_days)
-            start = pick_slot(pro, day, svc["duracion_min"])
-            if start:
-                is_past = start < now
-                lead = start - now
-                est = "confirmada" if (is_past or lead < timedelta(hours=24)) else "programada"
-                cid = make_appt(pid, pro, svc, start, est, tid=tid)
-                if not is_past and est == "programada":
-                    agenda._schedule_reminders(conn, cid, start, now)
+        if perfil == "nuevo":
+            fin = recorrido(pid, pro_idx, None, primera, 1, (0, 0), False)
+            if fin == "finalizado" and rnd.random() < 0.35:  # la valoración se convierte en un plan
+                plan_idx = rnd.choice([REHAB, CIRUGIA])
+                _, _, ses, inter, _ = PERFILES["rehabilitacion" if plan_idx == REHAB else "implantes"]
+                tid = conn.execute(
+                    "insert into tratamiento(paciente_id, profesional_id, tipo, estado, generado_en) values "
+                    "(%s,%s,'tratamiento','activo',%s) returning id",
+                    (pid, pros[plan_idx], min(today, primera + timedelta(days=3)))).fetchone()["id"]
+                ultima = conn.execute("select max(dia) d from cita where paciente_id=%s", (pid,)).fetchone()["d"]
+                fin = recorrido(pid, plan_idx, tid, ultima + timedelta(days=rnd.randint(5, 15)),
+                                rnd.randint(*ses), inter, True)
+                _cerrar_tratamiento(conn, rnd, tid, fin, today)
+            continue
+
+        tid = None
+        if plan:
+            tid = conn.execute(
+                "insert into tratamiento(paciente_id, profesional_id, tipo, estado, generado_en) values (%s,%s,%s,'activo',%s) "
+                "returning id", (pid, pros[pro_idx], "tratamiento", min(creado.date() + timedelta(days=7), primera))
+            ).fetchone()["id"]
+        fin = recorrido(pid, pro_idx, tid, primera, rnd.randint(*sesiones), intervalo, plan)
+        if tid:
+            _cerrar_tratamiento(conn, rnd, tid, fin, today)
 
     # --- Escenarios para que todas las bandejas tengan contenido ---
     def scenario_future(pro, days_ahead_range, count):
         out = []
         for _ in range(count):
             pid = rnd.choice(pat_ids)
-            svc = rnd.choice(services[:5])
+            svc = servicio_de(pros.index(pro))
             day = today + timedelta(days=rnd.randint(*days_ahead_range))
             start = pick_slot(pro, day, svc["duracion_min"], after=now + timedelta(hours=3))
             if start:
@@ -199,19 +318,19 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
 
     # No confirmadas: citas próximas sin respuesta.
     for pro in pros:
-        for pid, svc, start in scenario_future(pro, (1, 2), 4):
+        for pid, svc, start in scenario_future(pro, (1, 2), 2):
             cid = make_appt(pid, pro, svc, start, "no_confirmada")
             conn.execute("update cita set datos_origen = '{\"recordatorio_enviado\": true}' where id=%s", (cid,))
     # Programadas de mañana con el recordatorio de 48 h ya enviado: la tarea de 24 h las pasará a «sin confirmar».
     for pro in pros:
-        for pid, svc, start in scenario_future(pro, (1, 1), 2):
+        for pid, svc, start in scenario_future(pro, (1, 1), 1):
             cid = make_appt(pid, pro, svc, start, "programada")
             conn.execute("update cita set datos_origen = %s::jsonb where id=%s",
                          (json.dumps({"recordatorio_enviado": True, "recordatorio_en": (now - timedelta(hours=3)).isoformat()}), cid))
             agenda._schedule_reminders(conn, cid, start, now)
     # Cancelaciones recientes con caso abierto y cupo libre.
     for pro in pros:
-        for pid, svc, start in scenario_future(pro, (3, 9), 3):
+        for pid, svc, start in scenario_future(pro, (3, 9), 2):
             cid = make_appt(pid, pro, svc, start, "programada")
             lifecycle.transition(conn, cid, "cancelada", "paciente", "Cancelación por whatsapp")
             cancellation(cid, start, "whatsapp", round((start - now).total_seconds() / 3600, 1), now - timedelta(hours=5))
@@ -232,16 +351,18 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
     # Citas sin desenlace: ayer y hoy antes de la hora actual.
     for pro in pros:
         for day in (today - timedelta(days=1), today):
-            for _ in range(3):
+            for _ in range(2):
                 pid = rnd.choice(pat_ids)
-                svc = rnd.choice(services[:5])
+                svc = servicio_de(pros.index(pro))
                 start = pick_slot(pro, day, svc["duracion_min"])
                 if start and start < now - timedelta(minutes=svc["duracion_min"]):
                     make_appt(pid, pro, svc, start, rnd.choice(["confirmada", "programada"]))
     # Mensajes sin interpretar y solicitud de contacto.
-    for pid, texto in zip(rnd.sample(pat_ids, 3), ["Hola, ¿tienen disponibilidad para mañana?",
+    for pid, texto in zip(rnd.sample(pat_ids, 5), ["Hola, ¿tienen disponibilidad para mañana?",
                                                     "Gracias, ¿puedo pagar con transferencia?",
-                                                    "¿Hasta qué hora atienden los viernes?"]):
+                                                    "¿Hasta qué hora atienden los viernes?",
+                                                    "Buenas, no voy a poder ir esta semana, ¿me pueden mover la cita?",
+                                                    "Hi, I'll be in Medellín next month, can I continue my treatment?"]):
         conn.execute("insert into mensaje(paciente_id, direccion, texto, gestionado, momento) values (%s,'entrante',%s,false,%s)",
                      (pid, texto, now - timedelta(hours=rnd.randint(1, 20))))
     conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
@@ -251,7 +372,7 @@ def seed(conn, seed_value: int = 42, patients: int = 250) -> dict:
     conn.execute("update paciente set acepta_mensajes=false where id in (select paciente_id from cita "
                  "where estado='programada' and lower(rango) > %s order by lower(rango) desc limit 2)", (now + timedelta(days=3),))
     config.set_(conn, "ultimo_diario", today.isoformat())
-    indicators.close_range(conn, today - timedelta(days=118), today - timedelta(days=1))
+    indicators.close_range(conn, inicio, today - timedelta(days=1))
     n = {t: conn.execute(f"select count(*) as n from {t}").fetchone()["n"] for t in ("paciente", "cita", "mensaje")}
     n["usuarios"] = usuarios.crear_demo(conn)
     return n
