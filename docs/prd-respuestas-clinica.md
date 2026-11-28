@@ -57,6 +57,15 @@ Their definition of success, in their words: **more patients rebooked, more plan
 | 37 | Public demo: anonymised data (e.g. "Paciente001, mujer, 32 años, limpieza, No asistió"), 100 % local, no clinical notes | Fictional seed; importer for real data | **R23** |
 | 38 | Want the commercial guidelines document | — | Deliverable (§5) |
 
+### Prospects (merged in PR #35, after this PRD was drafted)
+A **prospecto** is a `paciente` row with `etapa = 'prospecto'`: no document, internacional, no automatic-message consent, can't book in person (ADR 0010). New migrations in this PRD start at **021**. Rules for prospects:
+- R5 colours, R7 follow-up, R13 check-ups, R14 plans and R15: do not apply (no appointments). R5 shows "Prospecto" instead of a colour.
+- R6 "No contactar" applies to them too.
+- R8: use the same digit rule as the prospect de-duplication (`regexp_replace(celular, '\D', '', 'g')`); the new normaliser must not break it.
+- R17: prospects already have no automatic-message consent; they stay in the assisted fallback.
+- R20: prospects get `origen = 'web'` by default. R21: a prospect from `/en` gets `idioma = 'en'`.
+- R26/R25: Bliss never confirms or denies that a prospect exists (same rule as for patients).
+
 ## 3. Requirements
 
 Priorities: **M** must (before the final demo), **S** should, **C** could.
