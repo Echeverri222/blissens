@@ -15,10 +15,10 @@ def test_slots_respect_hours_duration_and_min_lead(conn):
     # Hoy a las 8:00: no se muestran espacios a menos de 2 h
     assert s30[0].hour == 10 and s30[0].minute == 0
     s120 = agenda.day_slots(conn, pro, svc(conn, "Cirugía"), at(1, "08:00").date())
-    # 120 min dentro de 7:30-12:00: el último inicio válido es 10:00; en la tarde 13:00-17:30 hasta 15:30
-    assert s120[0].strftime("%H:%M") == "07:30"
+    # 120 min dentro de 8:00-12:00: el último inicio válido es 10:00; en la tarde 13:00-17:00 hasta 15:00
+    assert s120[0].strftime("%H:%M") == "08:00"
     assert max(s for s in s120 if s.hour < 13).strftime("%H:%M") == "10:00"
-    assert max(s120).strftime("%H:%M") == "15:30"
+    assert max(s120).strftime("%H:%M") == "15:00"
 
 
 def test_slots_exclude_live_appointments_blocks_and_pending_offers(conn):
@@ -29,7 +29,7 @@ def test_slots_exclude_live_appointments_blocks_and_pending_offers(conn):
                  (pro, Range(at(1, "10:00"), at(1, "11:00"), "[)")))
     slots = [s.strftime("%H:%M") for s in agenda.day_slots(conn, pro, svc(conn), day)]
     assert "09:00" not in slots and "10:00" not in slots and "10:30" not in slots and "11:00" in slots
-    assert "08:30" in slots
+    assert "08:00" in slots and "08:30" not in slots  # la valoración dura 45 min: a las 8:30 cruzaría la cita de las 9:00
     # Una cita cancelada libera el espacio
     cid = conn.execute("select id from cita").fetchone()["id"]
     lifecycle.transition(conn, cid, "cancelada", "paciente")

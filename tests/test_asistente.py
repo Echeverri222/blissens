@@ -263,7 +263,7 @@ def test_lecturas_espacios_libres_son_horas_futuras_y_como_mucho_doce(mundo):
 def test_lecturas_datos_del_negocio_y_servicios(mundo):
     r = ok(ej(mundo.a_ana, "datos_del_negocio"))
     assert r["nombre"] and r["direccion"] and r["horario"][0] == {"dia": "lunes", "franjas": [
-        {"desde": "07:30", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:30"}]}  # el cierre del mediodía se ve
+        {"desde": "08:00", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:00"}]}  # el cierre del mediodía se ve
     assert len(r["horario"]) == 5 and r["dias_sin_atencion"] == ["sábado", "domingo"]
     assert {p["id"] for p in r["profesionales"]} == {mundo.pro1, mundo.pro2}
     assert ok(ej(mundo.a_ana, "servicios"))["servicios"]
@@ -279,7 +279,7 @@ def test_lecturas_la_agenda_del_especialista_es_la_suya_y_la_de_la_auxiliar_es_d
     assert {c["id"] for c in ok(ej(mundo.a_aux, "agenda", desde=d, profesional_id=mundo.pro2))["citas"]} == {mundo.c_luis}
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, profesional_id=999999)) == "no_existe"
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, hasta="2027-12-31")) == "datos_invalidos"
-    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "07:30", "hasta": "12:00"}
+    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "08:00", "hasta": "12:00"}
 
 
 def test_lecturas_de_la_auxiliar_pacientes_bandejas_e_indicadores(mundo, conn):

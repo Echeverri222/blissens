@@ -547,6 +547,8 @@ class ResumenBase(Salida):
     atencion_efectiva: float | None = Field(description="Obsoleto: atendidas ÷ todas las citas. Usa `asistencia`.")
     asistencia: float | None = Field(description="Atendidas ÷ (atendidas + no asistió + canceladas).")
     inasistencia: float | None
+    inasistencia_por_depurar: int = Field(description="Citas pasadas que siguen vivas (programadas, confirmadas o sin confirmar), con o sin hora: posibles inasistencias sin cerrar.")
+    inasistencia_con_pendientes: float | None = Field(description="(No asistió + por depurar) ÷ (atendidas + no asistió + por depurar): la inasistencia si todas las citas sin cerrar hubieran sido inasistencias.")
     cancelaciones: int
     cancelaciones_tardias: int
     cancelaciones_recuperadas: int

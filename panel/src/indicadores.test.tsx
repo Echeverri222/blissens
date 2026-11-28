@@ -8,7 +8,7 @@ import type { Resumen } from "@/api/tipos";
 
 const API = "*/api/v1";
 const resumen = (o: Partial<Resumen> = {}): Resumen => ({
-  citas: 40, atendidas: 24, no_asistio: 6, atencion_efectiva: 0.6, asistencia: 0.8, inasistencia: 0.2, cancelaciones: 4, cancelaciones_tardias: 1,
+  citas: 40, atendidas: 24, no_asistio: 6, atencion_efectiva: 0.6, asistencia: 0.8, inasistencia: 0.2, inasistencia_por_depurar: 0, inasistencia_con_pendientes: 0.2, cancelaciones: 4, cancelaciones_tardias: 1,
   cancelaciones_recuperadas: 2, recuperacion: 0.5, confirmacion: 0.7, sin_desenlace: 0, capacidad_aplica: true, ocupacion: 0.5,
   minutos_disponibles: 1000, minutos_atendidos: 500, cupos_liberados: 3, cupos_ocupados_oferta: 1, cupos_ocupados_agendamiento: 1, cupos_vacios: 1,
   valor_perdido: 1_200_000, valor_perdido_inasistencia: 900_000, valor_perdido_tardias: 300_000, citas_sin_valor: 0, metas: {},
@@ -21,7 +21,7 @@ function resumenBase() {
   return base;
 }
 const baseFija = {
-  citas: 30, atendidas: 20, no_asistio: 3, atencion_efectiva: 0.6, asistencia: 0.85, inasistencia: 0.13, cancelaciones: 2, cancelaciones_tardias: 0,
+  citas: 30, atendidas: 20, no_asistio: 3, atencion_efectiva: 0.6, asistencia: 0.85, inasistencia: 0.13, inasistencia_por_depurar: 0, inasistencia_con_pendientes: 0.13, cancelaciones: 2, cancelaciones_tardias: 0,
   cancelaciones_recuperadas: 1, recuperacion: 0.5, confirmacion: 0.6, sin_desenlace: 0, capacidad_aplica: true, ocupacion: 0.4, minutos_disponibles: 900,
   minutos_atendidos: 400, cupos_liberados: 1, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 1,
   anterior: null, desde_anterior: null, hasta_anterior: null,
@@ -57,6 +57,12 @@ const usar = (r: Resumen, servicios: object[] = SERVICIOS) => servidor.use(
 );
 
 describe("indicadores", () => {
+  it("bajo la inasistencia muestra la cifra si las citas sin cerrar hubieran sido inasistencias", async () => {
+    usar(resumen({ inasistencia_por_depurar: 7, inasistencia_con_pendientes: 0.4375 }));
+    montar("/indicadores", AUX);
+    expect(await screen.findByText("Si las 7 citas sin cerrar fueron inasistencias: 43.8 %")).toBeInTheDocument();
+  });
+
   it("avisa cuando hay citas pasadas sin desenlace y enlaza a Pendientes", async () => {
     usar(resumen({ sin_desenlace: 5 }));
     montar("/indicadores", AUX);

@@ -2,7 +2,7 @@
 import json
 
 SERVICIOS = [  # nombre, duración, autoagendable, admite adelanto
-    ("Valoración o revisión", 30, True, True),
+    ("Valoración o revisión", 45, True, True),
     ("Limpieza", 30, True, True),
     ("Control de ortodoncia o alineadores", 30, True, True),
     ("Urgencia", 30, True, True),
@@ -94,8 +94,8 @@ def load(conn) -> None:
 
 
 def default_hours(conn, professional_id: int) -> None:
-    """Lunes a viernes, 07:30–12:00 y 13:00–17:30."""
+    """Lunes a viernes, 08:00–12:00 y 13:00–17:00 (la clínica almuerza de 12 a 13)."""
     for dia in range(5):
-        for desde, hasta in (("07:30", "12:00"), ("13:00", "17:30")):
+        for desde, hasta in (("08:00", "12:00"), ("13:00", "17:00")):
             conn.execute("insert into horario_atencion(profesional_id, dia_semana, desde, hasta) values (%s,%s,%s,%s)",
                          (professional_id, dia, desde, hasta))

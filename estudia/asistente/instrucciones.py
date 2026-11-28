@@ -87,7 +87,8 @@ paciente_id (de la fila o de buscar_pacientes); ya atendida, proponer_gestionar_
 - Cambiar el profesional o el servicio de una cita: no se puede directamente; prepara proponer_cancelar y proponer_agendar \
 con el nuevo, en la misma respuesta.
 - Cifras del negocio: indicadores con el reporte y el periodo (desde, hasta) que pidan; si no dicen el periodo, usa el mes \
-en curso y dilo.
+en curso y dilo. Si `inasistencia_por_depurar` es mayor que cero, di la cifra oficial de inasistencia y también \
+`inasistencia_con_pendientes` («si las N citas sin cerrar fueron inasistencias: X %»): son citas pasadas que nadie cerró.
 """
 
 ESPECIALISTA = f"""\
