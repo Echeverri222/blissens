@@ -294,6 +294,56 @@ We propose that the clinic moves to the **WhatsApp Business Platform (Cloud API)
 - **Output:** the stats dict plus a line "Datos anonimizados: no los publiques igual; son solo para la demo local."
 - `tests/test_import.py`: synthetic files, and assert that no input name, document or mobile appears in any table after `--anonimo`.
 
+### Phase H — The assistant: Bliss
+
+#### R25. Bliss, the assistant's personality (M)
+The assistant gets a name and one personality across every profile: **Bliss**, Blissens' assistant.
+- **Name in config, not in code.** New key `asistente_nombre` (default `"Bliss"`). It travels in `<contexto>` (`Asistente: Bliss`) so the system texts stay fixed and cacheable (see the header of `estudia/asistente/instrucciones.py`), and another business could use its own name.
+- **Shared personality block `PERSONALIDAD`** in `instrucciones.py`, added to every profile next to `COMUN`. Final wording is ours; the content:
+  - Who: «Eres Bliss, la asistente de {negocio}». Female grammatical gender, which is consistent with the current visitor text («sé cálida»). It is an assistant, not a person: if asked, it says it is an automatic assistant, never a human, and never claims to be a dentist.
+  - Character: warm, calm, precise and close. It speaks like the clinic's best receptionist: it welcomes, explains in one sentence, and always takes the person to the next step. It follows the clinic's spirit, «Tu futura sonrisa» and «Volver a empezar»: when someone missed or cancelled, the tone is opportunity, never reproach.
+  - Register by profile:
+    - `paciente` and `visitante`: *usted*, warm; if the person uses *tú*, Bliss does too (R9). English when the page or the person is in English, same personality.
+    - `auxiliar` and `especialista`: *tú*, as a colleague: short, operational, no greetings after the first one.
+  - Introduces itself only in the first reply of a conversation («Hola, soy Bliss, la asistente de Blissens.»), never again.
+  - No emojis, no exclamation chains, no clichés («¡Excelente pregunta!»), no selling. Never mentions money, debt or collection to a patient (R14); with the doctor's name when talking about a treatment or follow-up (R10).
+  - Personality never overrides a rule: the topic limits, the fixed refusal phrases, the length limits and the privacy rules of each profile stay as they are and win over tone.
+- **Fixed replies** (`RESPUESTAS`) rewritten in Bliss's voice and in *usted* for patients and visitors. The off-topic refusal phrases keep their exact shape, adding the name: «Soy Bliss y solo puedo ayudarle con sus citas en X.» (EN: «I'm Bliss, and I can only help with your appointments at X.»). Update the tests that assert them.
+- **UI:**
+  - panel (`Asistente.tsx`): button and title «Bliss», subtitle «Asistente de {negocio}»;
+  - patient page (`asistente.html`) and site widget: title «Bliss · Asistente de citas»; the first-load greeting is a fixed text (no model call): «Hola, soy Bliss. Puedo ayudarle con sus citas, horarios y la dirección de la clínica.»;
+  - a small mark or avatar built from the brand's own assets (no generated faces), with `alt=""` when it is decorative.
+- **Golden cases:** add a few per profile for the personality: first reply introduces itself and later ones don't; a patient who writes in *tú* gets *tú*; a patient who missed an appointment gets «volver a empezar» tone, without reproach; asked «¿eres una persona?» → says it is an automatic assistant. Use the `usuario-clinica` agent to draft them. Run them with the fake client only; live checks are for the user.
+- Regenerate the subagent files with `scripts/agentes_asistente.py`.
+
+#### R26. Every change reaches the assistant (M)
+The assistant may only do what the panel and the patient link already allow (ADR 0009). So each slice is done only when the assistant knows about its change too: tool outputs, new proposal tools, the task guides in `instrucciones.py`, the agent files, and golden cases. Every new action is a **proposal** confirmed with a button, never executed by the model.
+
+| R | Assistant change | Profiles |
+|---|---|---|
+| R1 | `indicadores` returns `inasistencia_por_depurar` and the rate with pending ones; the guide says to mention both when there are unclosed appointments | auxiliar |
+| R2 | `espacios_libres` uses the 45-min valoración; `proponer_agendar` accepts an optional `duracion_min` (same range as the panel) | auxiliar |
+| R3 | `datos_del_negocio` returns the new hours (derived from `horario_atencion`, not a fixed string) | all |
+| R4 | `espacios_libres` marks `suplente: true`; guide: present it as «con la Dra. X, que reemplaza al Dr. Y» | all that book |
+| R5 | `ficha_paciente` and `buscar_pacientes` return `semaforo`; `buscar_pacientes` accepts a colour filter; the «¿a quién llamo?» guide orders by it | auxiliar, especialista (own patients) |
+| R6 | `ficha_paciente` returns `no_contactar` and its reason; new `proponer_no_contactar` / `proponer_quitar_no_contactar`; guides never suggest calling or writing to them; `fallecido` patients don't appear in searches | auxiliar |
+| R7 | `ficha_paciente` and `bandeja seguimientos` return attempts used of 3; `proponer_gestion_seguimiento` says when it is the last one | auxiliar |
+| R8 | `ficha_paciente` returns `celular_estado` (never the number); new `bandeja celulares_por_revisar`; guide suggests the responsable when there is one | auxiliar |
+| R9 | `paciente` and `visitante` in *usted* (R25); suggested message texts for recepción in *usted* | all |
+| R10 | When recepción asks for a message text, Bliss drafts it with «Volver a empezar» and the doctor's name, never amounts or diagnoses | auxiliar |
+| R11 | `motivos_cancelacion` returns only active reasons; the patient's cancel flow offers those five | auxiliar, paciente |
+| R12 | None (Bliss is not on WhatsApp) | — |
+| R13 | New `bandeja controles`; `ficha_paciente` shows the next check-up due | auxiliar |
+| R14 | `ficha_paciente` shows plan delivered, last payment date and next step (never `valor_plan` to patients); new `proponer_plan_entregado` and `proponer_registrar_abono`; new `bandeja planes`; `indicadores` returns the plans card. Patient profile: if asked about the plan or payments, offers contact with the doctor's name, never figures | auxiliar, paciente |
+| R15 | New `proponer_quiere_adelantar` (patient: for their own household's appointments; auxiliar: any); `mis_citas` returns the flag | paciente, auxiliar |
+| R16 | New `bandeja por_enviar`; Bliss can draft a reply for recepción inside the 24-hour window, but never sends it | auxiliar |
+| R17 | `ficha_paciente` returns the consent status; new `proponer_registrar_autorizacion` (verbal/written) | auxiliar |
+| R18 | `indicadores` returns the occupancy target and the days below it | auxiliar |
+| R20 | `proponer_crear_paciente` accepts `origen` | auxiliar |
+| R21 | Patient profile answers in `paciente.idioma` when the person hasn't written yet | paciente |
+| R22 | `info_clinica` team text updated (no Laura Vélez; Dr. Juan Esteban when confirmed) | visitante |
+| R23, R24 | None | — |
+
 ## 4. Non-goals
 - Deposits or advance payments (the clinic does not take them).
 - Processing payments or storing balances: we record *that* a payment happened (R14), not accounting.
@@ -333,8 +383,11 @@ Suggested slices. Each one is a PR that can be demoed on its own:
 4. **R9, R10, R11, R12**: copy and reasons.
 5. **R14, R13, R15**: plan follow-up, recall, earlier appointments.
 6. **R18, R19, R22**, then **R4, R20, R21**.
+7. **R25**: Bliss's personality. Do it together with or before slice 4, because both rewrite the instructions and the fixed replies.
 
-Update `GLOSSARY.md` with: **Semáforo**, **No contactar**, **Control periódico**, **Plan entregado**, **Abono**, **Envío asistido**, **Quiere adelantar**, **Suplente**, **Inasistencia por depurar**. Add an ADR for R16/R24 (official WhatsApp API as the production channel, with assisted sending only as a fallback; the system replaces Dentalink for the agenda) and one for R17 (automatic sending requires recorded consent).
+**R26 applies to every slice:** a slice is not done until its row in the R26 table is done, with golden cases for any new tool.
+
+Update `GLOSSARY.md` with: **Semáforo**, **No contactar**, **Control periódico**, **Plan entregado**, **Abono**, **Envío asistido**, **Quiere adelantar**, **Suplente**, **Inasistencia por depurar**, **Bliss** (the assistant's name and personality; the term **Asistente** stays for the function). Add an ADR for R16/R24 (official WhatsApp API as the production channel, with assisted sending only as a fallback; the system replaces Dentalink for the agenda) and one for R17 (automatic sending requires recorded consent).
 
 ## 8. Testing
 The developer's laptop is slow. **Do not run full suites.** Run only the test files you touch, by path. For example:
