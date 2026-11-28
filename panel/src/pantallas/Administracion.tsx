@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
-import type { Metas, Servicio, UsuarioAdmin } from "@/api/tipos";
+import type { Metas, Profesional, Servicio, UsuarioAdmin } from "@/api/tipos";
 import { pesos } from "@/lib/dinero";
 import { fechaHora } from "@/lib/tiempo";
 import { useSesion } from "@/sesion/Sesion";
@@ -129,6 +129,38 @@ function ValorServicios() {
   );
 }
 
+/** Título que se antepone al nombre del profesional en los mensajes de recuperación ("Dra.", "Dr."). Vacío lo quita. */
+function FilaTitulo({ p }: { p: Profesional }) {
+  const [titulo, setTitulo] = useState(p.titulo);
+  const m = useAccion((t: string) => api.admin.tituloProfesional(p.id, t), { ok: "Título guardado" });
+  const cambio = titulo.trim() !== p.titulo;
+  function enviar(e: FormEvent) { e.preventDefault(); if (cambio) m.mutate(titulo.trim()); }
+  return (
+    <li className="px-4 py-2.5">
+      <form onSubmit={enviar} aria-label={`Título de ${p.nombre}`} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label htmlFor={`titulo-${p.id}`} className="min-w-0 flex-1 text-sm font-medium">{p.nombre}
+          <span className="block text-xs font-normal text-tinta-suave">{p.titulo ? `Se escribe “${p.titulo} ${p.nombre}”` : "Sin título: se escribe solo el nombre"}</span></label>
+        <div className="flex items-center gap-2">
+          <input id={`titulo-${p.id}`} aria-label={`Título de ${p.nombre}`} maxLength={20} placeholder="Dra." value={titulo} onChange={(e) => setTitulo(e.target.value)}
+            className="w-24 rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-2 py-1.5 text-sm text-tinta placeholder:text-zinc-500" />
+          <Boton type="submit" pequeno variante={cambio ? "primario" : "secundario"} disabled={!cambio || m.isPending}>Guardar</Boton>
+        </div>
+      </form>
+    </li>
+  );
+}
+
+function TitulosProfesionales() {
+  const q = useProfesionales();
+  return (
+    <section aria-label="Título de los profesionales" className="space-y-2">
+      <h2 className="text-sm font-semibold">Título de los profesionales</h2>
+      <p className="text-sm text-tinta-suave">Se antepone al nombre en los mensajes para volver a empezar (“Dra. Ana Pérez le guarda un espacio”). Déjalo vacío para usar solo el nombre.</p>
+      <Consulta q={q}>{(ps) => <Tarjeta><ul className="divide-y divide-linea">{ps.map((p) => <FilaTitulo key={`${p.id}-${p.titulo}`} p={p} />)}</ul></Tarjeta>}</Consulta>
+    </section>
+  );
+}
+
 // Tasas: se escriben como porcentaje entero (15 = 0.15); el dinero, en pesos. Vacío quita la meta.
 const METAS_CAMPOS = [
   { clave: "inasistencia", limite: "max", etiqueta: "Inasistencia máxima (%)", tasa: true },
@@ -190,6 +222,7 @@ export function Administracion() {
         )}
       </Consulta>
       <ValorServicios />
+      <TitulosProfesionales />
       <MetasSeccion />
       {emitida && <ClaveEmitida usuario={emitida.usuario} clave={emitida.clave} alCerrar={() => setEmitida(null)} />}
     </div>

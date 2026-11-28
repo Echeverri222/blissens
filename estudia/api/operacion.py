@@ -116,7 +116,7 @@ def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn
 
 @router.get("/profesionales", tags=["Catálogos"], summary="Profesionales activos", response_model=list[sc.ProfesionalOut])
 def profesionales(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, nombre, especialidad from profesional where activo order by id").fetchall()
+    return conn.execute("select id, nombre, especialidad, titulo from profesional where activo order by id").fetchall()
 
 
 @router.get("/servicios", tags=["Catálogos"], summary="Servicios", response_model=list[sc.ServicioOut])

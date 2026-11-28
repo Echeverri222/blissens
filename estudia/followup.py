@@ -44,6 +44,23 @@ SEGUIMIENTO = sorted(set(FIRST_TEMPLATE.values()) | set(RETRY_TEMPLATE.values())
 HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR = 20
 
 
+def nombre_con_titulo(titulo: str | None, nombre: str) -> str:
+    return f"{titulo.strip()} {nombre}".strip() if titulo and titulo.strip() else nombre
+
+
+def _profesional_del_caso(conn, caso) -> str:
+    """El profesional de la cita o del tratamiento de origen, con su título; sin él, "nuestro equipo"."""
+    if caso["cita_id"]:
+        r = conn.execute("select p.titulo, p.nombre from cita c join profesional p on p.id=c.profesional_id where c.id=%s",
+                         (caso["cita_id"],)).fetchone()
+    elif caso["tratamiento_id"]:
+        r = conn.execute("select p.titulo, p.nombre from tratamiento t join profesional p on p.id=t.profesional_id "
+                         "where t.id=%s", (caso["tratamiento_id"],)).fetchone()
+    else:
+        r = None
+    return nombre_con_titulo(r["titulo"], r["nombre"]) if r else "nuestro equipo"
+
+
 def send_attempt(conn, caso_id: int, template: str) -> None:
     caso = conn.execute("select * from caso_seguimiento where id=%s", (caso_id,)).fetchone()
     from . import familia
@@ -66,6 +83,8 @@ def send_attempt(conn, caso_id: int, template: str) -> None:
     if caso["cita_id"]:
         from .agenda import _info
         data.update(_info(conn, caso["cita_id"]))
+    # Solo el profesional (título y nombre): nunca el servicio, el diagnóstico ni montos.
+    data["profesional"] = _profesional_del_caso(conn, caso)
     messaging.send(conn, caso["paciente_id"], template, data, entity=("caso", caso_id))
 
 

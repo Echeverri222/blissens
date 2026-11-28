@@ -66,6 +66,7 @@ export const api = {
     activar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/activar`),
     claveTemporal: (id: number) => post<UsuarioConClave>(`/admin/usuarios/${id}/clave-temporal`),
     valorServicio: (id: number, valor: number | null) => pedir<Servicio>("PUT", `/admin/servicios/${id}`, { cuerpo: { valor } }),
+    tituloProfesional: (id: number, titulo: string) => pedir<Profesional>("PUT", `/admin/profesionales/${id}`, { cuerpo: { titulo } }),
     metas: () => get<Record<string, Record<string, number>>>("/admin/metas"),
     fijarMetas: (m: Metas) => pedir<Record<string, Record<string, number>>>("PUT", "/admin/metas", { cuerpo: m }),
   },

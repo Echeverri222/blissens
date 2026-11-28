@@ -76,6 +76,17 @@ def valor_servicio(servicio_id: int, datos: sc.ValorServicio, conn=Depends(get_c
     return s
 
 
+@router.put("/profesionales/{profesional_id}", tags=["Administración"], summary="Fijar el título de un profesional",
+            response_model=sc.ProfesionalOut,
+            description="El título (\"Dra.\", \"Dr.\") se antepone al nombre en los mensajes de recuperación; vacío lo quita.")
+def titulo_profesional(profesional_id: int, datos: sc.TituloProfesional, conn=Depends(get_conn), u=Depends(administrador)):
+    p = conn.execute("update profesional set titulo=%s where id=%s returning id, nombre, especialidad, titulo",
+                     (datos.titulo.strip(), profesional_id)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese profesional")
+    return p
+
+
 @router.get("/metas", tags=["Administración"], summary="Metas vigentes de los indicadores",
             response_model=dict[str, dict[str, float]])
 def ver_metas(conn=Depends(get_conn), u=Depends(administrador)):

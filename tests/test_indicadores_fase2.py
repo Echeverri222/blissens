@@ -76,3 +76,17 @@ def test_panel_actions_record_who_and_when(mundo, conn):
     assert {x["usuario"] for x in p["por_usuario"]} == {"Recepción"}
     r = mundo.aux.get(f"{API}/indicadores/reagendamiento?desde={hoy}&hasta={hoy}").json()
     assert set(r["buckets"]) == {"mismo_dia", "1_3", "4_14", "15_60", "no_reagendo"} and r["total"] == 0
+
+
+# ------------------------------------------------------------------ R10: título del profesional
+
+def test_titulo_del_profesional_solo_lo_cambia_quien_administra(mundo, conn):
+    pid = mundo.aux.get(f"{API}/profesionales").json()[0]["id"]
+    assert mundo.aux.put(f"{API}/admin/profesionales/{pid}", json={"titulo": "Dra."}).status_code == 403
+    jefa = admin(conn)
+    r = jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": " Dra. "})
+    assert r.status_code == 200 and r.json()["titulo"] == "Dra."
+    assert {p["id"]: p["titulo"] for p in mundo.aux.get(f"{API}/profesionales").json()}[pid] == "Dra."
+    assert jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": ""}).json()["titulo"] == ""
+    assert jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": "x" * 21}).status_code == 422
+    assert jefa.put(f"{API}/admin/profesionales/99999", json={"titulo": "Dr."}).status_code == 404

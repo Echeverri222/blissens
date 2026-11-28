@@ -6759,6 +6759,109 @@
         }
       }
     },
+    "/api/v1/admin/profesionales/{profesional_id}": {
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Fijar el título de un profesional",
+        "description": "El título (\"Dra.\", \"Dr.\") se antepone al nombre en los mensajes de recuperación; vacío lo quita.",
+        "operationId": "titulo_profesional_api_v1_admin_profesionales__profesional_id__put",
+        "parameters": [
+          {
+            "name": "profesional_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profesional Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TituloProfesional"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfesionalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/metas": {
       "get": {
         "tags": [
@@ -12095,6 +12198,12 @@
           "especialidad": {
             "type": "string",
             "title": "Especialidad"
+          },
+          "titulo": {
+            "type": "string",
+            "title": "Titulo",
+            "description": "Cómo se antepone al nombre en los mensajes de seguimiento (\"Dra.\", \"Dr.\"); vacío si no usa",
+            "default": ""
           }
         },
         "type": "object",
@@ -13424,6 +13533,22 @@
           "pares"
         ],
         "title": "TiempoServicio"
+      },
+      "TituloProfesional": {
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Titulo",
+            "description": "\"Dra.\", \"Dr.\"…; vacío lo quita"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "titulo"
+        ],
+        "title": "TituloProfesional"
       },
       "UsuarioAdmin": {
         "properties": {

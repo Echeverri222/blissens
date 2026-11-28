@@ -86,6 +86,11 @@ class ProfesionalOut(Salida):
     id: int
     nombre: str
     especialidad: str
+    titulo: str = Field("", description="Cómo se antepone al nombre en los mensajes de seguimiento (\"Dra.\", \"Dr.\"); vacío si no usa")
+
+
+class TituloProfesional(Entrada):
+    titulo: str = Field(max_length=20, description="\"Dra.\", \"Dr.\"…; vacío lo quita")
 
 
 class ServicioOut(Salida):

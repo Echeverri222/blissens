@@ -118,3 +118,29 @@ def test_whatsapp_limits_are_enforced(conn):
     with pytest.raises(messaging.MessageError):
         messaging.validate("lista", [{"id": "1", "title": "x" * 25}])
     messaging.validate("lista", [{"id": str(i), "title": "x" * 24} for i in range(10)])
+
+
+def test_recuperacion_abre_con_volver_a_empezar_y_nombra_al_profesional(conn):
+    """R10: los tres textos de recuperación abren igual y nombran al profesional (título + nombre), sin servicio ni montos."""
+    pro, a, c, caso = cancelled_case(conn)
+    conn.execute("update profesional set titulo='Dra.', nombre='Ana Pérez' where id=%s", (pro,))
+    clock.freeze(caso["abierto_en"] + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
+    texto = outbox(conn, a, "seguimiento_reasignacion")[0]["texto"]
+    assert "Volver a empezar es más fácil acompañado: Dra. Ana Pérez le guarda un espacio." in texto
+    assert "Limpieza" not in texto and "$" not in texto
+    for clave in ("seguimiento_reasignacion", "seguimiento_inasistencia", "continuidad_tratamiento"):
+        from estudia import catalog
+        assert catalog.PLANTILLAS[clave][0].startswith("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional}")
+        for prohibido in ("{servicio}", "{valor}", "diagn"):
+            assert prohibido not in catalog.PLANTILLAS[clave][0]
+
+
+def test_recuperacion_sin_titulo_usa_solo_el_nombre_y_el_tratamiento_aporta_su_profesional(conn):
+    pro, a = make_pro(conn, "Ana Pérez"), make_patient(conn)
+    trat = conn.execute("insert into tratamiento(paciente_id, profesional_id) values (%s,%s) returning id", (a, pro)).fetchone()["id"]
+    followup.open_case(conn, "tratamiento_a_medias", a, tratamiento_id=trat)
+    texto = outbox(conn, a, "continuidad_tratamiento")[0]["texto"]
+    assert "acompañado: Ana Pérez le guarda un espacio" in texto
+    conn.execute("update profesional set titulo='Dr.' where id=%s", (pro,))
+    assert followup._profesional_del_caso(conn, conn.execute("select * from caso_seguimiento").fetchone()) == "Dr. Ana Pérez"
