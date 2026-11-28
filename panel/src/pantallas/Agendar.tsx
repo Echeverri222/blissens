@@ -6,7 +6,7 @@ import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
 import type { PacienteResumen, Segmento } from "@/api/tipos";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Casilla, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 
@@ -105,7 +105,7 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
   return (
     <div className="space-y-3">
       <form role="search" className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); setBuscado(texto.trim()); }}>
-        <Entrada etiqueta="Buscar por nombre, documento o celular" value={texto} onChange={(e) => setTexto(e.target.value)} className="flex-1" />
+        <Entrada etiqueta="Buscar por nombre, documento, celular o correo" value={texto} onChange={(e) => setTexto(e.target.value)} className="flex-1" />
         <Boton type="submit">Buscar</Boton>
       </form>
       {conFiltros && (
@@ -123,8 +123,8 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             : <>
               <ul className="divide-y divide-linea rounded-xl border border-linea">{lista.map((p) => (
                 <li key={p.id}><button className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-zinc-50" onClick={() => alElegir({ id: p.id, nombre: nombre(p) })}>
-                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
-                  <span className="text-tinta-suave">{p.documento} · {p.celular ?? "sin celular"}</span></button></li>
+                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<Prospecto etapa={p.etapa} /><AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
+                  <span className="text-tinta-suave">{p.documento ?? "sin documento"} · {p.celular ?? "sin celular"}</span></button></li>
               ))}</ul>
               {lista.length >= TOPE_BUSQUEDA && <p className="text-sm text-tinta-suave">Se muestran los primeros {TOPE_BUSQUEDA}. Escribe un nombre para afinar.</p>}
             </>}

@@ -1,5 +1,5 @@
 {# Las cuatro opciones del asistente del sitio. Texto estático: no toca la base. Sin JavaScript cada opción es un enlace que
-   redirige a su sección de la página (un href con # haría que HTMX además saltara a la sección); con HTMX reemplaza el cuerpo del cuadro. #}
+   redirige a la página aparte con ese formulario; con HTMX reemplaza el cuerpo del cuadro. #}
 {% set a = t.asistente %}
 <p class="asist__saludo">{{ a.saludo }}</p>
 <ul class="asist__ops">

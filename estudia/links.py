@@ -21,12 +21,27 @@ def huella_celular(celular: str | None) -> str:
     return hashlib.sha256(base).hexdigest()[:10]
 
 
-def make_token(patient_id: int, negocio_id: int | None = None, conn=None, celular: str | None = None) -> str:
+def huella_correo(correo: str | None) -> str:
+    """Igual que la del celular, para quien solo dejó un correo (un prospecto): si el correo cambia, el enlace deja de servir."""
+    base = f"huella-correo:{settings.SECRET_KEY}:{(correo or '').strip().lower()}".encode()
+    return hashlib.sha256(base).hexdigest()[:10]
+
+
+def huellas_validas(celular: str | None, correo: str | None) -> set[str]:
+    """Las huellas con las que un enlace de esa persona sigue valiendo: la de su celular o la de su correo."""
+    return {huella_celular(celular)} | ({huella_correo(correo)} if correo else set())
+
+
+def make_token(patient_id: int, negocio_id: int | None = None, conn=None, celular: str | None = None,
+               correo: str | None = None) -> str:
+    """Con celular, el enlace queda atado a él; sin celular pero con correo (un prospecto), atado al correo."""
     if negocio_id is None:
         negocio_id = conn.execute("select negocio_activo() n").fetchone()["n"] if conn is not None \
             else NEGOCIO_ENLACES_ANTIGUOS
     if celular:
         return _serializador().dumps([negocio_id, patient_id, huella_celular(celular)])
+    if correo:
+        return _serializador().dumps([negocio_id, patient_id, huella_correo(correo)])
     return _serializador().dumps([negocio_id, patient_id])
 
 

@@ -89,14 +89,27 @@
     r.addEventListener("input", poner); poner();
   });
 
-  /* Experiencias: elegir un paquete lo deja seleccionado en el formulario y lleva hasta él. */
-  d.querySelectorAll("[data-paquete]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var sel = d.getElementById("paquete-experiencia"), form = d.getElementById("reservar");
-      if (sel) sel.value = b.getAttribute("data-paquete");
-      if (form) { form.scrollIntoView({ behavior: reducido ? "auto" : "smooth", block: "center" }); }
-      if (sel) setTimeout(function () { sel.focus({ preventScroll: true }); }, reducido ? 0 : 450);
-    });
+  /* Botones que abren el asistente en un paso (data-abrir-asistente="agendar|afuera|experiencia", y data-paquete para la experiencia).
+     Sin JavaScript, o si HTMX no cargó, el href lleva a la página aparte con el mismo formulario. */
+  d.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-abrir-asistente]");
+    var caja = d.querySelector(".asist__caja"), cuerpo = d.getElementById("asist-cuerpo");
+    if (!b || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!caja || !cuerpo || !window.htmx) return;
+    e.preventDefault();
+    var url = "/sitio/asistente/paso/" + encodeURIComponent(b.getAttribute("data-abrir-asistente")) +
+      "?idioma=" + encodeURIComponent(raiz.lang === "en" ? "en" : "es");
+    if (b.hasAttribute("data-paquete")) url += "&paquete=" + encodeURIComponent(b.getAttribute("data-paquete"));
+    caja.open = true;
+    if (!reducido) { caja.classList.remove("asist__caja--llamada"); void caja.offsetWidth; caja.classList.add("asist__caja--llamada"); }
+    function enfocar() {
+      if (cuerpo.contains(d.activeElement)) return;
+      var p = cuerpo.querySelector(".asist__paso") || cuerpo;
+      p.setAttribute("tabindex", "-1"); p.focus({ preventScroll: true });
+    }
+    var pedido = window.htmx.ajax("GET", url, { target: "#asist-cuerpo", swap: "innerHTML" });
+    if (pedido && pedido.then) pedido.then(enfocar, function () { window.location.href = b.getAttribute("href"); });
+    else enfocar();
   });
 
   /* El 429 del límite de solicitudes trae el formulario con su mensaje: HTMX no cambia nada con errores 4xx por defecto. */

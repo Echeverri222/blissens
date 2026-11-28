@@ -24,7 +24,8 @@ PAQUETES = {"premium": "Premium (hotel)", "standard": "Standard (Airbnb)", "esse
 ES = {
     "lang": "es", "otro_idioma": "en", "otro_idioma_nombre": "EN", "idioma_nombre": "ES",
     "home": "/", "otro_home": "/en",
-    "agendar_url": "/agendar",  # página aparte, sin distracciones; la sección de la landing se mantiene
+    "agendar_url": "/agendar",  # página aparte, sin distracciones; con JavaScript el botón abre el asistente
+    "evaluacion_url": "/evaluacion", "contacto_url": "/contacto", "experiencia_url": "/experiencia?idioma=es",
     "pag_agendar": {"kicker": "Blissens Odontología · Medellín", "titulo": "Agenda tu cita",
                     "lead": "Toma menos de un minuto. Sin cuentas ni contraseñas: solo tu documento y tu celular.",
                     "pasos": ["Identifícate", "Elige el día y la hora", "Recibe la confirmación por WhatsApp"],
@@ -80,7 +81,7 @@ ES = {
                             "personalizada. Solo sigue los pasos.",
                    "pasos": ["Consulta virtual gratuita", "Completa y envía el formulario", "Analizamos tu caso",
                              "Recibes asesoría virtual especializada"],
-                   "form_titulo": "Solicita tu evaluación"},
+                   "form_titulo": "Solicita tu evaluación", "boton": "Solicitar evaluación"},
     "antes": {"titulo": "Antes y después",
               "texto": "La consecuencia de nuestro trabajo será mejores expresiones, autoestima y calidad de vida.",
               "antes": "Antes", "despues": "Después", "ejemplo": "Imagen de ejemplo",
@@ -98,7 +99,7 @@ ES = {
                      "paquetes": [("premium", "Premium", "Hotel", "Primium-460x460.png"),
                                   ("standard", "Standard", "Airbnb", "Standerd-460x460.png"),
                                   ("essential", "Essential", "Transporte", "Basic-460x460.png")],
-                     "elegir": "Elegir", "form_titulo": "Reserva tu experiencia",
+                     "elegir": "Elegir este paquete", "form_titulo": "Reserva tu experiencia",
                      "ok": "Nos emociona ser parte de tu viaje. Pronto recibirás un correo con tu confirmación y pasos "
                            "sencillos para agendar tu visita."},
     "equipo": {"titulo": "Nuestro equipo",
@@ -108,10 +109,11 @@ ES = {
     "agendar": {"kicker": "En Medellín", "titulo": "Agenda tu cita",
                 "texto": "Si estás en Medellín, agenda tu cita en nuestro consultorio, en la torre médica del centro "
                          "comercial El Tesoro. Sin cuentas ni instalaciones: solo necesitamos tu documento y tu celular.",
-                "paso1": "Paso 1 de 3 · Identifícate"},
+                "boton": "Agendar"},
     "contacto": {"kicker": "Contacto", "titulo": "Contáctanos",
                  "texto": "¿Tienes más preguntas o quieres más asesoría? Escríbenos.",
-                 "horario": "Horario", "direccion": "Dirección", "correo": "Correo", "telefono": "Teléfono"},
+                 "horario": "Horario", "direccion": "Dirección", "correo": "Correo", "telefono": "Teléfono",
+                 "whatsapp": "WhatsApp", "mapa": "Ver en el mapa"},
     "form": {"nombre": "Nombre", "correo": "Correo electrónico", "celular": "Celular o WhatsApp", "pais": "País de residencia",
              "paquete": "Paquete", "paquete_ph": "Elige un paquete", "mensaje": "Mensaje", "enviar": "Enviar",
              "consent": "Autorizo el tratamiento de mis datos personales.",
@@ -153,6 +155,7 @@ ES = {
                   "ya_paciente": "¿Ya eres paciente? Usa el mismo formulario.",
                   "afuera": "Si vives fuera de Colombia, empezamos con una evaluación virtual: cuéntanos tu caso y recibes "
                             "asesoría especializada.",
+                  "experiencia": "Elige tu paquete y déjanos tus datos: te escribimos para coordinar tu viaje.",
                   "direccion": "Atendemos en:", "mapa": "Ver en el mapa", "volver": "Volver",
                   "otra": "Escribe tu pregunta y te ayudo.", "otra_sin": "Déjanos tu mensaje y la clínica te responde.",
                   "aviso_ia": "Soy un asistente de inteligencia artificial y puedo equivocarme. No escribas datos personales "
@@ -165,7 +168,14 @@ ES = {
 EN = {
     "lang": "en", "otro_idioma": "es", "otro_idioma_nombre": "ES", "idioma_nombre": "EN",
     "home": "/en", "otro_home": "/",
-    "agendar_url": "/en#agendar",  # las páginas interiores aún no están en inglés (WP3 de prd-sitio-publico.md)
+    "agendar_url": "/agendar?idioma=en",  # sin JavaScript, páginas aparte; con él los botones abren el asistente
+    "evaluacion_url": "/evaluacion?idioma=en", "contacto_url": "/contacto?idioma=en", "experiencia_url": "/experiencia?idioma=en",
+    "pag_agendar": {"kicker": "Blissens Dentistry · Medellín", "titulo": "Book your appointment",
+                    "lead": "It takes less than a minute. No accounts or passwords: just your ID number and your phone.",
+                    "pasos": ["Identify yourself", "Pick the day and time", "Get the confirmation on WhatsApp"],
+                    "paso1": "Step 1 of 3 · Identify yourself", "volver": "Back to the site",
+                    "info": "Where and when we see patients", "donde": "Where", "horario": "Hours",
+                    "ayuda": "Prefer a hand? Call us or message us on WhatsApp"},
     "meta": {"titulo": "Blissens · High-technology dental studio in Medellín",
              "descripcion": "Digital dentistry and smile design in Medellín. Book an appointment or get a virtual "
                             "assessment if you live abroad.",
@@ -212,7 +222,7 @@ EN = {
                             "below.",
                    "pasos": ["Free virtual consultation", "Complete and submit the form", "We analyze your case",
                              "You receive specialized virtual advice"],
-                   "form_titulo": "Request your assessment"},
+                   "form_titulo": "Request your assessment", "boton": "Request assessment"},
     "antes": {"titulo": "Before - After",
               "texto": "The consequence of our work will be improved expressions, self-esteem, and quality of life.",
               "antes": "Before", "despues": "After", "ejemplo": "Sample image",
@@ -231,7 +241,7 @@ EN = {
                      "paquetes": [("premium", "Premium", "Hotel", "Primium-460x460.png"),
                                   ("standard", "Standard", "Airbnb", "Standerd-460x460.png"),
                                   ("essential", "Essential", "Transport", "Basic-460x460.png")],
-                     "elegir": "Choose", "form_titulo": "Book your experience",
+                     "elegir": "Choose this package", "form_titulo": "Book your experience",
                      "ok": "We’re excited to be part of your journey. You’ll soon receive an email with your confirmation "
                            "and easy steps to schedule your visit."},
     "equipo": {"titulo": "Our team",
@@ -242,10 +252,11 @@ EN = {
                 "texto": "If you’re in Medellín, schedule an appointment at our office, in the medical tower of the El "
                          "Tesoro shopping center. No accounts or installs: we only need your ID number and your mobile "
                          "phone.",
-                "paso1": "Step 1 of 3 · Identify yourself"},
+                "boton": "Book now"},
     "contacto": {"kicker": "Contact", "titulo": "Contact us",
                  "texto": "Have more questions or want more advice? Feel free to contact us.",
-                 "horario": "Hours", "direccion": "Address", "correo": "E-mail", "telefono": "Phone"},
+                 "horario": "Hours", "direccion": "Address", "correo": "E-mail", "telefono": "Phone",
+                 "whatsapp": "WhatsApp", "mapa": "View on the map"},
     "form": {"nombre": "Name", "correo": "Email", "celular": "Phone or WhatsApp", "pais": "Country of residence",
              "paquete": "Package", "paquete_ph": "Please select a package", "mensaje": "Message", "enviar": "Send",
              "consent": "I authorize the processing of my personal data.",
@@ -286,6 +297,7 @@ EN = {
                   "ya_paciente": "Already a patient? Use the same form.",
                   "afuera": "If you live outside Colombia, we start with a virtual assessment: tell us about your case and "
                             "you get specialized advice.",
+                  "experiencia": "Pick your package and leave your details: we’ll write to you to plan your trip.",
                   "direccion": "We are at:", "mapa": "View on the map", "volver": "Back",
                   "otra": "Type your question and I’ll help.", "otra_sin": "Leave us a message and the clinic will reply.",
                   "aviso_ia": "I’m an AI assistant and I can make mistakes. Don’t type personal or health details: those go "

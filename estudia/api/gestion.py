@@ -46,6 +46,19 @@ def crear(datos: sc.NuevoPaciente, conn=Depends(get_conn), u=Depends(auxiliar)):
         conn, datos.nombres, datos.apellidos, datos.documento, datos.celular, datos.consentimiento))
 
 
+@router.put("/pacientes/{paciente_id}/identificacion", tags=["Pacientes"], response_model=sc.PacienteIdentificado,
+            summary="Ponerle el documento a un prospecto: pasa a paciente",
+            description="Un prospecto es quien escribió desde el sitio web y aún no tiene documento. Con el documento (y el "
+                        "celular, si le falta) pasa a ser paciente y ya se le pueden agendar citas. 409 si otro paciente "
+                        "ya tiene ese documento.",
+            dependencies=[auditar("editar_documento")])
+def identificar_paciente(paciente_id: int, datos: sc.Identificacion, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.completar_documento(conn, paciente_id, datos.documento, datos.celular)
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
 @router.put("/pacientes/{paciente_id}/correo", tags=["Pacientes"], response_model=sc.ConsentimientoCorreo,
             summary="Registrar el correo del paciente y si autoriza recibir correos",
             dependencies=[auditar("editar_correo")])

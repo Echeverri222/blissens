@@ -186,11 +186,25 @@ def patient_from_token(conn, token: str) -> dict:
         p = None  # anonimizado: sus enlaces dejan de servir (hay pacientes importados sin documento que sí son reales)
     if p is not None:
         huella = links.huella_del_token(token, config.get(conn, "vigencia_enlace_dias"))
-        if huella is not None and huella != links.huella_celular(p["celular"]):
+        if huella is not None and huella not in links.huellas_validas(p["celular"], p["correo"]):
             p = None
     if p is None:
         raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
     return p
+
+
+AVISO_PROSPECTO = ("Todavía no tienes documento registrado, así que las citas presenciales las agenda la clínica cuando "
+                   "llegues. Aquí puedes ver tu solicitud y agregarle fotos o radiografías.")
+
+
+def _sin_citas(request: Request, token: str, p: dict):
+    """Un prospecto (sin documento) no agenda, cambia ni cancela citas presenciales: vuelve a su página con un aviso."""
+    if p["etapa"] != "prospecto":
+        return None
+    url = f"/p/{token}?aviso=" + quote(AVISO_PROSPECTO)
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("", headers={"HX-Redirect": url})
+    return RedirectResponse(url, status_code=303)
 
 
 def render(request, name, status_code: int = 200, **ctx):
@@ -354,8 +368,34 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
 
 @publico.get("/agendar", response_class=HTMLResponse)
 @publico.get("/n/{nombre}/agendar", response_class=HTMLResponse)
-def agendar(request: Request, nombre: str | None = None, caso: int | None = None, conn=Depends(conn_publica)):
-    return render(request, "identificar.html", error=None, nuevo=None, values={})
+def agendar(request: Request, nombre: str | None = None, caso: int | None = None, idioma: str = "es", conn=Depends(conn_publica)):
+    return render(request, "identificar.html", lang=idioma if idioma in copia.COPIA else "es", error=None, nuevo=None, values={})
+
+
+def _pagina_solicitud(request: Request, interes: str, idioma: str, paquete: str = ""):
+    """El formulario de solicitud en página aparte: el respaldo sin JavaScript de los botones que abren el asistente.
+    No abre la base de datos; el envío es el mismo `POST /sitio/solicitud`."""
+    lang = idioma if idioma in copia.COPIA else "es"
+    t = copia.COPIA[lang]
+    titulo = {"evaluacion_virtual": t["evaluacion"]["form_titulo"], "experiencia": t["experiencias"]["form_titulo"],
+              "contacto": t["contacto"]["titulo"]}[interes]
+    values = {"paquete": paquete if paquete in copia.PAQUETES else ""}
+    return render(request, "solicitud.html", lang=lang, interes=interes, titulo=titulo, values=values, error=None, hecho=False)
+
+
+@publico.get("/evaluacion", response_class=HTMLResponse, include_in_schema=False)
+def pagina_evaluacion(request: Request, idioma: str = "es"):
+    return _pagina_solicitud(request, "evaluacion_virtual", idioma)
+
+
+@publico.get("/experiencia", response_class=HTMLResponse, include_in_schema=False)
+def pagina_experiencia(request: Request, idioma: str = "es", paquete: str = ""):
+    return _pagina_solicitud(request, "experiencia", idioma, paquete)
+
+
+@publico.get("/contacto", response_class=HTMLResponse, include_in_schema=False)
+def pagina_contacto(request: Request, idioma: str = "es"):
+    return _pagina_solicitud(request, "contacto", idioma)
 
 
 @publico.post("/agendar/identificar", response_class=HTMLResponse)
@@ -484,6 +524,8 @@ def _siguientes(conn, p: dict, familiares: list[dict], cita_id: int | None) -> d
 @publico.get("/p/{token}", response_class=HTMLResponse)
 def mis_citas(request: Request, token: str, aviso: str = "", cita: int | None = None, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if p["etapa"] == "prospecto":
+        return _pagina_prospecto(request, conn, token, p, aviso)
     fams = familia.familiares(conn, p["id"])
     responsable = familia.responsable_de(conn, p)
     hoy = clock.now(conn).astimezone(clock.TZ).date()
@@ -496,9 +538,48 @@ def mis_citas(request: Request, token: str, aviso: str = "", cita: int | None = 
                   menor=familia.es_menor(p["fecha_nacimiento"], hoy))
 
 
+def _pagina_prospecto(request: Request, conn, token: str, p: dict, aviso: str = "", status_code: int = 200):
+    """Un prospecto ve el estado de sus solicitudes y puede agregarles archivos; no agenda citas presenciales."""
+    sols = conn.execute(
+        "select s.id, s.momento, s.interes, s.idioma, s.gestionada, (select count(*) from solicitud_adjunto a "
+        "where a.solicitud_id=s.id) as adjuntos from solicitud_contacto s where s.paciente_id=%s and s.origen='sitio' "
+        "order by s.id desc", (p["id"],)).fetchall()
+    lang = sols[0]["idioma"] if sols and sols[0]["idioma"] in copia.COPIA else "es"
+    return render(request, "prospecto.html", p=p, token=token, solicitudes=sols, aviso=aviso, lang=lang,
+                  interes_texto=solicitudes.INTERESES, status_code=status_code)
+
+
+@publico.post("/p/{token}/adjuntos", response_class=HTMLResponse)
+def prospecto_adjuntos(request: Request, token: str, fotos: list[UploadFile | str] = File(default=[]),
+                       conn=Depends(conn_enlace)):
+    """Agrega fotos o PDF a la última solicitud del prospecto, con las mismas reglas que el formulario del sitio."""
+    p = patient_from_token(conn, token)
+    ultima = conn.execute("select id, idioma from solicitud_contacto where paciente_id=%s and origen='sitio' "
+                          "order by id desc limit 1", (p["id"],)).fetchone() if p["etapa"] == "prospecto" else None
+    if ultima is None:
+        return RedirectResponse(f"/p/{token}", status_code=303)
+    lang = ultima["idioma"] if ultima["idioma"] in copia.COPIA else "es"
+    f = copia.COPIA[lang]["form"]
+    try:
+        con_nombre = [u for u in fotos if not isinstance(u, str) and u.filename]
+        if len(con_nombre) > solicitudes.MAX_ADJUNTOS:
+            raise solicitudes.AdjuntoInvalido("cantidad")
+        subidos = [solicitudes.Adjunto(u.filename or "", u.file.read(solicitudes.MAX_BYTES + 1)) for u in con_nombre]
+        archivos = solicitudes.validar_adjuntos([a for a in subidos if a.datos])
+        if not archivos:
+            return RedirectResponse(f"/p/{token}", status_code=303)
+        solicitudes.agregar_adjuntos(conn, ultima["id"], archivos)
+    except solicitudes.AdjuntoInvalido as e:
+        return _pagina_prospecto(request, conn, token, p, aviso=f[f"err_adjunto_{e}"], status_code=422)
+    aviso = "Files added. Thank you!" if lang == "en" else "Listo, agregamos los archivos a tu solicitud."
+    return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
+
+
 @publico.get("/p/{token}/familia/agregar", response_class=HTMLResponse)
 def familia_form(request: Request, token: str, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     return render(request, "familia.html", p=p, token=token, error=None, values={}, parentescos=familia.PARENTESCOS,
                   responsable=familia.responsable_de(conn, p))
 
@@ -508,6 +589,8 @@ def familia_agregar(request: Request, token: str, documento: str = Form(""), nom
                     apellidos: str = Form(""), nacimiento: str = Form(""), parentesco: str = Form(""),
                     consentimiento: str = Form(""), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     values = {"documento": documento, "nombres": nombres, "apellidos": apellidos, "nacimiento": nacimiento,
               "parentesco": parentesco}
     if not _identificacion_permitida(request, "".join(ch for ch in documento if ch.isdigit())):
@@ -610,6 +693,8 @@ def _desde(valor: str | None) -> datetime | None:
 def nueva(request: Request, token: str, servicio: int | None = None, profesional: int | None = None,
           caso: int | None = None, para: int | None = None, desde: str | None = None, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     s = _sujeto(conn, p, para)
     ctx = _picker_context(conn, servicio, profesional, desde=_desde(desde))
     return render(request, "elegir.html", p=p, token=token, modo="nueva", cita=None, error=None,
@@ -621,6 +706,8 @@ def espacios(request: Request, token: str, servicio: int, profesional: int = 0, 
              modo: str = "nueva", error: str | None = None, dia: str | None = None, pag: int = 0,
              hpag: int = 0, para: int | None = None, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     s = _sujeto(conn, p, para)
     slots = _slots(conn, profesional, servicio)
     d = date.fromisoformat(dia) if dia else None
@@ -632,6 +719,8 @@ def espacios(request: Request, token: str, servicio: int, profesional: int = 0, 
 def agendar_post(request: Request, token: str, servicio: int = Form(...), profesional: int = Form(0),
                  inicio: str = Form(...), para: int | None = Form(None), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     s = _sujeto(conn, p, para)
     try:
         cita_id = agenda.book(conn, s["id"], profesional or None, servicio, datetime.fromisoformat(inicio), "paciente",
@@ -651,6 +740,8 @@ def agendar_post(request: Request, token: str, servicio: int = Form(...), profes
 def cambiar(request: Request, token: str, cita_id: int, servicio: int | None = None, profesional: int | None = None,
             conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     c = _cita_del_hogar(conn, p, cita_id)
     ctx = _picker_context(conn, c["servicio_id"], c["profesional_id"])
     ctx["services"] = [s for s in ctx["services"] if s["id"] == c["servicio_id"]] or ctx["services"]
@@ -668,6 +759,8 @@ def cambiar(request: Request, token: str, cita_id: int, servicio: int | None = N
 @publico.post("/p/{token}/cambiar/{cita_id}", response_class=HTMLResponse)
 def cambiar_post(request: Request, token: str, cita_id: int, inicio: str = Form(...), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     c = _cita_del_hogar(conn, p, cita_id, vivas=False)
     try:
         agenda.reschedule(conn, cita_id, datetime.fromisoformat(inicio), "paciente")
@@ -692,6 +785,8 @@ def _confirmable(c: dict, ahora: datetime) -> bool:
 def confirmar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlace)):
     """«Sí, asistiré» desde el enlace: el mismo paso que el botón del recordatorio, sin mensaje de vuelta (lo ve en pantalla)."""
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     c = _cita_del_hogar(conn, p, cita_id)
     s = _sujeto(conn, p, c["paciente_id"])
     quien = "tu cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
@@ -710,6 +805,8 @@ def confirmar(request: Request, token: str, cita_id: int, conn=Depends(conn_enla
 @publico.get("/p/{token}/cancelar/{cita_id}", response_class=HTMLResponse)
 def cancelar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     c = _cita_del_hogar(conn, p, cita_id)
     s = _sujeto(conn, p, c["paciente_id"])
     motivos = conn.execute("select * from motivo_cancelacion order by orden").fetchall()
@@ -720,6 +817,8 @@ def cancelar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlac
 @publico.post("/p/{token}/cancelar/{cita_id}", response_class=HTMLResponse)
 def cancelar_post(request: Request, token: str, cita_id: int, motivo: int = Form(...), conn=Depends(conn_enlace)):
     p = patient_from_token(conn, token)
+    if (r := _sin_citas(request, token, p)):
+        return r
     c = _cita_del_hogar(conn, p, cita_id, vivas=False)
     agenda.cancel(conn, cita_id, "paciente", "enlace", reason_id=motivo)
     # Tras cancelar se ofrecen espacios de inmediato, para la misma persona.

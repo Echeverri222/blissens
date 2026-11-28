@@ -35,9 +35,10 @@ pasos = APIRouter()   # los botones sin modelo: existen siempre, aunque el asist
 # Segunda línea de defensa: el tope de verdad (por visitante y día, y el presupuesto de tokens) está en la base. Por IP y en memoria.
 limite_visitantes = LimiteVentana(maximo=30, segundos=600)
 
-PASOS = ("inicio", "agendar", "afuera", "direccion", "otra")
-# Dónde lleva cada opción sin JavaScript (secciones de la landing).
-ANCLAS = {"agendar": "agendar", "afuera": "evaluacion", "direccion": "contacto", "otra": "contacto"}
+PASOS = ("inicio", "agendar", "afuera", "experiencia", "direccion", "otra")
+# Dónde lleva cada opción sin JavaScript: la página aparte con ese formulario (clave de `copia` con su dirección).
+PAGINAS = {"agendar": "agendar_url", "afuera": "evaluacion_url", "experiencia": "experiencia_url", "direccion": "contacto_url",
+           "otra": "contacto_url"}
 
 
 def cliente_del_modelo():
@@ -88,19 +89,23 @@ def _hx(request: Request) -> bool:
 # ----------------------------------------------------------------- capa 1: botones sin modelo
 
 @pasos.get("/sitio/asistente/paso/{clave}", response_class=HTMLResponse, include_in_schema=False)
-def paso(request: Request, clave: str, idioma: str = "es"):
-    """Un paso de los botones: un fragmento que reemplaza el cuerpo del cuadro. Sin HTMX redirige a la sección de la landing."""
+def paso(request: Request, clave: str, idioma: str = "es", paquete: str = ""):
+    """Un paso de los botones: un fragmento que reemplaza el cuerpo del cuadro. `paquete` solo lo usa «experiencia». Sin HTMX redirige a la página aparte."""
     if clave not in PASOS:
         raise HTTPException(404, "Not Found")
     lang = _idioma(idioma)
     t = copia.COPIA[lang]
     if not _hx(request):
-        return RedirectResponse(t["home"] + (f"#{ANCLAS[clave]}" if clave in ANCLAS else ""), status_code=303)
+        destino = t[PAGINAS[clave]] if clave in PAGINAS else t["home"]
+        if clave == "experiencia" and paquete in copia.PAQUETES:
+            destino += f"&paquete={paquete}"
+        return RedirectResponse(destino, status_code=303)
     render = _app().render
     if clave == "inicio":
         return render(request, "_asistente_inicio.html", lang=lang)
     if clave != "otra":
-        return render(request, "_asistente_paso.html", lang=lang, paso=clave, chat=False)
+        return render(request, "_asistente_paso.html", lang=lang, paso=clave, chat=False,
+                      paquete=paquete if paquete in copia.PAQUETES else "")
     with _conexion_corta(request) as conn:  # solo «Otra pregunta» mira si el asistente de IA está disponible
         chat = _disponible(request, conn)
     respuesta = render(request, "_asistente_paso.html", lang=lang, paso=clave, chat=chat)
@@ -124,7 +129,7 @@ def _tarjeta(pr: dict, lang: str) -> dict | None:
                    "desde": str(par.get("desde") or "")}
             if pre["desde"] and not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d", pre["desde"]):
                 return None
-            return {"tipo": tipo, "uid": uid, "titulo": t["agendar"]["paso1"], "pre": {k: v for k, v in pre.items() if v}}
+            return {"tipo": tipo, "uid": uid, "titulo": t["pag_agendar"]["paso1"], "pre": {k: v for k, v in pre.items() if v}}
         if tipo == "solicitud" and par.get("interes") in copia.INTERESES:
             interes = par["interes"]
             titulo = {"evaluacion_virtual": t["evaluacion"]["form_titulo"], "experiencia": t["experiencias"]["form_titulo"],

@@ -73,7 +73,7 @@ def anonimizar_paciente(conn, paciente_id: int) -> None:
                  (paciente_id,))
     conn.execute("update paciente set consentimiento_por=null where consentimiento_por=%s", (paciente_id,))
     conn.execute(
-        "update paciente set nombres=%s, apellidos='', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
+        "update paciente set nombres=%s, apellidos='', etapa='paciente', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
         "external_id=null, acepta_mensajes=false, acepta_correo=false, consentimiento_correo_en=null, internacional=false, "
         "deportista=false, segmento_origen=null, segmento_marcado_en=null, segmento_marcado_por=null where id=%s", (ANONIMO, paciente_id))
     conn.execute("update mensaje set texto='[eliminado]', botones='[]'::jsonb, respuesta=null where paciente_id=%s", (paciente_id,))
