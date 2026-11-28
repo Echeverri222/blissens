@@ -336,9 +336,9 @@ def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
             cancellation(cid, start, "whatsapp", round((start - now).total_seconds() / 3600, 1), now - timedelta(hours=5))
             conn.execute("insert into cupo_liberado(profesional_id, rango, cita_origen_id, causa, creado_en) "
                          "values (%s,%s,%s,'cancelacion',%s)", (pro, rng(start, svc["duracion_min"]), cid, now))
-            caso = followup.open_case(conn, "cancelacion", pid, cita_id=cid, send_first=False)
+            caso = followup.open_case(conn, "cancelacion", pid, cita_id=cid)
             if caso:
-                followup.send_attempt(conn, caso, "cancelacion_recibida")
+                followup.acusar_cancelacion(conn, caso)
     # Casos agotados y escalados (de hace semanas).
     for pid in rnd.sample(pat_ids, 3):
         caso = conn.execute(

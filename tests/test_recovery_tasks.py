@@ -22,6 +22,9 @@ def test_detects_active_treatment_without_future_appointment_after_threshold(con
     assert recovery.detect(conn) == 1
     caso = conn.execute("select * from caso_seguimiento").fetchone()
     assert caso["tipo"] == "tratamiento_a_medias" and caso["tratamiento_id"] == tid
+    assert not outbox(conn, a, "continuidad_tratamiento")  # el primer intento es a los 3 días, no al abrir
+    clock.freeze(caso["abierto_en"] + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
     msg = outbox(conn, a, "continuidad_tratamiento")[0]["texto"]
     assert "/p/" in msg and "diagn" not in msg.lower()  # sin detalles clínicos
 

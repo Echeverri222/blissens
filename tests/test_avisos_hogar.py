@@ -154,8 +154,11 @@ def test_un_solo_seguimiento_al_dia_por_hogar(conn):
     citas = citas_seguidas(conn, pro, gente)
     for c in citas:
         agenda.cancel(conn, c, "paciente", "web")
-    seguimiento = del_hogar(conn, gente, "%")
-    seguimiento = [m for m in seguimiento if m["plantilla"] in ("cancelacion_recibida", "seguimiento_reasignacion")]
+    assert len(del_hogar(conn, gente, "cancelacion_recibida")) == 3  # el acuse responde a cada acción: no cuenta como seguimiento
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 0
+    clock.freeze(clock.now(conn) + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
+    seguimiento = [m for m in del_hogar(conn, gente, "%") if m["plantilla"] == "seguimiento_reasignacion"]
     assert len(seguimiento) == 1
     casos = conn.execute("select count(*) n from caso_seguimiento where estado='abierto'").fetchone()["n"]
     assert casos == 3  # los casos siguen abiertos: sus próximos intentos saldrán, de a uno
@@ -166,7 +169,7 @@ def test_un_solo_seguimiento_al_dia_por_hogar(conn):
     clock.freeze(clock.now(conn) + timedelta(hours=3))
     tasks.cycle(conn)
     otra_vez = [m for m in del_hogar(conn, gente, "%") if m["plantilla"] == "seguimiento_reasignacion"]
-    assert len(otra_vez) == 1  # al día siguiente, el de una sola persona más
+    assert len(otra_vez) == 2  # al día siguiente, el de una sola persona más
 
 
 def test_una_sola_oferta_de_adelanto_pendiente_por_hogar(conn):

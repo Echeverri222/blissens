@@ -115,7 +115,7 @@ def process_response(conn, patient_id: int, answer: str, cita_id: int) -> bool:
             lifecycle.transition(conn, cita_id, "confirmada", "paciente", "Confirmó por WhatsApp")
         messaging.send(conn, patient_id, "confirmacion_recibida", agenda._info(conn, cita_id), direct=True)
     elif answer == "no":
-        cancel_id = agenda.cancel(conn, cita_id, "paciente", "whatsapp", defer_first_attempt=True)
+        cancel_id = agenda.cancel(conn, cita_id, "paciente", "whatsapp", defer_acuse=True)
         reasons = conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()
         options = [{"id": f"motivo:{cancel_id}:{r['id']}", "title": r["etiqueta"][:24]} for r in reasons]
         messaging.send(conn, patient_id, "pedir_motivo", agenda._info(conn, cita_id), direct=True, options=options,

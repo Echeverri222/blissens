@@ -5,7 +5,7 @@ from datetime import time
 DEFAULTS = {
     "recordatorios_horas": [48, 24],
     "umbral_tardia_horas": 24,
-    "cadencia_seguimiento_dias": [0, 3, 7, 15],
+    "cadencia_seguimiento_dias": [3, 7, 15],
     "dias_hasta_agotar": 7,
     "vigencia_oferta_min": 30,
     "antelacion_minima_cupo_horas": 2,

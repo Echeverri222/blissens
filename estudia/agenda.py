@@ -221,7 +221,7 @@ def hours_ahead(conn, cita) -> float:
 
 
 def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None = None, text: str | None = None,
-           defer_first_attempt: bool = False, user_id: int | None = None) -> int:
+           defer_acuse: bool = False, user_id: int | None = None) -> int:
     """Cancela una cita: registro de cancelación, cupo liberado y caso de seguimiento."""
     from . import correo, followup, slots
 
@@ -239,8 +239,10 @@ def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None =
                  (now, cita_id))
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cancelacion")
-    followup.open_case(conn, "cancelacion", c["paciente_id"], cita_id=cita_id,
-                       send_first=not defer_first_attempt)
+    caso = followup.open_case(conn, "cancelacion", c["paciente_id"], cita_id=cita_id)
+    if caso and not defer_acuse:
+        # El aviso de «quedó cancelada» responde a la acción del paciente y no cuenta como intento de seguimiento.
+        followup.acusar_cancelacion(conn, caso, direct=(actor == "paciente"))
     correo.enviar(conn, c["paciente_id"], "cancelada", cita_id, direct=(actor == "paciente"))
     return row["id"]
 
