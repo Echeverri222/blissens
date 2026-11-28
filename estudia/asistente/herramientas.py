@@ -402,19 +402,19 @@ class BuscarPacientes(Entrada):
     q: str = Field(min_length=1, max_length=80, description="Parte del nombre, apellido, documento o celular.")
 
 
-@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento o celular. Máximo 10: id, nombre y últimos 4 dígitos del documento.",
+@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento, celular o correo. Máximo 10: id, nombre, últimos 4 dígitos del documento y etapa (`prospecto`: escribió desde el sitio y aún no tiene documento; `paciente`).",
              BuscarPacientes, AUX, LECTURA, auditoria="buscar_paciente")
 def buscar_pacientes(conn, actor, a: BuscarPacientes) -> dict:
     filas = bandejas.find_patients(conn, a.q)
-    return {"pacientes": [{"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"])}
-                          for f in filas[:10]], "hay_mas": len(filas) > 10}
+    return {"pacientes": [{"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"]),
+                           "etapa": f["etapa"]} for f in filas[:10]], "hay_mas": len(filas) > 10}
 
 
 class PacienteId(Entrada):
     paciente_id: int = Field(ge=1, description="Id del paciente (sale de `buscar_pacientes`).")
 
 
-@herramienta("ficha_paciente", "Resumen de un paciente: nombre, últimos 4 del documento, consentimientos, sus últimas 20 citas, "
+@herramienta("ficha_paciente", "Resumen de un paciente: nombre, últimos 4 del documento, etapa (prospecto o paciente), consentimientos, sus últimas 20 citas, "
              "casos de seguimiento abiertos y sus últimos 10 mensajes. Sin teléfono, correo ni fecha de nacimiento.",
              PacienteId, AUX, LECTURA, auditoria="ver_ficha")
 def ficha_paciente(conn, actor, a: PacienteId) -> dict:
@@ -425,7 +425,7 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return {
         "paciente": {"id": p["id"], "nombre": _nombre(p), "documento_ultimos4": _ultimos4(p["documento"]),
-                     "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"]},
+                     "etapa": p["etapa"], "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"]},
         "citas": [{"id": c["id"], "estado": c["estado"], "dia": c["dia"], "inicio": _inicio(c), "servicio": c["servicio"],
                    "profesional": c["profesional"]} for c in r["citas"][:20]],
         "casos_abiertos": [{"id": c["id"], "tipo": c["tipo"], "escalado": c["escalado"], "abierto_en": c["abierto_en"],
@@ -483,7 +483,9 @@ def _compacta(f: dict) -> dict:
 def _contacto(conn, f: dict) -> dict:
     """Una solicitud de contacto que recepción pueda reconocer: sin documento ni celular completos (se quitan a la salida),
     con sus últimos 4 y, si el documento es de un paciente, quién es."""
-    p = conn.execute("select id, nombres, apellidos from paciente where documento=%s", (f["documento"],)).fetchone()
+    p = conn.execute("select id, nombres, apellidos from paciente where id=%s", (f["paciente_id"],)).fetchone() \
+        if f.get("paciente_id") else conn.execute("select id, nombres, apellidos from paciente where documento=%s",
+                                                  (f["documento"],)).fetchone()
     return {"id": f["id"], "momento": f["momento"], "nota": f["nota"], "documento_ultimos4": _ultimos4(f["documento"]),
             "celular_ultimos4": _ultimos4(f["celular"]),
             "paciente": {"id": p["id"], "nombre": _nombre(p)} if p else None}

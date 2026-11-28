@@ -1,0 +1,38 @@
+{# Página personal de un prospecto (sin documento): el estado de sus solicitudes y cómo agregarles fotos o radiografías. #}
+{# Sin citas presenciales: las agenda la clínica cuando llegue. El texto va en el idioma de su última solicitud. #}
+{% extends "base.html" %}
+{% set en = lang == 'en' %}
+{% block title %}{{ 'Your request' if en else 'Tu solicitud' }} · Blissens{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="app-cab">
+  <h1>{{ 'Hi, ' if en else 'Hola, ' }}{{ p.nombres|nombre }}</h1>
+</div>
+{% if aviso %}<p class="aviso" role="status">{{ aviso }}</p>{% endif %}
+<h2 class="app-sec-titulo">{{ 'Your requests' if en else 'Tus solicitudes' }}</h2>
+{% for s in solicitudes %}
+  <article class="cita">
+    <div class="cita__top">
+      <div>
+        <small class="muted cita__persona">{{ s.momento|local|fecha_hora if not en else (s.momento|local).strftime('%b %d, %Y · %I:%M %p') }}</small>
+        <strong class="cita__fecha">{{ interes_texto[s.interes][1 if en else 0] }}</strong>
+      </div>
+      <span class="estado-pill estado-pill--{{ 'confirmada' if s.gestionada else 'programada' }}">
+        {% if s.gestionada %}{{ 'Being handled' if en else 'En gestión' }}{% else %}{{ 'Received' if en else 'Recibida' }}{% endif %}
+      </span>
+    </div>
+    {% if s.adjuntos %}<p class="cita__detalle">{{ (s.adjuntos ~ ' file(s) attached') if en else (s.adjuntos ~ ' archivo(s) adjunto(s)') }}</p>{% endif %}
+  </article>
+{% else %}
+  <div class="tarjeta tarjeta--vacia"><p>{{ 'You have no requests yet.' if en else 'Aún no tienes solicitudes.' }}</p></div>
+{% endfor %}
+{% if solicitudes %}
+  <h2 class="app-sec-titulo">{{ 'Add photos or X-rays' if en else 'Agregar fotos o radiografías' }}</h2>
+  <form class="form" method="post" action="/p/{{ token }}/adjuntos" enctype="multipart/form-data">
+    <label>{{ t.form.fotos }}<input name="fotos" type="file" multiple required accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+    <p class="nota nota--campo">{{ t.form.fotos_ayuda }}</p>
+    <button class="boton" type="submit">{{ 'Send files' if en else 'Enviar archivos' }}</button>
+  </form>
+{% endif %}
+<p class="nota">{{ 'To book an in-person appointment, our team will contact you.' if en else 'Para una cita presencial, nuestro equipo te contactará.' }}</p>
+{% endblock %}

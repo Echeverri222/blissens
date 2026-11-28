@@ -117,7 +117,10 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
 
     `professional_id=None` es «cualquier especialista»: se asigna uno solo entre los que tienen libre ese espacio."""
     from . import followup
+    from .pacientes import DatosInvalidos
 
+    if conn.execute("select 1 from paciente where id=%s and etapa='prospecto'", (patient_id,)).fetchone():
+        raise DatosInvalidos("Es un prospecto: primero hay que registrar su documento para agendarle una cita presencial")
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
     if professional_id is None:

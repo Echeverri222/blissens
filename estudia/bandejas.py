@@ -153,11 +153,11 @@ def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
     if not palabras and not segmentos:
         return []
     nombre = f"translate(lower(nombres || ' ' || apellidos), '{CON_TILDE}', '{SIN_TILDE}')"
-    condiciones = [f"({nombre} like %s or documento like %s or celular like %s)" for _ in palabras]
+    condiciones = [f"({nombre} like %s or documento like %s or celular like %s or lower(correo) like %s)" for _ in palabras]
     if segmentos:
         condiciones.append("(" + " or ".join(segmentos) + ")")
-    args = [x for w in palabras for x in (f"%{w}%",) * 3]
-    return conn.execute(f"select id, nombres, apellidos, documento, celular, internacional, deportista from paciente "
+    args = [x for w in palabras for x in (f"%{w}%",) * 4]
+    return conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista from paciente "
                         f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA}", args).fetchall()
 
 
