@@ -1,0 +1,16 @@
+id: personalidad-mensaje-volver-a-empezar
+perfil: auxiliar
+actor: marta
+categoria: personalidad
+pregunta: ayudame con un mensaje para Diego, que falto ayer a su cita, para invitarlo a volver
+intencion: >-
+  Recepción pide el texto de un mensaje: Bliss lo redacta en usted, con el espíritu de «Volver a empezar», sin reproche y sin
+  servicio, diagnóstico ni montos. Solo lo sugiere: lo envía la persona.
+herramientas:
+  una_de: [[ficha_paciente, buscar_pacientes]]
+  aceptables: [datos_del_negocio]
+  prohibidas: [proponer_gestion_seguimiento, proponer_gestionar_mensaje]
+respuesta:
+  incluye_alguno: ["volver a empezar"]
+  excluye: ["te extranamos", "$", "valoracion", "no asististe", "ya lo envie"]
+  propuestas: []

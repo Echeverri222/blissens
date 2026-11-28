@@ -1,0 +1,14 @@
+id: personalidad-se-presenta-y-lleva-al-paso
+perfil: visitante
+actor: visita
+categoria: personalidad
+pregunta: hola, quiero agendar una limpieza
+intencion: >-
+  Primera respuesta del visitante: se presenta como Bliss, trata de usted y lleva al siguiente paso (una hora libre real y
+  la tarjeta de registro), en pocas frases y sin emojis.
+herramientas:
+  esperadas: [espacios_libres]
+  aceptables: [servicios, datos_del_negocio, proponer_registro]
+respuesta:
+  incluye: ["Bliss"]
+  excluye: ["tu cita", "!!", "precio"]

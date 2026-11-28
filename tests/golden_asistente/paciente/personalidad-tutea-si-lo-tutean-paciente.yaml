@@ -1,0 +1,21 @@
+id: personalidad-tutea-si-lo-tutean-paciente
+perfil: paciente
+actor: jorge
+categoria: personalidad
+pregunta: oye, a que hora es mi cita de mañana? me la confirmas?
+intencion: >-
+  Jorge tutea, así que Bliss también lo tutea (R9/R25). Responde con la hora de la cita y prepara la confirmación, sin emojis.
+herramientas:
+  esperadas: [proponer_confirmar]
+  aceptables: [mis_citas]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+contexto:
+  - llamada: mis_citas
+    args: {}
+    incluye: ["Resina u operatoria"]
+respuesta:
+  incluye: ["4"]
+  excluye: ["usted", "su cita", "le confirmo"]
+  propuestas: [confirmar]
+notas: >-
+  El registro por defecto es usted; cambia a tú solo porque la persona tutea.

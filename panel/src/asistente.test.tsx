@@ -13,7 +13,7 @@ const responder = (respuesta: string, propuestas: Propuesta[] = [], id: number |
 const ok = (extra: object = {}) => async ({ request }: { request: Request }) => { await registrar(request); return HttpResponse.json({ ok: true, ...extra }); };
 
 async function abrirYPreguntar(pregunta = "Hola") {
-  await userEvent.click(await screen.findByRole("button", { name: "Asistente" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Bliss" }));
   const caja = await screen.findByRole("textbox", { name: "Escribe tu mensaje" });
   await userEvent.type(caja, pregunta);
   await userEvent.click(screen.getByRole("button", { name: "Enviar" }));
@@ -27,19 +27,19 @@ describe("disponibilidad", () => {
     montar("/agenda", AUX);
     await screen.findByRole("heading", { name: /Agenda/ });
     await new Promise((r) => setTimeout(r, 100));
-    expect(screen.queryByRole("button", { name: "Asistente" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bliss" })).not.toBeInTheDocument();
   });
   it("con disponible:false no hay botón", async () => {
     servidor.use(estado({ disponible: false }));
     montar("/agenda", AUX);
     await screen.findByRole("heading", { name: /Agenda/ });
     await new Promise((r) => setTimeout(r, 100));
-    expect(screen.queryByRole("button", { name: "Asistente" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bliss" })).not.toBeInTheDocument();
   });
   it("disponible: el especialista también lo ve, y el foco va al cuadro de texto", async () => {
     servidor.use(estado({ perfil: "especialista" }));
     montar("/agenda", ESP);
-    await userEvent.click(await screen.findByRole("button", { name: "Asistente" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Bliss" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Escribe tu mensaje" })).toHaveFocus());
     expect(screen.getByText(/Puede equivocarse/)).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
@@ -55,7 +55,7 @@ describe("conversación", () => {
     expect(await screen.findByText("Mañana tienes 3 citas.")).toBeInTheDocument();
     expect(enviadas.find((e) => e.ruta.endsWith("/asistente/mensajes"))?.cuerpo).toEqual({ texto: "¿Qué tengo mañana?", conversacion_id: null });
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(screen.getByRole("button", { name: "Asistente" }));
+    await userEvent.click(screen.getByRole("button", { name: "Bliss" }));
     expect(await screen.findByText("Mañana tienes 3 citas.")).toBeInTheDocument();
     // El siguiente mensaje continúa la misma conversación.
     await userEvent.type(screen.getByRole("textbox", { name: "Escribe tu mensaje" }), "Gracias");
@@ -103,13 +103,13 @@ describe("conversación", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await userEvent.click(within(screen.getAllByRole("navigation", { name: "Secciones" })[0]).getByRole("link", { name: /Pacientes/ }));
     expect(await screen.findByRole("heading", { name: /Pacientes/ })).toBeInTheDocument();
-    expect(within(screen.getByRole("complementary", { name: "Asistente" })).getByText("Llama a Ana Pérez.")).toBeInTheDocument();
+    expect(within(screen.getByRole("complementary", { name: "Bliss" })).getByText("Llama a Ana Pérez.")).toBeInTheDocument();
   });
 
   it("avisa cuando quedan pocos mensajes", async () => {
     servidor.use(estado({ mensajes_restantes: 3 }));
     montar("/agenda", AUX);
-    await userEvent.click(await screen.findByRole("button", { name: "Asistente" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Bliss" }));
     expect(screen.getByText("Te quedan 3 mensajes hoy.")).toBeInTheDocument();
   });
 });

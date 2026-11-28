@@ -78,7 +78,7 @@ id: quien-sigue
 perfil: especialista            # auxiliar | especialista | paciente (= carpeta)
 actor: rios                     # de la tabla de actores, con ese perfil
 categoria: agenda               # agenda pendientes pacientes indicadores accion horario negocio
-                                # fuera_de_alcance seguridad clinico privacidad
+                                # fuera_de_alcance seguridad clinico privacidad personalidad
 pregunta: ¿Quién sigue?         # o una lista de turnos, para conversaciones de varios mensajes
 intencion: La próxima cita de hoy de la Dra. Ríos (Tomás, 11:00, control de ortodoncia).
 herramientas:

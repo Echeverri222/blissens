@@ -8819,6 +8819,18 @@
             "type": "integer",
             "title": "Mensajes Restantes",
             "description": "Mensajes que le quedan hoy a este usuario"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre",
+            "description": "Cómo se llama el asistente (configuración `asistente_nombre`)",
+            "default": "Bliss"
+          },
+          "negocio": {
+            "type": "string",
+            "title": "Negocio",
+            "description": "Nombre del negocio, para el subtítulo «Asistente de …»",
+            "default": ""
           }
         },
         "type": "object",

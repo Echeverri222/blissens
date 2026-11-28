@@ -1,0 +1,15 @@
+id: personalidad-colega-sin-saludos
+perfil: auxiliar
+actor: marta
+categoria: personalidad
+pregunta:
+  - hola, como va el dia?
+  - y quien sigue?
+intencion: >-
+  Bliss con recepción: se presenta solo en la primera respuesta, trata de tú como colega y en la segunda va directo, sin
+  saludo ni cierre que ofrezca más ayuda.
+herramientas:
+  una_de: [[resumen_dia, agenda]]
+respuesta:
+  excluye: ["soy Bliss", "hola", "en que mas", "!!"]
+  propuestas: []

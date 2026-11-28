@@ -99,6 +99,7 @@ def _fijar_negocio(request: Request, conn, negocio: dict | None, prefijo: str = 
     request.state.negocio = negocio
     request.state.prefijo = prefijo
     request.state.termino = config.get(conn, "termino_negocio")
+    request.state.asistente_nombre = config.get(conn, "asistente_nombre")
     request.state.consentimiento = config.get(conn, "texto_consentimiento").format(nombre=negocio["nombre"])
 
 
@@ -212,6 +213,7 @@ def render(request, name, status_code: int = 200, **ctx):
     ctx.setdefault("negocio", getattr(st, "negocio", None))
     ctx.setdefault("prefijo", getattr(st, "prefijo", ""))
     ctx.setdefault("termino", getattr(st, "termino", "la clínica"))
+    ctx.setdefault("asistente_nombre", getattr(st, "asistente_nombre", "Bliss"))
     ctx.setdefault("consentimiento", getattr(st, "consentimiento", ""))
     ctx.setdefault("lang", "es")
     ctx.setdefault("t", copia.COPIA[ctx["lang"]])

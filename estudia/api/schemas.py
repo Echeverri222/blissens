@@ -797,6 +797,8 @@ class AsistenteEstadoOut(Salida):
     disponible: bool = Field(description="El negocio encendió el asistente para el equipo (y hay clave de la API)")
     perfil: Literal["auxiliar", "especialista"]
     mensajes_restantes: int = Field(description="Mensajes que le quedan hoy a este usuario")
+    nombre: str = Field("Bliss", description="Cómo se llama el asistente (configuración `asistente_nombre`)")
+    negocio: str = Field("", description="Nombre del negocio, para el subtítulo «Asistente de …»")
 
 
 class AsistenteMensajeIn(Entrada):

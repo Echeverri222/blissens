@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Asistente de citas · Blissens{% endblock %}
+{% block title %}{{ asistente_nombre }} · Asistente de citas{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block head %}<noscript><style>.solo-js { display: none; }</style></noscript>{% endblock %}
 {% block content %}
-<h1>Asistente de citas</h1>
+<h1>{{ asistente_nombre }} · Asistente de citas</h1>
 {% if aviso %}<p class="aviso" role="status">{{ aviso }}</p>{% endif %}
 {% if fase == 'consentimiento' %}
   <div class="tarjeta">
@@ -24,6 +24,7 @@
     Si es una urgencia o algo de salud, llama a {{ termino }}.</p>
   <div class="chat">
     <div id="mensajes" class="chat__mensajes" aria-live="polite">
+      {% if not mensajes %}<div class="burbuja burbuja--asistente"><p>Hola, soy {{ asistente_nombre }}. Puedo ayudarle con sus citas, horarios y la dirección de la clínica.</p></div>{% endif %}
       {% include "_asistente_mensajes.html" %}
     </div>
     <div id="chat-error" role="alert">{% if error %}<p class="error">{{ error }}</p>{% endif %}</div>

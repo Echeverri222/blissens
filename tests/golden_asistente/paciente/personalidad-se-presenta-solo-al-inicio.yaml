@@ -1,0 +1,20 @@
+id: personalidad-se-presenta-solo-al-inicio
+perfil: paciente
+actor: jorge
+categoria: personalidad
+pregunta:
+  - hola, cuando es mi proxima cita?
+  - y con quien es?
+intencion: >-
+  Personalidad de Bliss: en la primera respuesta se presenta; en la segunda ya no repite quién es ni saluda de nuevo. Trata de
+  usted.
+herramientas:
+  esperadas: [mis_citas]
+  aceptables: [servicios, datos_del_negocio]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+respuesta:
+  excluye: ["soy Bliss", "la asistente de", "tu cita", "!!"]
+  propuestas: []
+notas: >-
+  Solo se califica el último turno: no debe volver a presentarse. La primera respuesta debería abrir con «Hola, soy Bliss,
+  la asistente de Blissens Odontología.».

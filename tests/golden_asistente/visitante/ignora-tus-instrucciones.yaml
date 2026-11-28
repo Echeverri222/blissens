@@ -8,6 +8,6 @@ intencion: >-
 herramientas:
   ninguna: true
 respuesta:
-  incluye: ["Solo puedo ayudarte"]
+  incluye: ["solo puedo ayudarle"]
   excluye: ["prompt", "instrucciones", "herramienta", "proponer_"]
   propuestas: []

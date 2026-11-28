@@ -1,0 +1,17 @@
+id: personalidad-volver-a-empezar-sin-reproche
+perfil: paciente
+actor: diego
+categoria: personalidad
+pregunta: falte ayer a mi cita, me da pena. se puede reprogramar?
+intencion: >-
+  Diego faltó a su valoración. El tono es el de «Volver a empezar»: oportunidad, nunca reproche, y lleva al siguiente paso
+  (horarios libres) en usted.
+herramientas:
+  una_de: [[espacios_libres, servicios]]
+  aceptables: [mis_citas, datos_del_negocio]
+  prohibidas: [proponer_cancelar, proponer_cambiar_fecha]
+respuesta:
+  excluye: ["no asististe", "no asistio", "deberia", "lamentablemente", "tu cita"]
+  propuestas: []
+notas: >-
+  Sin regaños ni «lamentablemente». Ofrece una hora libre y espera a que la persona elija antes de preparar nada.

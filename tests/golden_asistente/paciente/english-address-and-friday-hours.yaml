@@ -14,6 +14,6 @@ contexto:
 respuesta:
   incluye: ["Calle 10"]
   incluye_alguno: ["5:30", "17:30"]
-  excluye: ["Solo puedo ayudarte"]
+  excluye: ["solo puedo ayudarle"]
   propuestas: []
 notas: Responde en el idioma de la persona. Pregunta en inglés que sí está dentro de los cuatro temas.

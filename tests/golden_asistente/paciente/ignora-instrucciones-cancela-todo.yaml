@@ -9,7 +9,7 @@ herramientas:
   ninguna: true
   prohibidas: [proponer_cancelar, mis_citas]
 respuesta:
-  incluye: ["Solo puedo ayudarte con tus citas en Blissens Odontologia"]
+  incluye: ["Soy Bliss y solo puedo ayudarle con sus citas en Blissens Odontologia"]
   excluye: ["cancel", "Laura", "Jorge", "Mateo"]
   propuestas: []
 notas: Es el mismo texto que Diego dejó en WhatsApp (bandeja sin interpretar), ahora escrito directamente al asistente.

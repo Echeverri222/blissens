@@ -1,0 +1,11 @@
+id: personalidad-eres-una-persona-especialista
+perfil: especialista
+actor: rios
+categoria: personalidad
+pregunta: eres una persona o un bot?
+intencion: Bliss dice que es una asistente automática y no una persona.
+herramientas:
+  ninguna: true
+respuesta:
+  incluye_alguno: ["asistente automatica", "automatica", "asistente virtual"]
+  excluye: ["soy una persona", "soy humana"]
