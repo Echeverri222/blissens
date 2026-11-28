@@ -3,10 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
-import type { PacienteResumen, Segmento } from "@/api/tipos";
+import type { ColorSemaforo, PacienteResumen, Segmento } from "@/api/tipos";
+import { COLORES_SEMAFORO, SEMAFOROS } from "@/lib/estados";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Semaforo, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 
@@ -108,8 +109,10 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
   const [buscado, setBuscado] = useState(inicial?.texto.trim() ?? "");
   const [segmento, setSegmento] = useState<Segmento | null>(null);
   const [nuevo, setNuevo] = useState(false);
+  const [fallecidos, setFallecidos] = useState(false);
+  const [color, setColor] = useState<ColorSemaforo | null>(null);
   const activo = buscado.length > 0 || segmento !== null;
-  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined), enabled: activo });
+  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento, fallecidos, color], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined, fallecidos, color ?? undefined), enabled: activo });
   const nombre = (p: PacienteResumen) => `${p.nombres} ${p.apellidos}`.trim();
   return (
     <div className="space-y-3">
@@ -123,6 +126,11 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             <button key={f.texto} type="button" aria-pressed={segmento === f.valor} onClick={() => setSegmento(f.valor)}
               className={cn("rounded-full border px-3 py-1 text-sm font-medium", segmento === f.valor ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>{f.texto}</button>
           ))}
+          <Seleccion etiqueta="Estado" value={color ?? ""} onChange={(e) => setColor((e.target.value || null) as ColorSemaforo | null)}>
+            <option value="">Todos los estados</option>
+            {COLORES_SEMAFORO.map((c) => <option key={c} value={c}>{SEMAFOROS[c].texto}</option>)}
+          </Seleccion>
+          <Casilla etiqueta="Incluir fallecidos" checked={fallecidos} onChange={(e) => setFallecidos(e.target.checked)} />
         </div>
       )}
       {activo && (
@@ -132,7 +140,7 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             : <>
               <ul className="divide-y divide-linea rounded-xl border border-linea">{lista.map((p) => (
                 <li key={p.id}><button className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-zinc-50" onClick={() => alElegir({ id: p.id, nombre: nombre(p) })}>
-                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<Prospecto etapa={p.etapa} /><AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
+                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<Prospecto etapa={p.etapa} /><Semaforo semaforo={p.etapa === "prospecto" ? null : p.semaforo} noContactar={p.no_contactar} /><AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
                   <span className="text-tinta-suave">{p.documento ?? "sin documento"} · {p.celular ?? "sin celular"}</span></button></li>
               ))}</ul>
               {lista.length >= TOPE_BUSQUEDA && <p className="text-sm text-tinta-suave">Se muestran los primeros {TOPE_BUSQUEDA}. Escribe un nombre para afinar.</p>}
@@ -155,15 +163,19 @@ export function FormularioPaciente({ alCrear, alCancelar, inicial, boton = "Crea
   const m = useAccion(api.pacientes.crear, { ok: "Paciente creado", alExito: (r, d) => alCrear({ id: r.paciente_id, nombre: `${d.nombres} ${d.apellidos}`.trim() }) });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const enviar = (e: FormEvent) => { e.preventDefault(); m.mutate(v); };
+  const celularMalo = m.error instanceof ApiError && m.error.mensaje === "Celular no válido";
   return (
     <form onSubmit={enviar} className="space-y-3 rounded-xl border border-linea bg-zinc-50 p-3" aria-label="Paciente nuevo">
       <h3 className="text-sm font-semibold">Paciente nuevo</h3>
-      {m.error instanceof ApiError && <Aviso>{m.error.mensaje}</Aviso>}
+      {m.error instanceof ApiError && !celularMalo && <Aviso>{m.error.mensaje}</Aviso>}
       <div className="grid gap-3 sm:grid-cols-2">
         <Entrada etiqueta="Nombres" value={v.nombres} onChange={set("nombres")} required />
         <Entrada etiqueta="Apellidos" value={v.apellidos} onChange={set("apellidos")} />
         <Entrada etiqueta="Documento" inputMode="numeric" value={v.documento} onChange={set("documento")} required />
-        <Entrada etiqueta="Celular" inputMode="tel" value={v.celular} onChange={set("celular")} required />
+        <div>
+          <Entrada etiqueta="Celular" inputMode="tel" value={v.celular} onChange={set("celular")} required aria-invalid={celularMalo} />
+          {celularMalo && <p role="alert" className="mt-1 text-sm text-rose-800">Celular no válido</p>}
+        </div>
       </div>
       <Casilla etiqueta="El paciente autoriza el tratamiento de sus datos y recibir mensajes de la clínica" checked={v.consentimiento} onChange={set("consentimiento")} />
       <div className="flex gap-2"><Boton type="submit" disabled={m.isPending}>{boton}</Boton><Boton variante="secundario" onClick={alCancelar}>{cancelar}</Boton></div>

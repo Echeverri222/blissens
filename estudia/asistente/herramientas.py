@@ -10,7 +10,7 @@ from typing import Literal
 from psycopg.types.range import Range
 from pydantic import Field
 
-from .. import agenda, bandejas, clock, config, familia, fmt, horario, indicators, permisos
+from .. import agenda, bandejas, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos
 from ..lifecycle import ALIVE
 from ..pacientes import DatosInvalidos
 from .actor import Actor
@@ -401,14 +401,17 @@ def citas_sin_desenlace(conn, actor, a) -> dict:
 
 class BuscarPacientes(Entrada):
     q: str = Field(min_length=1, max_length=80, description="Parte del nombre, apellido, documento o celular.")
+    semaforo: Literal["verde", "amarillo", "rojo", "perdido"] | None = Field(
+        None, description="Solo los pacientes de ese color (el semáforo de la ficha).")
 
 
-@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento, celular o correo. Máximo 10: id, nombre, últimos 4 dígitos del documento y etapa (`prospecto`: escribió desde el sitio y aún no tiene documento; `paciente`).",
+@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento, celular o correo. Máximo 10: id, nombre, últimos 4 dígitos del documento, etapa (`prospecto`: escribió desde el sitio y aún no tiene documento; `paciente`), semáforo (`verde`, `amarillo`, `rojo`, `perdido` o `prospecto`) y `no_contactar` si lo tiene marcado. Los fallecidos no salen.",
              BuscarPacientes, AUX, LECTURA, auditoria="buscar_paciente")
 def buscar_pacientes(conn, actor, a: BuscarPacientes) -> dict:
-    filas = bandejas.find_patients(conn, a.q)
-    return {"pacientes": [{"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"]),
-                           "etapa": f["etapa"]} for f in filas[:10]], "hay_mas": len(filas) > 10}
+    filas = bandejas.find_patients(conn, a.q, semaforo=a.semaforo)
+    return {"pacientes": [_compacta({"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"]),
+                                     "etapa": f["etapa"], "semaforo": f["semaforo"], "no_contactar": f["no_contactar"]})
+                          for f in filas[:10]], "hay_mas": len(filas) > 10}
 
 
 class PacienteId(Entrada):
@@ -416,7 +419,7 @@ class PacienteId(Entrada):
 
 
 @herramienta("ficha_paciente", "Resumen de un paciente: nombre, últimos 4 del documento, etapa (prospecto o paciente), consentimientos, sus últimas 20 citas, "
-             "casos de seguimiento abiertos y sus últimos 10 mensajes. Sin teléfono, correo ni fecha de nacimiento.",
+             "casos de seguimiento abiertos (con los intentos usados de los que se hacen) y sus últimos 10 mensajes. También el semáforo (`verde`, `amarillo`, `rojo`, `perdido` o `prospecto`), `no_contactar` con su motivo si está marcado y `celular_estado` (`valido`, `sin_verificar`, `invalido` o `sin_whatsapp`; nunca el número). Sin teléfono, correo ni fecha de nacimiento.",
              PacienteId, AUX, LECTURA, auditoria="ver_ficha")
 def ficha_paciente(conn, actor, a: PacienteId) -> dict:
     if not conn.execute("select 1 from paciente where id=%s", (a.paciente_id,)).fetchone():
@@ -426,11 +429,15 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return {
         "paciente": {"id": p["id"], "nombre": _nombre(p), "documento_ultimos4": _ultimos4(p["documento"]),
-                     "etapa": p["etapa"], "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"]},
+                     "etapa": p["etapa"], "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"],
+                     "semaforo": pacientes.semaforo(conn, [p["id"]])[p["id"]],
+                     "no_contactar": p["no_contactar"], "celular_estado": p["celular_estado"],
+                     "tiene_celular": bool(p["celular"])},
         "citas": [{"id": c["id"], "estado": c["estado"], "dia": c["dia"], "inicio": _inicio(c), "servicio": c["servicio"],
                    "profesional": c["profesional"]} for c in r["citas"][:20]],
         "casos_abiertos": [{"id": c["id"], "tipo": c["tipo"], "escalado": c["escalado"], "abierto_en": c["abierto_en"],
-                            "intentos": len(c["intentos"] or [])} for c in r["casos"] if c["estado"] == "abierto"],
+                            "intentos": len(c["intentos"] or []), "intentos_max": followup.max_intentos(conn)}
+                           for c in r["casos"] if c["estado"] == "abierto"],
         # Los últimos movimientos de estado, con su id para `proponer_revertir` (la ficha del panel muestra el mismo botón).
         "historial": [{"id": h["id"], "cita_id": h["cita_id"], "momento": h["momento"], "de": h["estado_anterior"],
                        "a": h["estado_nuevo"], "revertido": h["revertido"],
@@ -450,16 +457,19 @@ BANDEJAS = {
     "no_confirmadas": bandejas.no_confirmadas, "seguimientos": bandejas.seguimientos, "en_riesgo": bandejas.en_riesgo,
     "cupos_libres": bandejas.cupos_libres, "sin_desenlace": bandejas.sin_desenlace, "sin_interpretar": bandejas.sin_interpretar,
     "contactos": bandejas.contactos_pendientes, "dados_de_baja": bandejas.dados_de_baja,
+    "celulares_por_revisar": bandejas.celulares_por_revisar,
 }
 
 
 class Bandeja(Entrada):
     bandeja: Literal["no_confirmadas", "seguimientos", "en_riesgo", "cupos_libres", "sin_desenlace", "sin_interpretar",
-                     "contactos", "dados_de_baja"] = Field(description="Cuál lista de trabajo de recepción.")
+                     "contactos", "dados_de_baja", "celulares_por_revisar"] = Field(description="Cuál lista de trabajo de recepción.")
 
 
 @herramienta("bandeja", f"Una lista de trabajo de recepción, en orden de prioridad (las {MAX_FILAS_BANDEJA} primeras y el total): citas sin confirmar, seguimientos, pacientes en riesgo, "
-             "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto o pacientes dados de baja.",
+             "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto, pacientes dados de baja o celulares por revisar "
+             "(pacientes con cita o seguimiento cuyo celular falta o no sirve; si tienen un responsable con celular utilizable, la fila lo trae). "
+             "Las filas de pacientes traen su semáforo; los seguimientos, los intentos usados y el máximo.",
              Bandeja, AUX, LECTURA)
 def bandeja(conn, actor, a: Bandeja) -> dict:
     filas = BANDEJAS[a.bandeja](conn)
@@ -467,6 +477,15 @@ def bandeja(conn, actor, a: Bandeja) -> dict:
         filas = [_contacto(conn, f) for f in filas]
     elif a.bandeja == "dados_de_baja":  # a quién hay que llamar: el número completo está en el panel, aquí sus últimos 4
         filas = [{**f, "celular_ultimos4": _ultimos4(f["celular"])} for f in filas]
+    elif a.bandeja == "celulares_por_revisar":
+        filas = [{**{k: v for k, v in f.items() if k != "responsable_celular"}, "celular_ultimos4": _ultimos4(f["celular"]),
+                  "responsable_celular_ultimos4": _ultimos4(f["responsable_celular"])} for f in filas]
+    if a.bandeja in ("no_confirmadas", "seguimientos", "dados_de_baja"):
+        colores = pacientes.semaforo(conn, [f["paciente_id"] for f in filas])
+        filas = [{**f, "semaforo": colores.get(f["paciente_id"])} for f in filas]
+    if a.bandeja == "seguimientos":
+        tope = followup.max_intentos(conn)
+        filas = [{**f, "intentos_max": tope} for f in filas]
     return {"bandeja": a.bandeja, **_limitar([_compacta(f) for f in filas], MAX_FILAS_BANDEJA)}
 
 
@@ -798,6 +817,38 @@ def proponer_segmentos(conn, actor, a: SegmentosPaciente) -> dict:
                       f"Dejar a {_nombre(p)} como " + (" y ".join(marcas) if marcas else "sin marcas de alto valor") + ".")
 
 
+class NoContactarPaciente(Entrada):
+    paciente_id: int = Field(ge=1, description="Id del paciente (de `buscar_pacientes`).")
+    motivo: Literal["queja", "cobro", "fallecido", "otro"] = Field(
+        description="`queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`.")
+    nota: str = Field("", max_length=200, description="Nota corta, sin datos clínicos.")
+
+
+@herramienta("proponer_no_contactar", "Prepara marcar a un paciente como «No contactar»: la clínica deja de escribirle y de llamarle "
+             "(sus seguimientos abiertos se anulan). No lo marca: la persona debe confirmar.", NoContactarPaciente, ("auxiliar",),
+             PROPUESTA, auditoria="asistente:propuesta")
+def proponer_no_contactar(conn, actor, a: NoContactarPaciente) -> dict:
+    p = conn.execute("select id, nombres, apellidos, no_contactar from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    nota = a.nota.strip()
+    return _propuesta("no_contactar", {"paciente_id": p["id"], "motivo": a.motivo, "nota": nota},  # `PUT /pacientes/{id}/no-contactar`
+                      f"Marcar a {_nombre(p)} como «No contactar» ({pacientes.ETIQUETA_NO_CONTACTAR[a.motivo].lower()})"
+                      + (f": {nota}." if nota else ".") + " Dejará de recibir mensajes y llamadas de la clínica.")
+
+
+@herramienta("proponer_quitar_no_contactar", "Prepara quitar la marca «No contactar» de un paciente. No la quita: la persona debe confirmar.",
+             PacienteId, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_quitar_no_contactar(conn, actor, a: PacienteId) -> dict:
+    p = conn.execute("select id, nombres, apellidos, no_contactar from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    if p["no_contactar"] is None:
+        raise ErrorHerramienta("accion_no_permitida", "Ese paciente no está marcado como «No contactar».")
+    return _propuesta("quitar_no_contactar", {"paciente_id": p["id"]},  # `DELETE /pacientes/{id}/no-contactar`
+                      f"Quitar la marca «No contactar» a {_nombre(p)}: ya se le podrá contactar.")
+
+
 class GestionSeguimiento(Entrada):
     caso_id: int = Field(ge=1, description="Id del caso (de `bandeja` seguimientos o de `ficha_paciente`).")
     resultado: Literal["acepto", "rechazo", "sin_respuesta"] = Field(description="Cómo terminó la llamada.")
@@ -811,16 +862,21 @@ RESULTADOS = {"acepto": "aceptó", "rechazo": "no quiso", "sin_respuesta": "no c
              "no contestó. No la registra: la persona debe confirmar.", GestionSeguimiento, ("auxiliar",), PROPUESTA,
              auditoria="asistente:propuesta")
 def proponer_gestion_seguimiento(conn, actor, a: GestionSeguimiento) -> dict:
-    c = conn.execute("select cs.id, cs.estado, cs.tipo, p.nombres, p.apellidos from caso_seguimiento cs "
-                     "join paciente p on p.id=cs.paciente_id where cs.id=%s", (a.caso_id,)).fetchone()
+    c = conn.execute("select cs.id, cs.estado, cs.tipo, p.nombres, p.apellidos, "
+                     "(select count(*) from intento i where i.caso_id=cs.id) as intentos "
+                     "from caso_seguimiento cs join paciente p on p.id=cs.paciente_id where cs.id=%s", (a.caso_id,)).fetchone()
     if c is None:
         raise permisos.NoExiste("No existe ese seguimiento")
     if c["estado"] not in ("abierto", "agotado"):
         raise ErrorHerramienta("accion_no_permitida", "Ese seguimiento ya está cerrado.")
     detalle = a.detalle.strip()
+    tope = followup.max_intentos(conn)
+    # Un «no contestó» es un intento más; el tercero (el último) deja el caso para la gestión de la clínica.
+    ultimo = a.resultado == "sin_respuesta" and c["intentos"] + 1 >= tope
     return _propuesta("gestion_seguimiento", {"caso_id": c["id"], "resultado": a.resultado, "detalle": detalle},
                       f"Registrar que {_nombre(c)} {RESULTADOS[a.resultado]} en el seguimiento ({c['tipo']})"
-                      + (f": {detalle}." if detalle else "."))
+                      + (f": {detalle}." if detalle else ".")
+                      + (f" Es el intento {min(c['intentos'] + 1, tope)} de {tope}: el último; ya no se le escribirá por este caso." if ultimo else ""))
 
 
 class MensajeId(Entrada):

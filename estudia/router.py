@@ -47,7 +47,7 @@ def _motivo(conn, patient_id, parts, mid):
     agenda.set_reason(conn, cancel_id, reason_id)
     caso = conn.execute("select id from caso_seguimiento where cita_id=%s and estado='abierto'", (row["cita_id"],)).fetchone()
     if caso:
-        followup.send_attempt(conn, caso["id"], followup.FIRST_TEMPLATE["cancelacion"])
+        followup.acusar_cancelacion(conn, caso["id"])
     return True
 
 

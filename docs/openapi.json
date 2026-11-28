@@ -2161,6 +2161,42 @@
               "default": [],
               "title": "Segmento"
             }
+          },
+          {
+            "name": "fallecidos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluye a los marcados como fallecidos (por defecto no salen).",
+              "default": false,
+              "title": "Fallecidos"
+            },
+            "description": "Incluye a los marcados como fallecidos (por defecto no salen)."
+          },
+          {
+            "name": "semaforo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "verde",
+                    "amarillo",
+                    "rojo",
+                    "perdido"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo los de ese color (R5).",
+              "title": "Semaforo"
+            },
+            "description": "Solo los de ese color (R5)."
           }
         ],
         "responses": {
@@ -2535,6 +2571,201 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/celular": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Corregir el celular del paciente",
+        "description": "Se valida y normaliza (celular colombiano o número internacional con `+`); 422 «Celular no válido» si no sirve. El celular queda sin verificar y lo hereda su hogar si lo compartía.",
+        "operationId": "cambiar_celular_api_v1_pacientes__paciente_id__celular_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NuevoCelular"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CelularOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pacientes/{paciente_id}/celular/en-chat": {
+      "post": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Marcar el celular como válido: ya está en un chat de WhatsApp",
+        "operationId": "celular_en_chat_api_v1_pacientes__paciente_id__celular_en_chat_post",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CelularOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}/segmentos": {
       "put": {
         "tags": [
@@ -2571,6 +2802,199 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SegmentosOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pacientes/{paciente_id}/no-contactar": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Marcar al paciente como «No contactar»",
+        "description": "La clínica deja de escribirle y de llamarle por iniciativa propia (cobro, queja, fallecido u otro motivo): no salen mensajes automáticos, se cierran como anulados sus seguimientos abiertos y desaparece de las listas de trabajo. Las respuestas directas a lo que la persona haga sí salen, salvo con `fallecido`, que lo bloquea todo y lo oculta de las búsquedas para agendar.",
+        "operationId": "marcar_no_contactar_api_v1_pacientes__paciente_id__no_contactar_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoContactar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoContactarOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Quitar la marca «No contactar»",
+        "operationId": "quitar_no_contactar_api_v1_pacientes__paciente_id__no_contactar_delete",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoContactarOut"
                 }
               }
             }
@@ -3540,6 +3964,92 @@
                   },
                   "type": "array",
                   "title": "Response Dados De Baja Api V1 Bandejas Dados De Baja Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bandejas/celulares-por-revisar": {
+      "get": {
+        "tags": [
+          "Bandejas"
+        ],
+        "summary": "Pacientes con cita o seguimiento cuyo celular no sirve",
+        "description": "Sin celular, con uno no válido o que no es WhatsApp. Si tienen un responsable con celular utilizable, trae sus datos para contactarlo a él.",
+        "operationId": "celulares_por_revisar_api_v1_bandejas_celulares_por_revisar_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CelularPorRevisarOut"
+                  },
+                  "type": "array",
+                  "title": "Response Celulares Por Revisar Api V1 Bandejas Celulares Por Revisar Get"
                 }
               }
             }
@@ -8980,6 +9490,25 @@
               }
             ],
             "title": "Celular"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -9787,6 +10316,170 @@
         ],
         "title": "CeldaDiaHora"
       },
+      "CelularOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "celular",
+          "celular_estado"
+        ],
+        "title": "CelularOut"
+      },
+      "CelularPorRevisarOut": {
+        "properties": {
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "type": "string",
+            "title": "Paciente"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado"
+          },
+          "motivo": {
+            "type": "string",
+            "enum": [
+              "sin_celular",
+              "invalido",
+              "sin_whatsapp",
+              "sin_verificar",
+              "valido"
+            ],
+            "title": "Motivo",
+            "description": "Por qué no se le puede escribir: no tiene celular, no es válido o no es usuario de WhatsApp."
+          },
+          "proxima_cita": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proxima Cita"
+          },
+          "caso_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caso Id",
+            "description": "Su seguimiento abierto, si lo hay."
+          },
+          "responsable_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable Id",
+            "description": "Su responsable, solo si tiene un celular utilizable: se le contacta a él."
+          },
+          "responsable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable"
+          },
+          "parentesco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parentesco"
+          },
+          "responsable_celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable Celular"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paciente_id",
+          "paciente",
+          "celular",
+          "celular_estado",
+          "motivo",
+          "proxima_cita",
+          "caso_id",
+          "responsable_id",
+          "responsable",
+          "parentesco",
+          "responsable_celular"
+        ],
+        "title": "CelularPorRevisarOut"
+      },
       "CierreOut": {
         "properties": {
           "dias": {
@@ -10484,6 +11177,10 @@
           "dados_de_baja": {
             "type": "integer",
             "title": "Dados De Baja"
+          },
+          "celulares_por_revisar": {
+            "type": "integer",
+            "title": "Celulares Por Revisar"
           }
         },
         "type": "object",
@@ -10495,7 +11192,8 @@
           "sin_desenlace",
           "sin_interpretar",
           "contactos",
-          "dados_de_baja"
+          "dados_de_baja",
+          "celulares_por_revisar"
         ],
         "title": "ConteoBandejas"
       },
@@ -11112,6 +11810,77 @@
               }
             ],
             "title": "Segmento Origen"
+          },
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "no_contactar_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar En"
+          },
+          "no_contactar_nota": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar Nota"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado",
+            "description": "`invalido` y `sin_whatsapp` no reciben mensajes automáticos.",
+            "default": "sin_verificar"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -11126,7 +11895,8 @@
           "etapa",
           "internacional",
           "deportista",
-          "segmento_origen"
+          "segmento_origen",
+          "no_contactar"
         ],
         "title": "FichaPaciente"
       },
@@ -11670,6 +12440,25 @@
             ],
             "title": "Recordatorio En",
             "description": "Cuándo salió el último recordatorio, si se registró la hora"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -11684,6 +12473,91 @@
           "recordatorio_enviado"
         ],
         "title": "NoConfirmadaOut"
+      },
+      "NoContactar": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "enum": [
+              "queja",
+              "cobro",
+              "fallecido",
+              "otro"
+            ],
+            "title": "Motivo",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "nota": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nota",
+            "description": "Nota corta, sin datos clínicos."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "NoContactar"
+      },
+      "NoContactarOut": {
+        "properties": {
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "no_contactar_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar En"
+          },
+          "no_contactar_nota": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar Nota"
+          }
+        },
+        "type": "object",
+        "required": [
+          "no_contactar",
+          "no_contactar_en",
+          "no_contactar_nota"
+        ],
+        "title": "NoContactarOut"
       },
       "NuevaCita": {
         "properties": {
@@ -11766,6 +12640,21 @@
           "fin"
         ],
         "title": "NuevoBloqueo"
+      },
+      "NuevoCelular": {
+        "properties": {
+          "celular": {
+            "type": "string",
+            "title": "Celular",
+            "description": "Celular colombiano de 10 dígitos o número internacional con `+`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "celular"
+        ],
+        "title": "NuevoCelular"
       },
       "NuevoPaciente": {
         "properties": {
@@ -12004,6 +12893,43 @@
             "type": "boolean",
             "title": "Deportista",
             "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -12015,7 +12941,8 @@
           "celular",
           "etapa",
           "internacional",
-          "deportista"
+          "deportista",
+          "no_contactar"
         ],
         "title": "PacienteResumen"
       },
@@ -12145,7 +13072,9 @@
               "gestionar_mensaje",
               "gestionar_contacto",
               "vincular_contacto",
-              "revertir"
+              "revertir",
+              "no_contactar",
+              "quitar_no_contactar"
             ],
             "title": "Tipo"
           },
@@ -13035,6 +13964,25 @@
             "type": "boolean",
             "title": "Deportista",
             "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",

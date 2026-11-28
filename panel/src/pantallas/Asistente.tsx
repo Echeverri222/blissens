@@ -49,6 +49,7 @@ const booleano = (p: Propuesta["parametros"], k: string): boolean => {
   return v;
 };
 const RESULTADOS = ["acepto", "rechazo", "sin_respuesta"] as const;
+const MOTIVOS = ["queja", "cobro", "fallecido", "otro"] as const;
 
 /** Cada tipo de propuesta se ejecuta con el endpoint que ya usa el panel; los parámetros se validan antes de enviarlos. */
 export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
@@ -80,6 +81,12 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
       case "gestionar_contacto": return api.bandejas.gestionarContacto(numero(p, "solicitud_id"));
       case "vincular_contacto": return api.bandejas.vincularContacto(numero(p, "solicitud_id"), numero(p, "paciente_id"));
       case "revertir": return api.citas.revertir(numero(p, "historial_id"));
+      case "no_contactar": {
+        const m = MOTIVOS.find((x) => x === p.motivo);
+        if (!m) throw new Error("parámetro inválido: motivo");
+        return api.pacientes.marcarNoContactar(numero(p, "paciente_id"), { motivo: m, nota: typeof p.nota === "string" && p.nota ? p.nota : null });
+      }
+      case "quitar_no_contactar": return api.pacientes.quitarNoContactar(numero(p, "paciente_id"));
       // Lleva datos que no pasan por el modelo: lo crea el formulario de su tarjeta, no un botón de confirmar.
       case "crear_paciente": return Promise.reject(new Error("se crea desde el formulario"));
       default: return Promise.reject(new Error("tipo desconocido"));

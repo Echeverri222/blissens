@@ -1,0 +1,24 @@
+id: como-esta-diego-semaforo
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: en que estado esta Diego Herrera, hay que insistirle?
+intencion: >-
+  El semáforo de Diego con su palabra, y que no está marcado como no contactar (se le puede llamar). Faltó ayer pero tiene
+  una limpieza el viernes.
+herramientas:
+  esperadas: [buscar_pacientes, ficha_paciente]
+  prohibidas: [proponer_no_contactar]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Diego Herrera"}
+    incluye: ["Diego Herrera Nieto", "semaforo"]
+  - llamada: ficha_paciente
+    args: {paciente_id: "{paciente.diego}"}
+    incluye: ["semaforo", "celular_estado", "intentos_max"]
+    excluye: ["+57"]
+respuesta:
+  incluye_alguno: ["verde", "amarillo", "rojo", "perdido"]
+  propuestas: []
+notas: >-
+  El color siempre va con su palabra. Nunca el celular, solo si sirve (celular_estado).

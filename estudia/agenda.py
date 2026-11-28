@@ -142,6 +142,8 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
     if conn.execute("select 1 from paciente where id=%s and etapa='prospecto'", (patient_id,)).fetchone():
         raise DatosInvalidos("Es un prospecto: primero hay que registrar su documento para agendarle una cita presencial")
     validar_duracion(duracion_min)
+    if conn.execute("select 1 from paciente where id=%s and no_contactar='fallecido'", (patient_id,)).fetchone():
+        raise DatosInvalidos("No se le puede agendar: la ficha está marcada como fallecido")
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
     if professional_id is None:
@@ -240,7 +242,7 @@ def hours_ahead(conn, cita) -> float:
 
 
 def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None = None, text: str | None = None,
-           defer_first_attempt: bool = False, user_id: int | None = None) -> int:
+           defer_acuse: bool = False, user_id: int | None = None) -> int:
     """Cancela una cita: registro de cancelación, cupo liberado y caso de seguimiento."""
     from . import correo, followup, slots
 
@@ -258,8 +260,10 @@ def cancel(conn, cita_id: int, actor: str, channel: str, reason_id: int | None =
                  (now, cita_id))
     if c["rango"]:
         slots.register_slot(conn, c["profesional_id"], c["rango"], cita_id, "cancelacion")
-    followup.open_case(conn, "cancelacion", c["paciente_id"], cita_id=cita_id,
-                       send_first=not defer_first_attempt)
+    caso = followup.open_case(conn, "cancelacion", c["paciente_id"], cita_id=cita_id)
+    if caso and not defer_acuse:
+        # El aviso de «quedó cancelada» responde a la acción del paciente y no cuenta como intento de seguimiento.
+        followup.acusar_cancelacion(conn, caso, direct=(actor == "paciente"))
     correo.enviar(conn, c["paciente_id"], "cancelada", cita_id, direct=(actor == "paciente"))
     return row["id"]
 

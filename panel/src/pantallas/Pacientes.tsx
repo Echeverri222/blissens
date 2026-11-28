@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BellOff } from "lucide-react";
+import { BellOff, Ban } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
-import type { FichaCompleta, Identificacion, Segmentos } from "@/api/tipos";
-import { ESTADOS } from "@/lib/estados";
+import type { FichaCompleta, Identificacion, MotivoNoContactar, Segmentos } from "@/api/tipos";
+import { ESTADOS, MOTIVOS_NO_CONTACTAR } from "@/lib/estados";
 import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
-import { AltoValor, Boton, Casilla, Confirmar, Entrada, EtiquetaEstado, Prospecto, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Confirmar, Entrada, EtiquetaEstado, Prospecto, Seleccion, Semaforo, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { BuscarPaciente } from "./Agendar";
 import { useNavigate } from "react-router-dom";
@@ -117,10 +117,14 @@ export function Ficha() {
           <Tarjeta className="flex flex-wrap items-start justify-between gap-3 p-4">
             <div>
               <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}
-                <Prospecto etapa={f.paciente.etapa} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
+                <Prospecto etapa={f.paciente.etapa} /><Semaforo semaforo={f.paciente.etapa === "prospecto" ? null : f.paciente.semaforo} noContactar={f.paciente.no_contactar} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
+              {f.paciente.celular_estado !== "valido" && f.paciente.celular_estado !== "sin_verificar" && (
+                <p className="mt-1 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950">{f.paciente.celular_estado === "sin_whatsapp" ? "Celular sin WhatsApp" : "Celular no válido"}</p>
+              )}
               <Familia f={f} />
               <MarcasAltoValor f={f} />
+              <NoContactar f={f} />
               {!f.paciente.acepta_mensajes && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950"><BellOff className="size-4" aria-hidden />Dado de baja de mensajes automáticos</p>
               )}
@@ -170,6 +174,42 @@ function PasarAPaciente({ f }: { f: FichaCompleta }) {
       </div>
       <Boton type="submit" disabled={m.isPending}>Registrar documento</Boton>
     </form>
+  );
+}
+
+/** «No contactar» (R6): la clínica deja de escribirle y de llamarle. Se marca y se quita con confirmación y queda en el registro. */
+function NoContactar({ f }: { f: FichaCompleta }) {
+  const p = f.paciente;
+  const [motivo, setMotivo] = useState<MotivoNoContactar>("queja");
+  const [nota, setNota] = useState("");
+  const marcar = useAccion(() => api.pacientes.marcarNoContactar(p.id, { motivo, nota: nota.trim() || null }), { ok: "Marcado como «No contactar»", alExito: () => setNota("") });
+  const quitar = useAccion(() => api.pacientes.quitarNoContactar(p.id), { ok: "Ya se le puede contactar" });
+  if (p.no_contactar) {
+    return (
+      <div className="mt-2 space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-950" role="status">
+        <p className="inline-flex items-center gap-1.5 font-semibold"><Ban className="size-4" aria-hidden />No contactar: {MOTIVOS_NO_CONTACTAR[p.no_contactar]}</p>
+        <p>{p.no_contactar === "fallecido" ? "No recibe ningún mensaje y no aparece al agendar." : "No se le escribe ni se le llama por iniciativa de la clínica; solo se le responde si él escribe."}
+          {p.no_contactar_nota ? ` Nota: ${p.no_contactar_nota}` : ""}</p>
+        <Confirmar etiqueta="Quitar la marca" pequeno titulo="¿Quitar «No contactar»?" si="Sí, quitar" deshabilitado={quitar.isPending}
+          pregunta="Volverá a recibir mensajes y a aparecer en las listas de trabajo." alConfirmar={() => quitar.mutate(undefined)} />
+      </div>
+    );
+  }
+  return (
+    <details className="mt-2 text-sm">
+      <summary className="cursor-pointer font-medium underline">No contactar</summary>
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        <Seleccion etiqueta="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoNoContactar)}>
+          {(Object.keys(MOTIVOS_NO_CONTACTAR) as MotivoNoContactar[]).map((m) => <option key={m} value={m}>{MOTIVOS_NO_CONTACTAR[m]}</option>)}
+        </Seleccion>
+        <Entrada etiqueta="Nota corta (sin datos clínicos)" maxLength={200} value={nota} onChange={(e) => setNota(e.target.value)} />
+      </div>
+      <div className="mt-2">
+        <Confirmar etiqueta="Marcar «No contactar»" pequeno variante="peligro" titulo="¿Marcar «No contactar»?" si="Sí, marcar" deshabilitado={marcar.isPending}
+          pregunta={<>La clínica dejará de escribirle y de llamarle ({MOTIVOS_NO_CONTACTAR[motivo].toLowerCase()}); se cerrarán sus seguimientos abiertos{motivo === "fallecido" ? " y dejará de aparecer al agendar" : ""}. Podrás quitar la marca después.</>}
+          alConfirmar={() => marcar.mutate(undefined)} />
+      </div>
+    </details>
   );
 }
 

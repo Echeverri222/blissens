@@ -22,7 +22,7 @@ def at_risk(conn, now: datetime | None = None, profesional_id: int | None = None
         from tratamiento t
         join paciente p on p.id = t.paciente_id
         join cita c on c.paciente_id = t.paciente_id and c.profesional_id = t.profesional_id
-        where t.estado = 'activo'
+        where t.estado = 'activo' and p.no_contactar is null
           and (%(pro)s::int is null or t.profesional_id = %(pro)s)
           and (%(srv)s::int is null or exists (select 1 from cita fs where fs.paciente_id = t.paciente_id
                and fs.profesional_id = t.profesional_id and fs.servicio_id = %(srv)s))

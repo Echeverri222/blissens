@@ -109,7 +109,7 @@ def test_estructura(ruta):
     assert set(r) <= {"incluye", "incluye_alguno", "excluye", "propuestas"}, r
     tipos = {"agendar", "cambiar_fecha", "cancelar", "confirmar", "confirmar_telefono", "desenlace", "bloqueo", "contacto",
              "eliminar_bloqueo", "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
-             "vincular_contacto", "revertir", "registro", "solicitud"}
+             "vincular_contacto", "revertir", "registro", "solicitud", "no_contactar", "quitar_no_contactar"}
     assert set(r.get("propuestas") or []) <= tipos, r.get("propuestas")
 
 

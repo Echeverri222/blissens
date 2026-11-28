@@ -196,6 +196,10 @@ def adaptador_de_correo(conn) -> Adaptador | None:
     return adaptador("correo_simulado")
 
 
+class SinWhatsApp(Exception):
+    """El proveedor dice que el número no es usuario de WhatsApp: un adaptador la lanza desde `enviar`."""
+
+
 def enviar_mensaje(conn, mensaje_id: int) -> None:
     """Entrega por el canal del negocio un mensaje saliente ya guardado (no hace nada con el simulado)."""
     m = conn.execute("select * from mensaje where id=%s", (mensaje_id,)).fetchone()
@@ -205,7 +209,16 @@ def enviar_mensaje(conn, mensaje_id: int) -> None:
     if a is None or a.tipo == "simulado":
         return
     p = conn.execute("select * from paciente where id=%s", (m["paciente_id"],)).fetchone()
-    a.enviar(conn, m, p)
+    try:
+        with conn.transaction():
+            a.enviar(conn, m, p)
+    except SinWhatsApp:
+        from . import pacientes
+        pacientes.marcar_celular(conn, m["paciente_id"], "sin_whatsapp")
+        conn.execute("update mensaje set estado_entrega='fallido', detalle='celular' where id=%s", (mensaje_id,))
+        if m["entidad_tipo"] == "caso":  # el seguimiento que no llegó no cuenta como intento (R8)
+            conn.execute("delete from intento where id = (select id from intento where caso_id=%s and resultado is null "
+                         "and canal='automatico' order by numero desc limit 1)", (m["entidad_id"],))
 
 
 def secreto_de(canal: dict) -> str | None:

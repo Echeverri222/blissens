@@ -37,7 +37,8 @@ Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín.
 | `visita` | visitante | Visitante anónimo del sitio web (sin cuenta; el caso puede llevar `idioma: en`) |
 
 **Pacientes** (`{paciente.x}`): laura, tomas, jorge, paula (Paula Castro León, dada de baja de WhatsApp), diego, sara (Sara
-Morales Díaz), andres (Andrés Pineda Gil), lucia (Lucía Fernández Mora), mateo (Mateo Ruiz Cano).
+Morales Díaz), andres (Andrés Pineda Gil), lucia (Lucía Fernández Mora), mateo (Mateo Ruiz Cano), rafael (Rafael Osorio Vega,
+marcado «No contactar» por queja activa).
 
 **Citas** (`{cita.x}`):
 
@@ -101,7 +102,7 @@ respuesta:                      # solo en vivo; comparación sin tildes ni mayú
   excluye: ["Lucía"]
   propuestas: []                # tipos exactos: agendar cambiar_fecha cancelar confirmar confirmar_telefono desenlace bloqueo contacto
                                 # eliminar_bloqueo crear_paciente segmentos gestion_seguimiento gestionar_mensaje
-                                # gestionar_contacto vincular_contacto revertir
+                                # gestionar_contacto vincular_contacto revertir no_contactar quitar_no_contactar
 notas: Por qué este caso importa (opcional).
 ```
 

@@ -268,6 +268,15 @@ Etapa = Literal["prospecto", "paciente"]
 ETAPA = Field(description="`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene.")
 
 
+ColorSemaforo = Literal["verde", "amarillo", "rojo", "perdido"]
+Semaforo = Literal["verde", "amarillo", "rojo", "perdido", "prospecto"]
+SEMAFORO = Field(None, description="Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin "
+                 "confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y "
+                 "más de 60 días sin venir) o `prospecto`. Se calcula al vuelo.")
+MotivoNoContactar = Literal["queja", "cobro", "fallecido", "otro"]
+MOTIVO_NO_CONTACTAR = Field(description="Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`.")
+
+
 class PacienteResumen(Salida):
     id: int
     nombres: str
@@ -277,6 +286,19 @@ class PacienteResumen(Salida):
     etapa: Etapa = ETAPA
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    semaforo: Semaforo | None = SEMAFORO
+
+
+class NoContactar(Entrada):
+    motivo: MotivoNoContactar = MOTIVO_NO_CONTACTAR
+    nota: str | None = Field(None, max_length=200, description="Nota corta, sin datos clínicos.")
+
+
+class NoContactarOut(Salida):
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    no_contactar_en: Momento | None
+    no_contactar_nota: str | None
 
 
 class NuevoPaciente(Entrada):
@@ -336,6 +358,12 @@ class FichaPaciente(Salida):
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
     segmento_origen: SegmentoOrigen | None
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    no_contactar_en: Momento | None = None
+    no_contactar_nota: str | None = None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"] = Field(
+        "sin_verificar", description="`invalido` y `sin_whatsapp` no reciben mensajes automáticos.")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class CitaFicha(Salida):
@@ -418,6 +446,32 @@ class ConteoBandejas(Salida):
     sin_interpretar: int
     contactos: int
     dados_de_baja: int
+    celulares_por_revisar: int
+
+
+class CelularPorRevisarOut(Salida):
+    paciente_id: int
+    paciente: str
+    celular: str | None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"]
+    motivo: Literal["sin_celular", "invalido", "sin_whatsapp", "sin_verificar", "valido"] = Field(
+        description="Por qué no se le puede escribir: no tiene celular, no es válido o no es usuario de WhatsApp.")
+    proxima_cita: Momento | None
+    caso_id: int | None = Field(description="Su seguimiento abierto, si lo hay.")
+    responsable_id: int | None = Field(description="Su responsable, solo si tiene un celular utilizable: se le contacta a él.")
+    responsable: str | None
+    parentesco: str | None
+    responsable_celular: str | None
+
+
+class NuevoCelular(Entrada):
+    celular: str = Field(description="Celular colombiano de 10 dígitos o número internacional con `+`.")
+
+
+class CelularOut(Salida):
+    id: int
+    celular: str | None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"]
 
 
 class ResumenDiaOut(Salida):
@@ -438,6 +492,7 @@ class NoConfirmadaOut(Salida):
     celular: str | None
     recordatorio_enviado: bool
     recordatorio_en: Momento | None = Field(None, description="Cuándo salió el último recordatorio, si se registró la hora")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class SeguimientoOut(Salida):
@@ -453,6 +508,7 @@ class SeguimientoOut(Salida):
     ultimo: str | None
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class EnRiesgoOut(Salida):
@@ -532,6 +588,7 @@ class BajaOut(Salida):
     paciente_id: int
     paciente: str
     celular: str | None
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class Gestion(Entrada):
@@ -810,7 +867,7 @@ class AsistenteMensajeIn(Entrada):
 class PropuestaOut(Salida):
     tipo: Literal["agendar", "cambiar_fecha", "cancelar", "confirmar_telefono", "desenlace", "bloqueo", "eliminar_bloqueo",
                   "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
-                  "vincular_contacto", "revertir"]
+                  "vincular_contacto", "revertir", "no_contactar", "quitar_no_contactar"]
     parametros: dict[str, Any] = Field(description="Lo que lleva el endpoint existente que la ejecuta, ya con sus ids")
     resumen: str = Field(description="Una línea para la tarjeta de confirmación")
 

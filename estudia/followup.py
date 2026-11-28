@@ -5,11 +5,8 @@ import psycopg
 
 from . import clock, config, messaging, tasks
 
-FIRST_TEMPLATE = {
-    "cancelacion": "cancelacion_recibida",
-    "inasistencia": "seguimiento_inasistencia",
-    "tratamiento_a_medias": "continuidad_tratamiento",
-}
+ACUSE_CANCELACION = "cancelacion_recibida"
+# Plantilla de cada intento de la cadencia (R7: ninguno sale al abrir el caso; el primero es a los 3 días).
 RETRY_TEMPLATE = {
     "cancelacion": "seguimiento_reasignacion",
     "inasistencia": "seguimiento_inasistencia",
@@ -17,9 +14,17 @@ RETRY_TEMPLATE = {
 }
 
 
-def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, tratamiento_id: int | None = None,
-              send_first: bool = True) -> int | None:
-    """Abre un caso. Solo hay uno abierto por cita o tratamiento de origen; devuelve None si ya existía."""
+def max_intentos(conn) -> int:
+    """Intentos de la cadencia: uno por entrada (3, 7 y 15 días = 3). Los manuales de la recepción cuentan igual."""
+    return len(config.get(conn, "cadencia_seguimiento_dias"))
+
+
+def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, tratamiento_id: int | None = None) -> int | None:
+    """Abre un caso. Solo hay uno abierto por cita o tratamiento de origen; devuelve None si ya existía o si el paciente
+    es «No contactar». No envía nada: programa cada intento de la cadencia (la primera entrada puede no ser 0)."""
+    from . import pacientes
+    if not pacientes.contactable(conn, patient_id):
+        return None  # «No contactar» (R6): no se abre caso
     now = clock.now(conn)
     try:
         with conn.transaction():
@@ -30,18 +35,35 @@ def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, t
     except psycopg.errors.UniqueViolation:
         return None
     cadence = config.get(conn, "cadencia_seguimiento_dias")
-    conn.execute("insert into intento(caso_id, numero, canal, momento) values (%s,1,'automatico',%s)", (caso, now))
-    for n, days in enumerate(cadence[1:], start=2):
+    for n, days in enumerate(cadence, start=1):
         tasks.schedule(conn, "intento_seguimiento", now + timedelta(days=days), {"caso_id": caso, "numero": n})
     tasks.schedule(conn, "agotar_caso", now + timedelta(days=cadence[-1] + config.get(conn, "dias_hasta_agotar")),
                    {"caso_id": caso})
-    if send_first:
-        send_attempt(conn, caso, FIRST_TEMPLATE[kind])
     return caso
 
 
-SEGUIMIENTO = sorted(set(FIRST_TEMPLATE.values()) | set(RETRY_TEMPLATE.values()))
+def acusar_cancelacion(conn, caso_id: int, *, direct: bool = True) -> int | None:
+    """El aviso inmediato «tu cita quedó cancelada». Responde a la acción del propio paciente: sale como envío directo y
+    NO es un intento de la cadencia (no se registra en `intento`)."""
+    caso = conn.execute("select * from caso_seguimiento where id=%s", (caso_id,)).fetchone()
+    return messaging.send(conn, caso["paciente_id"], ACUSE_CANCELACION, _datos(conn, caso), direct=direct,
+                          entity=("caso", caso_id))
+
+
+SEGUIMIENTO = sorted(set(RETRY_TEMPLATE.values()))
 HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR = 20
+
+
+def _datos(conn, caso: dict) -> dict:
+    data = {"caso_id": caso["id"], "enlace": messaging.patient_link(conn, caso["paciente_id"], f"/agendar?caso={caso['id']}")}
+    if caso["cita_id"]:
+        from .agenda import _info
+        data.update(_info(conn, caso["cita_id"]))
+    return data
+
+
+def _automaticos(conn, caso_id: int) -> int:
+    return conn.execute("select count(*) as n from intento where caso_id=%s and canal='automatico'", (caso_id,)).fetchone()["n"]
 
 
 def send_attempt(conn, caso_id: int, template: str) -> None:
@@ -57,16 +79,16 @@ def send_attempt(conn, caso_id: int, template: str) -> None:
         # El celular del hogar ya recibió un seguimiento hace poco. Este intento no salió, así que no cuenta como
         # intento: se borra y se reprograma para cuando se cumpla la espera (uno a la vez por celular).
         abierto = conn.execute("delete from intento where id = (select id from intento where caso_id=%s and "
-                               "resultado is null and canal='automatico' order by numero desc limit 1) returning numero",
+                               "resultado is null and canal='automatico' order by numero desc limit 1) returning id",
                                (caso_id,)).fetchone()
         tasks.schedule(conn, "intento_seguimiento", ultimo + timedelta(hours=HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR),
-                       {"caso_id": caso_id, "numero": abierto["numero"] if abierto else 1, "reprogramado": True})
+                       {"caso_id": caso_id, "numero": _automaticos(conn, caso_id) + 1 if abierto else 1, "reprogramado": True})
         return
-    data = {"caso_id": caso_id, "enlace": messaging.patient_link(conn, caso["paciente_id"], f"/agendar?caso={caso_id}")}
-    if caso["cita_id"]:
-        from .agenda import _info
-        data.update(_info(conn, caso["cita_id"]))
-    messaging.send(conn, caso["paciente_id"], template, data, entity=("caso", caso_id))
+    mid = messaging.send(conn, caso["paciente_id"], template, _datos(conn, caso), entity=("caso", caso_id))
+    if conn.execute("select 1 from mensaje where id=%s and detalle in ('celular','no_contactar')", (mid,)).fetchone():
+        # No salió por el celular o por «No contactar»: no cuenta como intento (R8, R6).
+        conn.execute("delete from intento where id = (select id from intento where caso_id=%s and resultado is null "
+                     "and canal='automatico' order by numero desc limit 1)", (caso_id,))
 
 
 def run_attempt(conn, caso_id: int, numero: int) -> None:
@@ -74,13 +96,15 @@ def run_attempt(conn, caso_id: int, numero: int) -> None:
     caso = conn.execute("select * from caso_seguimiento where id=%s for update", (caso_id,)).fetchone()
     if caso["estado"] != "abierto":
         return
-    if conn.execute("select 1 from intento where caso_id=%s and numero >= %s and canal='automatico'",
-                    (caso_id, numero)).fetchone():
+    if _automaticos(conn, caso_id) >= numero:
         return  # un intento reprogramado que la cadencia ya alcanzó
+    hechos = conn.execute("select count(*) as n from intento where caso_id=%s", (caso_id,)).fetchone()["n"]
+    if hechos >= max_intentos(conn):
+        return  # con los manuales de la recepción ya se completaron los intentos
     now = clock.now(conn)
     conn.execute("update intento set resultado='sin_respuesta' where caso_id=%s and resultado is null", (caso_id,))
     conn.execute("insert into intento(caso_id, numero, canal, momento) values (%s,%s,'automatico',%s)",
-                 (caso_id, numero, now))
+                 (caso_id, hechos + 1, now))
     send_attempt(conn, caso_id, RETRY_TEMPLATE[caso["tipo"]])
 
 
@@ -116,6 +140,10 @@ def register_manual(conn, caso_id: int, resultado: str, detalle: str = "", user_
     n = conn.execute("select coalesce(max(numero),0)+1 as n from intento where caso_id=%s", (caso_id,)).fetchone()["n"]
     conn.execute("insert into intento(caso_id, numero, canal, resultado, momento, detalle) values (%s,%s,'manual',%s,%s,%s)",
                  (caso_id, n, resultado, now, detalle))
+    total = conn.execute("select count(*) as n from intento where caso_id=%s", (caso_id,)).fetchone()["n"]
+    if total >= max_intentos(conn):  # con los intentos completos, los automáticos que faltan ya no salen
+        conn.execute("delete from tarea_programada where tipo='intento_seguimiento' and estado='pendiente' "
+                     "and (datos->>'caso_id')::bigint=%s", (caso_id,))
     if resultado == "rechazo":
         decline(conn, caso_id, user_id)
     elif resultado == "acepto":
