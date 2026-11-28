@@ -10,7 +10,7 @@ from typing import Literal
 from psycopg.types.range import Range
 from pydantic import Field
 
-from .. import agenda, bandejas, catalog, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos
+from .. import agenda, bandejas, catalog, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos, planes
 from ..lifecycle import ALIVE
 from ..pacientes import DatosInvalidos
 from .actor import Actor
@@ -435,8 +435,13 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
                      "tiene_celular": bool(p["celular"])},
         "citas": [{"id": c["id"], "estado": c["estado"], "dia": c["dia"], "inicio": _inicio(c), "servicio": c["servicio"],
                    "profesional": c["profesional"]} for c in r["citas"][:20]],
+        # Plan entregado, último abono y siguiente paso (cita viva con ese profesional); nunca el valor del plan.
+        "tratamientos": [_compacta({"id": t["id"], "profesional": t["profesional"], "estado": t["estado"],
+                                    "plan_entregado_en": t["plan_entregado_en"], "ultimo_abono_en": t["ultimo_abono_en"],
+                                    "siguiente_cita": t["proxima_cita"]})
+                         for t in planes.tratamientos_de(conn, a.paciente_id)],
         "casos_abiertos": [{"id": c["id"], "tipo": c["tipo"], "escalado": c["escalado"], "abierto_en": c["abierto_en"],
-                            "intentos": len(c["intentos"] or []), "intentos_max": followup.max_intentos(conn)}
+                            "intentos": len(c["intentos"] or []), "intentos_max": followup.max_intentos(conn, c["tipo"])}
                            for c in r["casos"] if c["estado"] == "abierto"],
         # Los últimos movimientos de estado, con su id para `proponer_revertir` (la ficha del panel muestra el mismo botón).
         "historial": [{"id": h["id"], "cita_id": h["cita_id"], "momento": h["momento"], "de": h["estado_anterior"],
@@ -457,18 +462,19 @@ BANDEJAS = {
     "no_confirmadas": bandejas.no_confirmadas, "seguimientos": bandejas.seguimientos, "en_riesgo": bandejas.en_riesgo,
     "cupos_libres": bandejas.cupos_libres, "sin_desenlace": bandejas.sin_desenlace, "sin_interpretar": bandejas.sin_interpretar,
     "contactos": bandejas.contactos_pendientes, "dados_de_baja": bandejas.dados_de_baja,
-    "celulares_por_revisar": bandejas.celulares_por_revisar,
+    "celulares_por_revisar": bandejas.celulares_por_revisar, "planes": planes.sin_siguiente_paso,
 }
 
 
 class Bandeja(Entrada):
     bandeja: Literal["no_confirmadas", "seguimientos", "en_riesgo", "cupos_libres", "sin_desenlace", "sin_interpretar",
-                     "contactos", "dados_de_baja", "celulares_por_revisar"] = Field(description="Cuál lista de trabajo de recepción.")
+                     "contactos", "dados_de_baja", "celulares_por_revisar", "planes"] = Field(description="Cuál lista de trabajo de recepción.")
 
 
 @herramienta("bandeja", f"Una lista de trabajo de recepción, en orden de prioridad (las {MAX_FILAS_BANDEJA} primeras y el total): citas sin confirmar, seguimientos, pacientes en riesgo, "
              "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto, pacientes dados de baja o celulares por revisar "
-             "(pacientes con cita o seguimiento cuyo celular falta o no sirve; si tienen un responsable con celular utilizable, la fila lo trae). "
+             "(pacientes con cita o seguimiento cuyo celular falta o no sirve; si tienen un responsable con celular utilizable, la fila lo trae) "
+             "o planes sin siguiente paso (plan entregado hace más de 7 días, sin cita posterior ni abono). "
              "Las filas de pacientes traen su semáforo; los seguimientos, los intentos usados y el máximo.",
              Bandeja, AUX, LECTURA)
 def bandeja(conn, actor, a: Bandeja) -> dict:
@@ -483,6 +489,8 @@ def bandeja(conn, actor, a: Bandeja) -> dict:
     if a.bandeja in ("no_confirmadas", "seguimientos", "dados_de_baja"):
         colores = pacientes.semaforo(conn, [f["paciente_id"] for f in filas])
         filas = [{**f, "semaforo": colores.get(f["paciente_id"])} for f in filas]
+    elif a.bandeja == "planes":  # el valor del plan es solo del panel: ni siquiera la recepción lo ve por el asistente
+        filas = [{k: v for k, v in f.items() if k != "valor_plan"} for f in filas]
     if a.bandeja == "seguimientos":
         tope = followup.max_intentos(conn)
         filas = [{**f, "intentos_max": tope} for f in filas]
@@ -815,6 +823,55 @@ def proponer_segmentos(conn, actor, a: SegmentosPaciente) -> dict:
     marcas = [n for n, v in (("internacional", a.internacional), ("deportista de alto nivel", a.deportista)) if v]
     return _propuesta("segmentos", {"paciente_id": p["id"], "internacional": a.internacional, "deportista": a.deportista},
                       f"Dejar a {_nombre(p)} como " + (" y ".join(marcas) if marcas else "sin marcas de alto valor") + ".")
+
+
+class PlanEntregadoPaciente(PacienteId):
+    tratamiento_id: int = Field(ge=1, description="Id del tratamiento (de `ficha_paciente.tratamientos`).")
+    fecha: date | None = Field(None, description="Día en que se entregó el plan; sin él, hoy.")
+    valor_plan: int | None = Field(None, ge=0, description="Valor del plan en pesos, solo si la persona lo dijo.")
+
+
+def _tratamiento_de(conn, a) -> dict:
+    t = conn.execute("select t.id, t.plan_entregado_en, p.id as paciente_id, p.nombres, p.apellidos, p.etapa, p.no_contactar "
+                     "from tratamiento t join paciente p on p.id=t.paciente_id where t.id=%s and t.paciente_id=%s",
+                     (a.tratamiento_id, a.paciente_id)).fetchone()
+    if t is None:
+        raise permisos.NoExiste("No existe ese tratamiento")
+    if t["etapa"] == "prospecto":
+        raise ErrorHerramienta("accion_no_permitida", "Un prospecto no tiene plan de tratamiento.")
+    return t
+
+
+@herramienta("proponer_plan_entregado", "Prepara registrar que se entregó el plan de tratamiento (fecha y valor opcionales): abre su "
+             "seguimiento de acompañamiento a los 3 y 7 días, sin montos. No lo registra: la persona debe confirmar.",
+             PlanEntregadoPaciente, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_plan_entregado(conn, actor, a: PlanEntregadoPaciente) -> dict:
+    t = _tratamiento_de(conn, a)
+    params = {"paciente_id": t["paciente_id"], "tratamiento_id": t["id"]}
+    if a.fecha:
+        params["fecha"] = a.fecha.isoformat()
+    if a.valor_plan is not None:
+        params["valor_plan"] = a.valor_plan
+    return _propuesta("plan_entregado", params,  # `PUT /pacientes/{id}/tratamientos/{id}/plan-entregado`
+                      f"Registrar que a {_nombre(t)} se le entregó el plan de tratamiento"
+                      + (f" el {fmt.fecha(a.fecha)}" if a.fecha else " hoy") + ". La clínica le escribirá a los 3 y 7 días"
+                      + (" (el valor queda solo en el panel)." if a.valor_plan is not None else "."))
+
+
+class AbonoPaciente(PacienteId):
+    tratamiento_id: int = Field(ge=1, description="Id del tratamiento (de `ficha_paciente.tratamientos`).")
+    fecha: date | None = Field(None, description="Día del abono; sin él, hoy.")
+
+
+@herramienta("proponer_registrar_abono", "Prepara registrar un abono al plan de tratamiento (solo la fecha, sin monto). "
+             "No lo registra: la persona debe confirmar.", AbonoPaciente, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_registrar_abono(conn, actor, a: AbonoPaciente) -> dict:
+    t = _tratamiento_de(conn, a)
+    params = {"paciente_id": t["paciente_id"], "tratamiento_id": t["id"]}
+    if a.fecha:
+        params["fecha"] = a.fecha.isoformat()
+    return _propuesta("registrar_abono", params,  # `PUT /pacientes/{id}/tratamientos/{id}/abono`
+                      f"Registrar un abono de {_nombre(t)} al plan de tratamiento" + (f" el {fmt.fecha(a.fecha)}." if a.fecha else " hoy."))
 
 
 class NoContactarPaciente(Entrada):

@@ -61,6 +61,8 @@ MATRIZ = {
     "proponer_revertir": ("", "", "P", "asistente:propuesta", ""),
     "proponer_no_contactar": ("", "", "P", "asistente:propuesta", ""),
     "proponer_quitar_no_contactar": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_plan_entregado": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_registrar_abono": ("", "", "P", "asistente:propuesta", ""),
     "info_clinica": ("", "", "", None, "L"),
     "proponer_registro": ("", "", "", None, "P"),
     "proponer_solicitud": ("", "", "", None, "P"),

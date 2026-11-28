@@ -371,7 +371,7 @@ describe("ficha del paciente", () => {
   const FICHA = {
     paciente: { id: 7, nombres: "Ana", apellidos: "Pérez", documento: "123", celular: "+573001112233", correo: null, acepta_mensajes: true,
       etapa: "paciente", internacional: true, deportista: false, segmento_origen: "sitio_en" },
-    familia: { responsable: null, familiares: [] }, citas: [], historial: [], casos: [], mensajes: [],
+    familia: { responsable: null, familiares: [] }, citas: [], tratamientos: [], historial: [], casos: [], mensajes: [],
   };
   it("muestra la marca de alto valor, de dónde salió, y la recepción la cambia con una casilla", async () => {
     servidor.use(
@@ -386,11 +386,30 @@ describe("ficha del paciente", () => {
   });
 });
 
+describe("plan de tratamiento en la ficha", () => {
+  const TRATAMIENTO = { id: 5, tipo: "tratamiento", estado: "activo", sesiones_previstas: 6, generado_en: "2026-11-01", profesional: "Dra. Uno",
+    plan_entregado_en: null, valor_plan: null, ultimo_abono_en: null, proxima_cita: null };
+  it("la recepción registra el plan entregado con su valor", async () => {
+    servidor.use(
+      http.get(`${API}/pacientes/7`, () => HttpResponse.json({
+        paciente: { id: 7, nombres: "Ana", apellidos: "Pérez", documento: "123", celular: "+573001112233", correo: null, acepta_mensajes: true,
+          etapa: "paciente", internacional: false, deportista: false, segmento_origen: null },
+        familia: { responsable: null, familiares: [] }, citas: [], tratamientos: [TRATAMIENTO], historial: [], casos: [], mensajes: [] })),
+      http.put(`${API}/pacientes/7/tratamientos/5/plan-entregado`, async ({ request }) => { await registrar(request); return HttpResponse.json({ tratamiento_id: 5, caso_id: 1 }); }));
+    montar("/pacientes/7", AUX);
+    expect(await screen.findByText("Plan sin entregar")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Valor del plan (opcional)"), "1500000");
+    await userEvent.click(screen.getByRole("button", { name: "Plan entregado" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, registrar" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/pacientes/7/tratamientos/5/plan-entregado", cuerpo: { valor_plan: 1500000 } }));
+  });
+});
+
 describe("prospectos", () => {
   const PROSPECTO = {
     paciente: { id: 8, nombres: "Jane Doe", apellidos: "", documento: null, celular: null, correo: "jane@example.com", acepta_mensajes: false,
       etapa: "prospecto", internacional: true, deportista: false, segmento_origen: "sitio_web" },
-    familia: { responsable: null, familiares: [] }, citas: [], historial: [], casos: [], mensajes: [],
+    familia: { responsable: null, familiares: [] }, citas: [], tratamientos: [], historial: [], casos: [], mensajes: [],
   };
   it("se ve como prospecto en la búsqueda", async () => {
     servidor.use(
@@ -493,7 +512,7 @@ describe("indicadores", () => {
     servidor.use(
       vacio("resumen", { citas: 3, atendidas: 2, no_asistio: 1, atencion_efectiva: 0.5, asistencia: 0.5, inasistencia: 0.25, inasistencia_por_depurar: 0, inasistencia_con_pendientes: 0.25, sin_desenlace: 0, capacidad_aplica: true, cancelaciones: 1, cancelaciones_tardias: 0, cancelaciones_recuperadas: 0, recuperacion: null, confirmacion: null, ocupacion: null, minutos_disponibles: 0, minutos_atendidos: 0, cupos_liberados: 0, cupos_ocupados_oferta: 0, cupos_ocupados_agendamiento: 0, cupos_vacios: 0, valor_perdido: 0, valor_perdido_inasistencia: 0, valor_perdido_tardias: 0, citas_sin_valor: 0, metas: {} }),
       vacio("tendencia", []), vacio("por-profesional", []), vacio("por-servicio", []), vacio("motivos", []), vacio("tiempo-entre-citas", { por_servicio: [], por_paciente_dias: null }),
-      vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("reagendamiento", { mediana_dias: null, total: 0, buckets: { mismo_dia: 0, "1_3": 0, "4_14": 0, "15_60": 0, no_reagendo: 0 } }),
+      vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("planes", { entregados: 0, con_siguiente_paso: 0, conversion_pct: null, valor_sin_siguiente_paso: null }), vacio("reagendamiento", { mediana_dias: null, total: 0, buckets: { mismo_dia: 0, "1_3": 0, "4_14": 0, "15_60": 0, no_reagendo: 0 } }),
       vacio("pendientes", { cierre_citas: SIN_PENDIENTES, mensajes: SIN_PENDIENTES, seguimientos: SIN_PENDIENTES, por_usuario: [], registro_desde: "2026-11-25" }), vacio("recordatorios", { con_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, sin_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, embudo: { citas: 0, con_recordatorio: 0, confirmadas: 0, atendidas: 0 } }),
       http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, tareas_atrasadas: 0, ultimo_cierre: null, configuracion: {} })));
     montar("/indicadores", AUX);

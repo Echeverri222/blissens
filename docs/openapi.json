@@ -3062,6 +3062,229 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/tratamientos/{tratamiento_id}/plan-entregado": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Registrar que se entregó el plan de tratamiento",
+        "description": "Fecha (por defecto hoy) y valor opcional, que solo ve el panel. Abre el seguimiento de acompañamiento (3 y 7 días, sin montos). 422 si es un prospecto.",
+        "operationId": "plan_entregado_api_v1_pacientes__paciente_id__tratamientos__tratamiento_id__plan_entregado_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          },
+          {
+            "name": "tratamiento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tratamiento Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanEntregado"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pacientes/{paciente_id}/tratamientos/{tratamiento_id}/abono": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Registrar un abono al plan (solo la fecha)",
+        "operationId": "registrar_abono_api_v1_pacientes__paciente_id__tratamientos__tratamiento_id__abono_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          },
+          {
+            "name": "tratamiento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tratamiento Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Abono"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}": {
       "get": {
         "tags": [
@@ -3539,6 +3762,92 @@
                     "$ref": "#/components/schemas/EnRiesgoOut"
                   },
                   "title": "Response En Riesgo Api V1 Bandejas En Riesgo Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bandejas/planes": {
+      "get": {
+        "tags": [
+          "Bandejas"
+        ],
+        "summary": "Planes sin siguiente paso",
+        "description": "Plan entregado hace más de 7 días, sin cita posterior con ese profesional ni abono desde entonces. Primero los pacientes de alto valor y luego el `valor_plan` más alto.",
+        "operationId": "planes_sin_siguiente_paso_api_v1_bandejas_planes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlanSinPasoOut"
+                  },
+                  "type": "array",
+                  "title": "Response Planes Sin Siguiente Paso Api V1 Bandejas Planes Get"
                 }
               }
             }
@@ -6401,6 +6710,156 @@
                     "$ref": "#/components/schemas/CeldaDiaHora"
                   },
                   "title": "Response Dia Hora Api V1 Indicadores Dia Hora Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/indicadores/planes": {
+      "get": {
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Planes entregados y su siguiente paso",
+        "description": "Planes entregados en el periodo, % con cita o abono dentro de los 15 días y `valor_plan` de los que no tienen siguiente paso (solo si hay valores).",
+        "operationId": "indicador_planes_api_v1_indicadores_planes_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profesional Id"
+            }
+          },
+          {
+            "name": "servicio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Servicio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanesIndicadorOut"
                 }
               }
             }
@@ -9490,6 +9949,26 @@
   },
   "components": {
     "schemas": {
+      "Abono": {
+        "properties": {
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha",
+            "description": "Día del abono; por defecto hoy. No se guarda el monto."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Abono"
+      },
       "AdjuntoOut": {
         "properties": {
           "id": {
@@ -11476,6 +11955,10 @@
           "celulares_por_revisar": {
             "type": "integer",
             "title": "Celulares Por Revisar"
+          },
+          "planes": {
+            "type": "integer",
+            "title": "Planes"
           }
         },
         "type": "object",
@@ -11488,7 +11971,8 @@
           "sin_interpretar",
           "contactos",
           "dados_de_baja",
-          "celulares_por_revisar"
+          "celulares_por_revisar",
+          "planes"
         ],
         "title": "ConteoBandejas"
       },
@@ -11975,6 +12459,14 @@
         "properties": {
           "paciente": {
             "$ref": "#/components/schemas/FichaPaciente"
+          },
+          "tratamientos": {
+            "items": {
+              "$ref": "#/components/schemas/TratamientoFicha"
+            },
+            "type": "array",
+            "title": "Tratamientos",
+            "default": []
           },
           "familia": {
             "$ref": "#/components/schemas/FamiliaOut"
@@ -13369,6 +13861,203 @@
         ],
         "title": "PendientesUsuario"
       },
+      "PlanEntregado": {
+        "properties": {
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha",
+            "description": "Día en que se entregó el plan; por defecto hoy."
+          },
+          "valor_plan": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Plan",
+            "description": "Valor del plan en pesos; opcional y solo del panel."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PlanEntregado"
+      },
+      "PlanOut": {
+        "properties": {
+          "tratamiento_id": {
+            "type": "integer",
+            "title": "Tratamiento Id"
+          },
+          "plan_entregado_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Entregado En"
+          },
+          "ultimo_abono_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Abono En"
+          },
+          "caso_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caso Id",
+            "description": "El caso de acompañamiento que se abrió, si se abrió."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tratamiento_id"
+        ],
+        "title": "PlanOut"
+      },
+      "PlanSinPasoOut": {
+        "properties": {
+          "tratamiento_id": {
+            "type": "integer",
+            "title": "Tratamiento Id"
+          },
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "type": "string",
+            "title": "Paciente"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional"
+          },
+          "plan_entregado_en": {
+            "type": "string",
+            "title": "Plan Entregado En"
+          },
+          "dias_desde_entrega": {
+            "type": "integer",
+            "title": "Dias Desde Entrega"
+          },
+          "valor_plan": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Plan"
+          },
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tratamiento_id",
+          "paciente_id",
+          "paciente",
+          "celular",
+          "profesional",
+          "plan_entregado_en",
+          "dias_desde_entrega",
+          "valor_plan",
+          "internacional",
+          "deportista"
+        ],
+        "title": "PlanSinPasoOut"
+      },
+      "PlanesIndicadorOut": {
+        "properties": {
+          "entregados": {
+            "type": "integer",
+            "title": "Entregados"
+          },
+          "con_siguiente_paso": {
+            "type": "integer",
+            "title": "Con Siguiente Paso",
+            "description": "Con cita o abono en los 15 días siguientes a la entrega."
+          },
+          "conversion_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversion Pct"
+          },
+          "valor_sin_siguiente_paso": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Sin Siguiente Paso",
+            "description": "Suma de `valor_plan` sin siguiente paso; solo si hay valores."
+          }
+        },
+        "type": "object",
+        "required": [
+          "entregados",
+          "con_siguiente_paso",
+          "conversion_pct"
+        ],
+        "title": "PlanesIndicadorOut"
+      },
       "ProfesionalOut": {
         "properties": {
           "id": {
@@ -13418,7 +14107,9 @@
               "vincular_contacto",
               "revertir",
               "no_contactar",
-              "quitar_no_contactar"
+              "quitar_no_contactar",
+              "plan_entregado",
+              "registrar_abono"
             ],
             "title": "Tipo"
           },
@@ -14792,6 +15483,100 @@
           "titulo"
         ],
         "title": "TituloProfesional"
+      },
+      "TratamientoFicha": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "sesiones_previstas": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sesiones Previstas"
+          },
+          "generado_en": {
+            "type": "string",
+            "format": "date",
+            "title": "Generado En"
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional"
+          },
+          "plan_entregado_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Entregado En"
+          },
+          "valor_plan": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Plan",
+            "description": "Solo del panel: nunca sale en un mensaje."
+          },
+          "ultimo_abono_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Abono En"
+          },
+          "proxima_cita": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proxima Cita",
+            "description": "Siguiente paso: cita viva futura con ese profesional."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tipo",
+          "estado",
+          "sesiones_previstas",
+          "generado_en",
+          "profesional",
+          "plan_entregado_en",
+          "ultimo_abono_en"
+        ],
+        "title": "TratamientoFicha"
       },
       "UsuarioAdmin": {
         "properties": {

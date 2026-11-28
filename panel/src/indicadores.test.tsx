@@ -37,6 +37,7 @@ const usar = (r: Resumen, servicios: object[] = SERVICIOS) => servidor.use(
     seguimientos: { resueltos: 0, mediana_horas: null, p90_horas: null, abiertos_hoy: 2, vencidos: 1 },
     por_usuario: [{ usuario_id: 3, usuario: "Recepción", resueltos: 9, mediana_horas: 4 }, { usuario_id: null, usuario: null, resueltos: 3, mediana_horas: 30 }],
     registro_desde: "2026-11-25" })),
+  http.get(`${API}/indicadores/planes`, () => HttpResponse.json({ entregados: 4, con_siguiente_paso: 3, conversion_pct: 75, valor_sin_siguiente_paso: 2_500_000 })),
   http.get(`${API}/indicadores/reagendamiento`, () => HttpResponse.json({
     mediana_dias: 3, total: 10, buckets: { mismo_dia: 1, "1_3": 3, "4_14": 2, "15_60": 1, no_reagendo: 3 } })),
   http.get(`${API}/indicadores/resumen`, () => HttpResponse.json(r)),
@@ -164,5 +165,14 @@ describe("indicadores", () => {
     expect(await screen.findByText(/La mitad reagenda/)).toHaveTextContent("La mitad reagenda en 3 días");
     const lista = screen.getByRole("list", { name: "Cancelaciones por tiempo hasta volver a agendar" });
     expect(within(lista).getAllByRole("listitem").map((l) => l.textContent)).toEqual(["1Mismo día", "31–3 días", "24–14 días", "115–60 días", "3No reagendó"]);
+  });
+
+  it("dentro de Más indicadores muestra los planes entregados y los que quedaron sin siguiente paso", async () => {
+    usar(resumen());
+    montar("/indicadores", AUX);
+    await userEvent.click(await screen.findByText("Más indicadores"));
+    expect(await screen.findByText(/4/, { selector: "b" })).toBeInTheDocument();
+    expect(await screen.findByText(/75.0 % con cita o abono/)).toBeInTheDocument();
+    expect(screen.getByText(/Valor de los planes sin siguiente paso/)).toHaveTextContent("2.500.000");
   });
 });

@@ -12,11 +12,23 @@ RETRY_TEMPLATE = {
     "inasistencia": "seguimiento_inasistencia",
     "tratamiento_a_medias": "continuidad_tratamiento",
 }
+# El caso `plan` (R14) tiene su propia cadencia y plantillas por intento (3 y 7 días): nunca mencionan montos.
+PLAN_PLANTILLAS = ("plan_acompanamiento_1", "plan_acompanamiento_2")
 
 
-def max_intentos(conn) -> int:
+def cadencia(conn, tipo: str | None = None) -> list:
+    return config.get(conn, "cadencia_plan_dias" if tipo == "plan" else "cadencia_seguimiento_dias")
+
+
+def plantilla_del_intento(tipo: str, numero: int) -> str:
+    if tipo == "plan":
+        return PLAN_PLANTILLAS[min(numero, len(PLAN_PLANTILLAS)) - 1]
+    return RETRY_TEMPLATE[tipo]
+
+
+def max_intentos(conn, tipo: str | None = None) -> int:
     """Intentos de la cadencia: uno por entrada (3, 7 y 15 días = 3). Los manuales de la recepción cuentan igual."""
-    return len(config.get(conn, "cadencia_seguimiento_dias"))
+    return len(cadencia(conn, tipo))
 
 
 def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, tratamiento_id: int | None = None) -> int | None:
@@ -34,7 +46,7 @@ def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, t
             ).fetchone()["id"]
     except psycopg.errors.UniqueViolation:
         return None
-    cadence = config.get(conn, "cadencia_seguimiento_dias")
+    cadence = cadencia(conn, kind)
     for n, days in enumerate(cadence, start=1):
         tasks.schedule(conn, "intento_seguimiento", now + timedelta(days=days), {"caso_id": caso, "numero": n})
     tasks.schedule(conn, "agotar_caso", now + timedelta(days=cadence[-1] + config.get(conn, "dias_hasta_agotar")),
@@ -50,7 +62,7 @@ def acusar_cancelacion(conn, caso_id: int, *, direct: bool = True) -> int | None
                           entity=("caso", caso_id))
 
 
-SEGUIMIENTO = sorted(set(RETRY_TEMPLATE.values()))
+SEGUIMIENTO = sorted(set(RETRY_TEMPLATE.values()) | set(PLAN_PLANTILLAS))
 HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR = 20
 
 
@@ -118,13 +130,13 @@ def run_attempt(conn, caso_id: int, numero: int) -> None:
     if _automaticos(conn, caso_id) >= numero:
         return  # un intento reprogramado que la cadencia ya alcanzó
     hechos = conn.execute("select count(*) as n from intento where caso_id=%s", (caso_id,)).fetchone()["n"]
-    if hechos >= max_intentos(conn):
+    if hechos >= max_intentos(conn, caso["tipo"]):
         return  # con los manuales de la recepción ya se completaron los intentos
     now = clock.now(conn)
     conn.execute("update intento set resultado='sin_respuesta' where caso_id=%s and resultado is null", (caso_id,))
     conn.execute("insert into intento(caso_id, numero, canal, momento) values (%s,%s,'automatico',%s)",
                  (caso_id, hechos + 1, now))
-    send_attempt(conn, caso_id, RETRY_TEMPLATE[caso["tipo"]])
+    send_attempt(conn, caso_id, plantilla_del_intento(caso["tipo"], hechos + 1))
 
 
 def exhaust(conn, caso_id: int) -> None:
@@ -160,7 +172,8 @@ def register_manual(conn, caso_id: int, resultado: str, detalle: str = "", user_
     conn.execute("insert into intento(caso_id, numero, canal, resultado, momento, detalle) values (%s,%s,'manual',%s,%s,%s)",
                  (caso_id, n, resultado, now, detalle))
     total = conn.execute("select count(*) as n from intento where caso_id=%s", (caso_id,)).fetchone()["n"]
-    if total >= max_intentos(conn):  # con los intentos completos, los automáticos que faltan ya no salen
+    tipo = conn.execute("select tipo from caso_seguimiento where id=%s", (caso_id,)).fetchone()["tipo"]
+    if total >= max_intentos(conn, tipo):  # con los intentos completos, los automáticos que faltan ya no salen
         conn.execute("delete from tarea_programada where tipo='intento_seguimiento' and estado='pendiente' "
                      "and (datos->>'caso_id')::bigint=%s", (caso_id,))
     if resultado == "rechazo":
@@ -173,8 +186,12 @@ def register_manual(conn, caso_id: int, resultado: str, detalle: str = "", user_
 def resolve_on_booking(conn, patient_id: int, new_cita_id: int) -> None:
     """Si el paciente agenda (por enlace o con la auxiliar), sus casos abiertos se cierran como reprogramados."""
     now = clock.now(conn)
-    for caso in conn.execute("select * from caso_seguimiento where paciente_id=%s and estado='abierto'",
-                             (patient_id,)).fetchall():
+    profesional = conn.execute("select profesional_id from cita where id=%s", (new_cita_id,)).fetchone()["profesional_id"]
+    for caso in conn.execute("select cs.*, t.profesional_id as profesional_plan from caso_seguimiento cs "
+                             "left join tratamiento t on t.id=cs.tratamiento_id "
+                             "where cs.paciente_id=%s and cs.estado='abierto'", (patient_id,)).fetchall():
+        if caso["tipo"] == "plan" and caso["profesional_plan"] != profesional:
+            continue  # el plan solo se resuelve con una cita con el profesional que lo entregó (R14)
         conn.execute("update intento set resultado='acepto' where caso_id=%s and resultado is null", (caso["id"],))
         conn.execute("update caso_seguimiento set estado='reprogramado', cita_resultante_id=%s, cerrado_en=%s where id=%s",
                      (new_cita_id, now, caso["id"]))

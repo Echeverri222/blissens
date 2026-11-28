@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
 import { Boton, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
-import { CitasPerdidas, Contador, DiaHora, ListaContador, pct, Pendientes, Reagendamiento, Recordatorios, TablaDimension } from "./IndicadoresDetalle";
+import { CitasPerdidas, Contador, DiaHora, ListaContador, pct, Pendientes, Planes, Reagendamiento, Recordatorios, TablaDimension } from "./IndicadoresDetalle";
 import { estadoCierre } from "./Sistema";
 
 const AZUL = "#3b9fe0";
@@ -235,6 +235,7 @@ export function Indicadores() {
                       </li>))}</ul>)}
                 </Tarjeta>)}</Consulta>
               <Reagendamiento f={f} />
+              <Planes f={f} />
               </div>
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">

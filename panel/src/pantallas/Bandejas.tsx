@@ -6,6 +6,7 @@ import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
 import type { CelularPorRevisar, Contacto, Semaforo as TipoSemaforo, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "@/lib/solicitudes";
+import { pesos } from "@/lib/dinero";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { AltoValor, Boton, Confirmar, Entrada, Hoja, Semaforo, Tarjeta } from "@/ui/controles";
@@ -21,6 +22,7 @@ const BANDEJAS: { clave: keyof ConteoBandejas; slug: string; texto: string; grup
   { clave: "contactos", slug: "contactos", texto: "Contactos y solicitudes", grupo: "Llamar", ayuda: "Solicitudes de contacto: personas del sitio web que piden información y quienes intentaron agendar con un documento ya registrado pero otro celular (esas se validan por teléfono).", vacio: "No hay solicitudes de contacto." },
   { clave: "dados_de_baja", slug: "dados-de-baja", texto: "Dados de baja", grupo: "Llamar", ayuda: "Citas próximas de pacientes que pidieron no recibir mensajes automáticos: confírmalas por teléfono.", vacio: "No hay citas próximas de pacientes dados de baja." },
   { clave: "celulares_por_revisar", slug: "celulares-por-revisar", texto: "Celulares por revisar", grupo: "Llamar", ayuda: "Pacientes con cita próxima o seguimiento abierto cuyo celular falta, no es válido o no tiene WhatsApp: el sistema no les puede escribir. Corrige el número o contacta a su responsable.", vacio: "Todos los celulares están en orden." },
+  { clave: "planes", slug: "planes", texto: "Planes sin siguiente paso", grupo: "Llamar", ayuda: "Plan de tratamiento entregado hace más de 7 días, sin cita posterior con ese profesional ni abono desde entonces. Primero los pacientes de alto valor y luego el valor del plan. Llama para acompañarle en el siguiente paso.", vacio: "Todos los planes entregados tienen siguiente paso." },
   { clave: "sin_desenlace", slug: "sin-desenlace", texto: "Citas por cerrar", grupo: "Revisar", ayuda: "Citas pasadas que quedaron sin desenlace. Ciérralas para no dejar huecos en los datos.", vacio: "No hay citas pasadas sin cerrar." },
   { clave: "cupos_libres", slug: "cupos-libres", texto: "Cupos libres", grupo: "Revisar", ayuda: "Espacios liberados por cancelaciones que aún no se han ocupado, y a quién se ofrecieron.", vacio: "No hay cupos liberados pendientes." },
   { clave: "en_riesgo", slug: "en-riesgo", texto: "Pacientes en riesgo", grupo: "Revisar", ayuda: "Tratamientos activos sin cita futura y con más días que el umbral desde la última cita. Primero los pacientes de alto valor (internacionales y deportistas), después los de más días sin cita.", vacio: "Ningún paciente con tratamiento a medias está en riesgo." },
@@ -78,6 +80,7 @@ function pendientes(d: {
   seguimientos?: Awaited<ReturnType<typeof api.bandejas.seguimientos>>; contactos?: Awaited<ReturnType<typeof api.bandejas.contactos>>;
   mensajes?: Awaited<ReturnType<typeof api.bandejas.sinInterpretar>>; noConfirmadas?: Awaited<ReturnType<typeof api.bandejas.noConfirmadas>>;
   dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>; celulares?: Awaited<ReturnType<typeof api.bandejas.celularesPorRevisar>>;
+  planes?: Awaited<ReturnType<typeof api.bandejas.planes>>;
 }): Pendiente[] {
   const f: Pendiente[] = [];
   for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
@@ -98,6 +101,9 @@ function pendientes(d: {
   for (const r of d.celulares ?? []) f.push({ id: `cel-${r.paciente_id}`, urgencia: 3, orden: r.proxima_cita ?? "9", etiqueta: "Celular por revisar", slug: "celulares-por-revisar", pacienteId: r.paciente_id, celular: r.responsable_celular,
     acciones: <AccionesCelular r={r} />,
     texto: <><b>{r.paciente}</b>: {TEXTO_CELULAR[r.motivo] ?? "celular por revisar"}. <Responsable r={r} /></> });
+  for (const r of d.planes ?? []) f.push({ id: `plan-${r.tratamiento_id}`, urgencia: 6, altoValor: r.internacional || r.deportista, orden: r.plan_entregado_en, etiqueta: "Plan sin siguiente paso", slug: "planes", pacienteId: r.paciente_id, celular: r.celular,
+    acciones: <Link className={ENLACE} to={`/agendar?paciente=${r.paciente_id}`}>Agendar</Link>,
+    texto: <>Llama a <b>{r.paciente}</b> <AltoValor internacional={r.internacional} deportista={r.deportista} />: recibió su plan con {r.profesional} hace {r.dias_desde_entrega} días y no tiene cita ni abono.</> });
   return f.sort((a, b) => a.urgencia - b.urgencia || Number(!!b.altoValor) - Number(!!a.altoValor) || a.orden.localeCompare(b.orden));
 }
 
@@ -196,12 +202,13 @@ function QueHacerHoy() {
     { queryKey: ["bandeja", "no-confirmadas"], queryFn: api.bandejas.noConfirmadas, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "dados-de-baja"], queryFn: api.bandejas.dadosDeBaja, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "celulares-por-revisar"], queryFn: api.bandejas.celularesPorRevisar, refetchInterval: CADA_MINUTO },
+    { queryKey: ["bandeja", "planes"], queryFn: api.bandejas.planes, refetchInterval: CADA_MINUTO },
   ] });
-  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja, celulares] = consultas;
+  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja, celulares, planes] = consultas;
   const fallo = consultas.find((c) => c.error);
   if (fallo) return <Aviso>No pudimos cargar todo. <button className="underline" onClick={() => consultas.forEach((c) => void c.refetch())}>Reintentar</button></Aviso>;
   if (consultas.some((c) => c.isPending)) return <Cargando />;
-  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data, celulares: celulares.data });
+  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data, celulares: celulares.data, planes: planes.data });
   const porCerrar = conteo.data?.sin_desenlace ?? 0;
   return (
     <div className="space-y-4">
@@ -306,6 +313,12 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
           <AltoValor internacional={r.internacional} deportista={r.deportista} /><span>Última cita: {r.ultima_cita}</span>
           <span>{r.dias_sin_cita} días sin cita</span><span className="text-tinta-suave">Mensaje de recuperación: {r.caso_id ? "enviado" : "aún no"}</span>
           <Link className={cn(ENLACE, "ml-auto")} to={`/agendar?paciente=${r.paciente_id}`}>Agendar</Link></Fila>)} />;
+    case "planes":
+      return <Lista clave={slug} fn={api.bandejas.planes} vacio={vacio} fila={(r) => (
+        <Fila key={r.tratamiento_id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+          <AltoValor internacional={r.internacional} deportista={r.deportista} /><span>{r.profesional}</span>
+          <span className="text-tinta-suave">Plan entregado hace {r.dias_desde_entrega} días</span>
+          {r.valor_plan != null && <span className="ml-auto font-medium">{pesos(r.valor_plan)}</span>}</Fila>)} />;
     case "cupos-libres":
       return <Lista clave={slug} fn={api.bandejas.cuposLibres} vacio={vacio} fila={(r) => (
         <Fila key={r.id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><span>{r.profesional}</span>

@@ -1,0 +1,17 @@
+id: andres-hizo-un-abono
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: Andrés Pineda pasó a abonar a su plan, anótalo
+intencion: Preparar el registro de un abono de hoy (solo la fecha) al tratamiento de Andrés Pineda Gil, sin preguntar el monto.
+herramientas:
+  esperadas: [buscar_pacientes, ficha_paciente, proponer_registrar_abono]
+  prohibidas: [proponer_plan_entregado]
+contexto:
+  - llamada: proponer_registrar_abono
+    args: {paciente_id: "{paciente.andres}", tratamiento_id: "{tratamiento.andres}"}
+    incluye: ["registrar_abono", "Andrés Pineda Gil"]
+respuesta:
+  incluye: ["Andrés"]
+  excluye: ["ya quedo registrado", "cuanto abono"]
+  propuestas: [registrar_abono]

@@ -1,0 +1,21 @@
+id: entregue-el-plan-de-andres
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: Le entregué hoy el plan de tratamiento a Andrés Pineda, regístralo
+intencion: Preparar el plan entregado de hoy para el tratamiento de Andrés Pineda Gil, sin pedir ni inventar un valor.
+herramientas:
+  esperadas: [buscar_pacientes, ficha_paciente, proponer_plan_entregado]
+  prohibidas: [proponer_registrar_abono]
+contexto:
+  - llamada: ficha_paciente
+    args: {paciente_id: "{paciente.andres}"}
+    incluye: ["tratamientos", "Andrés Pineda Gil"]
+    excluye: ["valor_plan"]
+  - llamada: proponer_plan_entregado
+    args: {paciente_id: "{paciente.andres}", tratamiento_id: "{tratamiento.andres}"}
+    incluye: ["plan_entregado", "Andrés Pineda Gil", "3 y 7 días"]
+respuesta:
+  incluye: ["Andrés"]
+  excluye: ["ya quedo registrado"]
+  propuestas: [plan_entregado]
