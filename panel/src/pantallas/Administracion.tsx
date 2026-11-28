@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
-import type { Metas, Profesional, Servicio, UsuarioAdmin } from "@/api/tipos";
+import type { Metas, MotivoAdmin, Profesional, Servicio, UsuarioAdmin } from "@/api/tipos";
 import { pesos } from "@/lib/dinero";
 import { fechaHora } from "@/lib/tiempo";
 import { useSesion } from "@/sesion/Sesion";
@@ -161,6 +161,55 @@ function TitulosProfesionales() {
   );
 }
 
+const MAX_MOTIVOS = 5; // sin contar "Otro", que siempre está activo y al final
+
+/** Motivos que se ofrecen al cancelar: elegir hasta cinco y ordenarlos. "Otro" es fijo. Cada cambio se guarda de una vez. */
+function MotivosCancelacion({ motivos }: { motivos: MotivoAdmin[] }) {
+  const activos = motivos.filter((m) => m.activo && m.etiqueta !== "Otro");
+  const inactivos = motivos.filter((m) => !m.activo);
+  const otro = motivos.find((m) => m.etiqueta === "Otro");
+  const m = useAccion((ids: number[]) => api.admin.fijarMotivos(ids), { ok: "Motivos guardados" });
+  const guardar = (lista: MotivoAdmin[]) => m.mutate(lista.map((x) => x.id));
+  const mover = (i: number, d: -1 | 1) => { const l = [...activos]; [l[i], l[i + d]] = [l[i + d], l[i]]; guardar(l); };
+  return (
+    <Tarjeta>
+      {m.error instanceof ApiError && <div className="p-3"><Aviso>{m.error.mensaje}</Aviso></div>}
+      <ul aria-label="Motivos que se ofrecen" className="divide-y divide-linea">
+        {activos.map((x, i) => (
+          <li key={x.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+            <span className="min-w-0 flex-1 font-medium">{x.etiqueta}</span>
+            <Boton pequeno variante="secundario" disabled={i === 0 || m.isPending} aria-label={`Subir ${x.etiqueta}`} onClick={() => mover(i, -1)}>Subir</Boton>
+            <Boton pequeno variante="secundario" disabled={i === activos.length - 1 || m.isPending} aria-label={`Bajar ${x.etiqueta}`} onClick={() => mover(i, 1)}>Bajar</Boton>
+            <Boton pequeno variante="secundario" disabled={m.isPending} aria-label={`Quitar ${x.etiqueta}`} onClick={() => guardar(activos.filter((y) => y.id !== x.id))}>Quitar</Boton>
+          </li>
+        ))}
+        {otro && <li className="px-4 py-2.5 text-sm"><span className="font-medium">Otro</span> <span className="text-xs text-tinta-suave">Siempre al final; abre un campo para escribir el motivo.</span></li>}
+      </ul>
+      {inactivos.length > 0 && (
+        <ul aria-label="Motivos sin usar" className="divide-y divide-linea border-t border-linea">
+          {inactivos.map((x) => (
+            <li key={x.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+              <span className="min-w-0 flex-1 text-tinta-suave">{x.etiqueta}</span>
+              <Boton pequeno variante="secundario" disabled={activos.length >= MAX_MOTIVOS || m.isPending} aria-label={`Activar ${x.etiqueta}`} onClick={() => guardar([...activos, x])}>Activar</Boton>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Tarjeta>
+  );
+}
+
+function MotivosSeccion() {
+  const q = useQuery({ queryKey: ["admin", "motivos"], queryFn: api.admin.motivos });
+  return (
+    <section aria-label="Motivos de cancelación" className="space-y-2">
+      <h2 className="text-sm font-semibold">Motivos de cancelación</h2>
+      <p className="text-sm text-tinta-suave">Hasta {MAX_MOTIVOS} motivos más “Otro”. Se ofrecen al cancelar en el panel, por WhatsApp, en la página del paciente y en el asistente. Los que quitas no se borran: los indicadores conservan su historia.</p>
+      <Consulta q={q}>{(ms) => <MotivosCancelacion motivos={ms} />}</Consulta>
+    </section>
+  );
+}
+
 // Tasas: se escriben como porcentaje entero (15 = 0.15); el dinero, en pesos. Vacío quita la meta.
 const METAS_CAMPOS = [
   { clave: "inasistencia", limite: "max", etiqueta: "Inasistencia máxima (%)", tasa: true },
@@ -223,6 +272,7 @@ export function Administracion() {
       </Consulta>
       <ValorServicios />
       <TitulosProfesionales />
+      <MotivosSeccion />
       <MetasSeccion />
       {emitida && <ClaveEmitida usuario={emitida.usuario} clave={emitida.clave} alCerrar={() => setEmitida(null)} />}
     </div>

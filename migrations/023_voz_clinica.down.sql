@@ -45,4 +45,5 @@ Los esperamos en {direccion}.$t$;
 update plantilla set texto = $t$Claro, {nombre}. Desde aquí puedes cambiar o cancelar cada cita: {enlace}$t$ where clave = 'cambiar_hogar' and texto = $t$Claro, {nombre}. Desde aquí puede cambiar o cancelar cada cita: {enlace}$t$;
 delete from configuracion where clave = 'version_plantillas';
 
-alter table profesional drop column titulo;
+alter table motivo_cancelacion drop column if exists activo;
+alter table profesional drop column if exists titulo;

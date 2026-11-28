@@ -1,9 +1,9 @@
 """Administración del negocio activo: usuarios y accesos. Solo administradores (y nunca de otro negocio)."""
 from fastapi import APIRouter, Depends
 
-from .. import config, permisos, usuarios
+from .. import catalog, config, permisos, usuarios
 from . import schemas as sc
-from .comun import administrador, get_conn, solo_json
+from .comun import ApiError, administrador, get_conn, solo_json
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(solo_json)])
 
@@ -85,6 +85,38 @@ def titulo_profesional(profesional_id: int, datos: sc.TituloProfesional, conn=De
     if p is None:
         raise permisos.NoExiste("No existe ese profesional")
     return p
+
+
+def _motivos_admin(conn) -> list[dict]:
+    return conn.execute("select id, etiqueta, activo from motivo_cancelacion "
+                        "order by not activo, etiqueta = 'Otro', orden, id").fetchall()
+
+
+@router.get("/motivos-cancelacion", tags=["Administración"], summary="Todos los motivos de cancelación, activos o no",
+            response_model=list[sc.MotivoAdmin], description="Los activos primero, en el orden en que se ofrecen.")
+def ver_motivos(conn=Depends(get_conn), u=Depends(administrador)):
+    return _motivos_admin(conn)
+
+
+@router.put("/motivos-cancelacion", tags=["Administración"], summary="Elegir y ordenar los motivos que se ofrecen",
+            response_model=list[sc.MotivoAdmin],
+            description="Máximo 5 motivos más \"Otro\" (siempre activo, al final). Los que no se envían quedan inactivos: "
+                        "no se borran y los indicadores conservan su historia.")
+def fijar_motivos(datos: sc.MotivosActivos, conn=Depends(get_conn), u=Depends(administrador)):
+    todos = {m["id"]: m["etiqueta"] for m in conn.execute("select id, etiqueta from motivo_cancelacion")}
+    ids = list(dict.fromkeys(datos.activos))
+    if any(i not in todos for i in ids):
+        raise permisos.NoExiste("No existe alguno de esos motivos")
+    otro = next(i for i, e in todos.items() if e == catalog.MOTIVO_OTRO)
+    ids = [i for i in ids if i != otro]
+    if len(ids) > catalog.MAX_MOTIVOS_ACTIVOS:
+        raise ApiError(422, "demasiados_motivos", f"Máximo {catalog.MAX_MOTIVOS_ACTIVOS} motivos activos, más \"Otro\"")
+    resto = [m["id"] for m in conn.execute("select id from motivo_cancelacion where id <> all(%s) order by orden, id",
+                                           (ids + [otro],))]
+    conn.execute("update motivo_cancelacion set activo = (id = any(%s))", (ids + [otro],))
+    for orden, i in enumerate(ids + resto + [otro], start=1):
+        conn.execute("update motivo_cancelacion set orden=%s where id=%s", (orden, i))
+    return _motivos_admin(conn)
 
 
 @router.get("/metas", tags=["Administración"], summary="Metas vigentes de los indicadores",

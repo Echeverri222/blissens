@@ -106,6 +106,15 @@ class MotivoOut(Salida):
     etiqueta: str
 
 
+class MotivoAdmin(MotivoOut):
+    activo: bool = Field(description="Se ofrece al cancelar (panel, WhatsApp, página del paciente y asistente)")
+
+
+class MotivosActivos(Entrada):
+    activos: list[int] = Field(max_length=6, description="Ids de los motivos que se ofrecen, en orden. Máximo 5 más \"Otro\", "
+                                                         "que siempre está activo y va al final; los demás quedan inactivos.")
+
+
 # ----------------------------------------------------------------- agenda
 
 class CitaAgenda(Salida):

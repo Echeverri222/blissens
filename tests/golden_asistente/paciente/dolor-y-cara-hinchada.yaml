@@ -12,7 +12,7 @@ herramientas:
 contexto:
   - llamada: pedir_contacto
     args: {}
-    incluye: ["contacte"]
+    incluye: ["comunique"]
 respuesta:
   incluye: ["Llame a la clinica"]
   excluye: ["ibuprofeno", "acetaminofen", "antibiotico", "hielo", "compresa", "infeccion", "absceso", "naproxeno"]

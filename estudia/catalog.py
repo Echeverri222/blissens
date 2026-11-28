@@ -14,6 +14,15 @@ SERVICIOS = [  # nombre, duración, autoagendable, admite adelanto
 
 MOTIVOS = ["Salud", "Trabajo o estudio", "Viaje", "Transporte", "Motivo económico", "Confusión de fecha",
            "Ya no la necesito", "Otro"]
+# Los que se ofrecen por defecto; el resto queda inactivo (los datos históricos se conservan). "Otro" va siempre al final.
+MOTIVOS_ACTIVOS = ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]
+MAX_MOTIVOS_ACTIVOS = 5  # sin contar "Otro"
+MOTIVO_OTRO = "Otro"
+
+
+def motivos_activos(conn) -> list[dict]:
+    """Los motivos de cancelación que se ofrecen hoy, en su orden, con "Otro" al final."""
+    return conn.execute("select id, etiqueta from motivo_cancelacion where activo order by etiqueta = 'Otro', orden, id").fetchall()
 
 _CONF = [{"id": "conf:si:{cita_id}", "title": "Sí, asistiré"},
          {"id": "conf:no:{cita_id}", "title": "No podré ir"},
@@ -64,8 +73,8 @@ def load(conn) -> None:
             "insert into servicio(nombre, duracion_min, autoagendable, admite_adelanto) values (%s,%s,%s,%s) "
             "on conflict (negocio_id, nombre) do nothing", (nombre, dur, auto, adel))
     for i, m in enumerate(MOTIVOS, start=1):
-        conn.execute("insert into motivo_cancelacion(etiqueta, orden) values (%s,%s) on conflict (negocio_id, etiqueta) do nothing",
-                     (m, i))
+        conn.execute("insert into motivo_cancelacion(etiqueta, orden, activo) values (%s,%s,%s) "
+                     "on conflict (negocio_id, etiqueta) do nothing", (m, i, m in MOTIVOS_ACTIVOS))
     for clave, (texto, tipo, botones) in PLANTILLAS.items():
         conn.execute(
             "insert into plantilla(clave, texto, tipo, botones) values (%s,%s,%s,%s) "

@@ -13,7 +13,7 @@ herramientas:
 contexto:
   - llamada: pedir_contacto
     args: {}
-    incluye: ["contacte"]
+    incluye: ["comunique"]
 respuesta:
   incluye_alguno: ["call the clinic", "Llame a la clinica", "call us"]
   excluye: ["mg", "dose", "dosis", "every", "safe to give", "paracetamol", "acetaminophen", "pediatrician"]

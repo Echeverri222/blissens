@@ -103,7 +103,9 @@ def test_book_cancel_with_reason_and_reschedule_over_http(client, conn):
     conn.rollback()
     assert status(conn, cita["id"]) == "reprogramada"
     nueva = conn.execute("select * from cita where cita_anterior_id=%s", (cita["id"],)).fetchone()
-    # Cancelar con motivo de un toque: se ofrecen espacios de inmediato
+    # Cancelar con motivo de un toque: se ofrecen espacios de inmediato (la página solo trae los motivos activos)
+    pagina = client.get(f"/p/{token}/cancelar/{nueva['id']}").text
+    assert "Viaje" in pagina and "Transporte" not in pagina
     motivo = conn.execute("select id from motivo_cancelacion where etiqueta='Viaje'").fetchone()["id"]
     r = client.post(f"/p/{token}/cancelar/{nueva['id']}", data={"motivo": motivo})
     assert r.status_code == 200 and "quedó cancelada" in r.text and "Elija su espacio" in r.text

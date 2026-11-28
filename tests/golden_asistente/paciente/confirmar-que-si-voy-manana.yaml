@@ -15,7 +15,7 @@ contexto:
     incluye: ["Laura", "Valoración", "miércoles 18 de noviembre a las 9:00 a. m.", "programada"]
   - llamada: proponer_confirmar
     args: {cita_id: "{cita.laura_manana}"}
-    incluye: ["Confirmar que asistirás", "Valoración"]
+    incluye: ["Confirmar que asistirá", "Valoración"]
   - llamada: proponer_confirmar
     args: {cita_id: "{cita.mateo_manana}"}
     error: no_existe

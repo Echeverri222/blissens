@@ -17,7 +17,7 @@ contexto:
     excluye: ["Laura", "Valoración"]
   - llamada: pedir_contacto
     args: {}
-    incluye: ["contacte"]
+    incluye: ["comunique"]
 respuesta:
   incluye: ["Llame a la clinica"]
   excluye: ["cera", "alambre", "cortar", "algodon", "pinza", "Laura"]

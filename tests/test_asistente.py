@@ -320,6 +320,7 @@ def test_lecturas_espacios_libres_para_cambiar_una_cita_usan_su_servicio_y_profe
 def test_lecturas_motivos_de_cancelacion_para_la_auxiliar(mundo):
     m = ok(ej(mundo.a_aux, "motivos_cancelacion"))["motivos"]
     assert m and set(m[0]) == {"id", "etiqueta"} and mundo.motivo in {x["id"] for x in m}
+    assert [x["etiqueta"] for x in m] == ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]  # solo los activos
 
 
 def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):

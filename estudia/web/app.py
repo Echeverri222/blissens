@@ -15,6 +15,7 @@ from .. import (
     agenda,
     arranque,
     canales,
+    catalog,
     clock,
     config,
     db,
@@ -811,7 +812,7 @@ def cancelar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlac
         return r
     c = _cita_del_hogar(conn, p, cita_id)
     s = _sujeto(conn, p, c["paciente_id"])
-    motivos = conn.execute("select * from motivo_cancelacion order by orden").fetchall()
+    motivos = catalog.motivos_activos(conn)
     return render(request, "cancelar.html", p=p, token=token, cita_id=cita_id, motivos=motivos,
                   para_nombre=None if s["id"] == p["id"] else _primer_nombre(s))
 

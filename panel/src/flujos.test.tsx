@@ -157,10 +157,25 @@ describe("hoja de cita", () => {
     await userEvent.click(within(d).getByRole("button", { name: "Cancelar cita" }));
     const confirmar = within(d).getByRole("button", { name: "Cancelar la cita" });
     expect(confirmar).toBeDisabled();
-    await userEvent.selectOptions(within(d).getByLabelText("Motivo de la cancelación"), "Calamidad");
+    expect(within(d).queryByLabelText("¿Cuál fue el motivo?")).not.toBeInTheDocument();
+    await userEvent.click(within(within(d).getByRole("group", { name: "Motivo de la cancelación" })).getByRole("button", { name: "Calamidad" }));
     await userEvent.click(confirmar);
     await userEvent.click(await screen.findByRole("button", { name: "Sí, continuar" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/citas/10/cancelar", cuerpo: { motivo_id: 3, texto: null } }));
+  });
+
+  it("al elegir «Otro» la auxiliar escribe el motivo", async () => {
+    servidor.use(
+      http.get(`${API}/citas/:id`, () => HttpResponse.json(detalle({ acciones: ["cancelar", "cambiar_fecha"] }))),
+      http.get(`${API}/motivos-cancelacion`, () => HttpResponse.json([{ id: 3, etiqueta: "Salud" }, { id: 8, etiqueta: "Otro" }])),
+      http.post(`${API}/citas/10/cancelar`, async ({ request }) => { await registrar(request); return HttpResponse.json({ ok: true }); }));
+    const d = await abrir(AUX);
+    await userEvent.click(await within(d).findByRole("button", { name: "Cancelar cita" }));
+    await userEvent.click(await within(d).findByRole("button", { name: "Otro" }));
+    await userEvent.type(within(d).getByLabelText("¿Cuál fue el motivo?"), "Cuidado de un familiar");
+    await userEvent.click(within(d).getByRole("button", { name: "Cancelar la cita" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sí, continuar" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/citas/10/cancelar", cuerpo: { motivo_id: 8, texto: "Cuidado de un familiar" } }));
   });
 
   it("la auxiliar cambia la fecha eligiendo entre los espacios de la API", async () => {
@@ -543,6 +558,32 @@ describe("negocios, clave temporal y administración", () => {
     await userEvent.type(screen.getByLabelText("Nombre visible"), "Nueva");
     await userEvent.click(screen.getByRole("button", { name: "Crear con contraseña temporal" }));
     expect(await screen.findByLabelText("Contraseña temporal")).toHaveTextContent("abcd-efgh-jkmn");
+  });
+
+  it("un administrador elige y ordena los motivos de cancelación (máximo cinco más «Otro») y fija el título de un profesional", async () => {
+    const motivos = [
+      { id: 1, etiqueta: "Salud", activo: true }, { id: 2, etiqueta: "Viaje", activo: true }, { id: 3, etiqueta: "Trabajo", activo: true },
+      { id: 4, etiqueta: "Motivo económico", activo: true }, { id: 5, etiqueta: "Transporte", activo: true }, { id: 6, etiqueta: "Confusión", activo: false },
+      { id: 8, etiqueta: "Otro", activo: true }];
+    servidor.use(
+      http.get(`${API}/admin/usuarios`, () => HttpResponse.json([])),
+      http.get(`${API}/admin/motivos-cancelacion`, () => HttpResponse.json(motivos)),
+      http.put(`${API}/admin/motivos-cancelacion`, async ({ request }) => { await registrar(request); return HttpResponse.json(motivos); }),
+      http.put(`${API}/admin/profesionales/:id`, async ({ request }) => { await registrar(request); return HttpResponse.json({ id: 1, nombre: "Dra. Uno", especialidad: "General", titulo: "Dra." }); }),
+    );
+    montar("/administracion", { ...AUX, administrador: true });
+    const activos = await screen.findByRole("list", { name: "Motivos que se ofrecen" });
+    expect(within(activos).getByRole("button", { name: "Subir Salud" })).toBeDisabled();
+    await userEvent.click(within(activos).getByRole("button", { name: "Bajar Salud" }));
+    await waitFor(() => expect(enviadas.at(-1)).toMatchObject({ ruta: "/api/v1/admin/motivos-cancelacion", cuerpo: { activos: [2, 1, 3, 4, 5] } }));
+    expect(within(screen.getByRole("list", { name: "Motivos sin usar" })).getByRole("button", { name: "Activar Confusión" })).toBeDisabled(); // ya hay cinco
+    await userEvent.click(within(activos).getByRole("button", { name: "Quitar Viaje" }));
+    await waitFor(() => expect(enviadas.at(-1)).toMatchObject({ cuerpo: { activos: [1, 3, 4, 5] } }));
+
+    const fila = screen.getByRole("form", { name: "Título de Dra. Uno" });
+    await userEvent.type(within(fila).getByLabelText("Título de Dra. Uno"), "Dra.");
+    await userEvent.click(within(fila).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(enviadas.at(-1)).toMatchObject({ ruta: "/api/v1/admin/profesionales/1", cuerpo: { titulo: "Dra." } }));
   });
 
   it("un administrador fija el valor de un servicio por fila y las metas de los indicadores", async () => {

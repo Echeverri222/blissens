@@ -10,7 +10,7 @@ from typing import Literal
 from psycopg.types.range import Range
 from pydantic import Field
 
-from .. import agenda, bandejas, clock, config, familia, fmt, horario, indicators, permisos
+from .. import agenda, bandejas, catalog, clock, config, familia, fmt, horario, indicators, permisos
 from ..lifecycle import ALIVE
 from .actor import Actor
 from .base import LECTURA, PROPUESTA, Entrada, ErrorHerramienta, herramienta
@@ -258,7 +258,7 @@ def datos_del_negocio(conn, actor, a) -> dict:
 
 @herramienta("motivos_cancelacion", "Los motivos de cancelación con su id (`proponer_cancelar` pide uno).", SinEntrada, AUX, LECTURA)
 def motivos_cancelacion(conn, actor, a) -> dict:
-    return {"motivos": conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()}
+    return {"motivos": catalog.motivos_activos(conn)}
 
 
 # ----------------------------------------------------------------- agenda y citas del equipo

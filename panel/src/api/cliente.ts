@@ -2,7 +2,7 @@
 // `ApiError` con `codigo` y `mensaje`, y expone funciones tipadas por recurso.
 import type { CitaEnConflicto } from "./tipos";
 import type {
-  Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
+  Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, MotivoAdmin, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
   Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
@@ -67,6 +67,8 @@ export const api = {
     claveTemporal: (id: number) => post<UsuarioConClave>(`/admin/usuarios/${id}/clave-temporal`),
     valorServicio: (id: number, valor: number | null) => pedir<Servicio>("PUT", `/admin/servicios/${id}`, { cuerpo: { valor } }),
     tituloProfesional: (id: number, titulo: string) => pedir<Profesional>("PUT", `/admin/profesionales/${id}`, { cuerpo: { titulo } }),
+    motivos: () => get<MotivoAdmin[]>("/admin/motivos-cancelacion"),
+    fijarMotivos: (activos: number[]) => pedir<MotivoAdmin[]>("PUT", "/admin/motivos-cancelacion", { cuerpo: { activos } }),
     metas: () => get<Record<string, Record<string, number>>>("/admin/metas"),
     fijarMetas: (m: Metas) => pedir<Record<string, Record<string, number>>>("PUT", "/admin/metas", { cuerpo: m }),
   },

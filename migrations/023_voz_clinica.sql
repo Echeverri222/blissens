@@ -52,3 +52,7 @@ insert into configuracion(negocio_id, clave, valor) select id, 'version_plantill
 
 -- R10: título del profesional ("Dra.", "Dr."), vacío por defecto; se antepone al nombre en los mensajes de recuperación.
 alter table profesional add column titulo text not null default '';
+
+-- R11: motivos de cancelación activos. Se ofrecen cinco (con "Otro" al final); los demás quedan inactivos, no se borran.
+alter table motivo_cancelacion add column activo boolean not null default true;
+update motivo_cancelacion set activo = false where etiqueta in ('Transporte', 'Confusión de fecha', 'Ya no la necesito');
