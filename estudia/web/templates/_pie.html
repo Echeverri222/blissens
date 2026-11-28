@@ -13,8 +13,8 @@
     <div>
       <h2 class="pie__t">{{ t.pie.contacto }}</h2>
       <p><a href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a><br><a href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a></p>
-      <h2 class="pie__t">{{ t.pie.siguenos }}</h2>
-      <p class="pie__redes">{% for nombre, url in sitio.REDES.items() %}{% if url %}<a href="{{ url }}" rel="noopener" target="_blank">{{ nombre }}</a>{% else %}<span>{{ nombre }}</span>{% endif %}{% endfor %}</p>
+      {% if sitio.REDES.values()|select|list %}<h2 class="pie__t">{{ t.pie.siguenos }}</h2>
+      <p class="pie__redes">{% for nombre, url in sitio.REDES.items() if url %}<a href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ nombre }}</a>{% endfor %}</p>{% endif %}
     </div>
   </div>
   <div class="pie__base">

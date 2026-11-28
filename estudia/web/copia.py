@@ -2,7 +2,7 @@
 
 El español es la versión por defecto. El inglés sale de https://blissens.com/; el español del sitio real se traduce en el
 navegador (Weglot), así que estos textos están redactados a partir del original en inglés."""
-from urllib.parse import quote_plus
+from urllib.parse import quote, quote_plus
 
 HORARIO = {"es": "Lunes a viernes 8 a. m. a 5 p. m. · Sábados 8 a. m. a 12 m.",
            "en": "Monday to Friday 8 a.m. to 5 p.m. · Saturday 8 a.m. to 12 p.m."}
@@ -13,6 +13,16 @@ CORREO = "info@blissens.com"
 TELEFONO = "+57 305 306 9616"
 TELEFONO_TEL = "+573053069616"
 # El sitio real muestra los íconos de Instagram y Facebook sin enlace; aquí se dejan sin enlace hasta tener la dirección.
+TEXTO_WHATSAPP = {"es": "Hola, vengo del sitio web y quiero agendar una valoración",
+                  "en": "Hola, vengo del sitio web y quiero agendar una valoración"}
+
+
+def enlace_whatsapp(numero, lang="es"):
+    """Enlace wa.me con texto prellenado, o None si no hay número configurado (entonces no se muestra nada)."""
+    digitos = "".join(c for c in str(numero or "") if c.isdigit())
+    return f"https://wa.me/{digitos}?text={quote(TEXTO_WHATSAPP[lang])}" if digitos else None
+
+
 REDES = {"Instagram": None, "Facebook": None}
 
 IMAGENES = {"equipo": "New-Team.jpg", "confort": "BLISSENSE-1.png", "servicios": "Services.jpg"}
@@ -104,8 +114,7 @@ ES = {
                            "sencillos para agendar su visita."},
     "equipo": {"titulo": "Nuestro equipo",
                "personas": [("Sara López", "Rehabilitación oral y diseño de sonrisa", "image-8.png", 248, 373),
-                            ("Juan Manuel Olarte", "Rehabilitación oral y diseño de sonrisa", "image-9.png", 250, 374),
-                            ("Laura Vélez", "Rehabilitación oral y diseño de sonrisa", "image-10.png", 246, 373)]},
+                            ("Juan Manuel Olarte", "Rehabilitación oral y diseño de sonrisa", "image-9.png", 250, 374)]},
     "agendar": {"kicker": "En Medellín", "titulo": "Agende su cita",
                 "texto": "Si está en Medellín, agende su cita en nuestro consultorio, en la torre médica del centro "
                          "comercial El Tesoro. Sin cuentas ni instalaciones: solo necesitamos su documento y su celular.",
@@ -113,7 +122,7 @@ ES = {
     "contacto": {"kicker": "Contacto", "titulo": "Contáctenos",
                  "texto": "¿Tiene más preguntas o quiere más asesoría? Escríbanos.",
                  "horario": "Horario", "direccion": "Dirección", "correo": "Correo", "telefono": "Teléfono",
-                 "whatsapp": "WhatsApp", "mapa": "Ver en el mapa"},
+                 "whatsapp": "WhatsApp", "whatsapp_escribir": "Escríbanos por WhatsApp", "mapa": "Ver en el mapa"},
     "form": {"nombre": "Nombre", "correo": "Correo electrónico", "celular": "Celular o WhatsApp", "pais": "País de residencia",
              "paquete": "Paquete", "paquete_ph": "Elija un paquete", "mensaje": "Mensaje", "enviar": "Enviar",
              "consent": "Autorizo el tratamiento de mis datos personales.",
@@ -246,8 +255,7 @@ EN = {
                            "and easy steps to schedule your visit."},
     "equipo": {"titulo": "Our team",
                "personas": [("Sara López", "Oral rehabilitation and smile design", "image-8.png", 248, 373),
-                            ("Juan Manuel Olarte", "Oral rehabilitation and smile design", "image-9.png", 250, 374),
-                            ("Laura Vélez", "Oral rehabilitation and smile design", "image-10.png", 246, 373)]},
+                            ("Juan Manuel Olarte", "Oral rehabilitation and smile design", "image-9.png", 250, 374)]},
     "agendar": {"kicker": "In Medellín", "titulo": "Schedule an appointment",
                 "texto": "If you’re in Medellín, schedule an appointment at our office, in the medical tower of the El "
                          "Tesoro shopping center. No accounts or installs: we only need your ID number and your mobile "
@@ -256,7 +264,7 @@ EN = {
     "contacto": {"kicker": "Contact", "titulo": "Contact us",
                  "texto": "Have more questions or want more advice? Feel free to contact us.",
                  "horario": "Hours", "direccion": "Address", "correo": "E-mail", "telefono": "Phone",
-                 "whatsapp": "WhatsApp", "mapa": "View on the map"},
+                 "whatsapp": "WhatsApp", "whatsapp_escribir": "Message us on WhatsApp", "mapa": "View on the map"},
     "form": {"nombre": "Name", "correo": "Email", "celular": "Phone or WhatsApp", "pais": "Country of residence",
              "paquete": "Package", "paquete_ph": "Please select a package", "mensaje": "Message", "enviar": "Send",
              "consent": "I authorize the processing of my personal data.",
