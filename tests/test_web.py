@@ -1,10 +1,10 @@
-import re
+﻿import re
 
 import pytest
 from fastapi.testclient import TestClient
 
 from estudia import links
-from estudia.web.app import app
+from estudia.web.app import app, crear_app
 
 from .conftest import at, book, make_patient, make_pro, outbox, status, svc
 
@@ -160,3 +160,77 @@ def test_agenda_a_un_toque_cualquier_especialista_y_navegacion(client, conn):
     assert r.status_code == 200 and "HX-Redirect" in r.headers
     conn.rollback()
     assert conn.execute("select count(distinct profesional_id) n from cita").fetchone()["n"] == 1
+
+
+@pytest.fixture(autouse=True)
+def _sin_limite_identificacion():
+    from estudia.web.app import reiniciar_limites_identificacion
+    reiniciar_limites_identificacion()
+    yield
+    reiniciar_limites_identificacion()
+
+
+def test_identificar_devuelve_429_tras_una_rafaga(client):
+    for i in range(15):
+        assert client.post("/agendar/identificar", data={"documento": f"90{i}", "celular": "3001234567"}).status_code == 200
+    assert client.post("/agendar/identificar", data={"documento": "9999", "celular": "3001234567"}).status_code == 429
+
+
+def test_identificar_limita_por_documento(client):
+    for _ in range(10):
+        assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3001234567"}).status_code == 200
+    assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3001234567"}).status_code == 429
+
+
+def test_documento_con_otro_celular_no_duplica_la_solicitud_abierta(client, conn):
+    make_patient(conn, "Ana", doc="777", celular="+573001112233")
+    conn.commit()
+    for _ in range(3):
+        r = client.post("/agendar/identificar", data={"documento": "777", "celular": "3009998877"})
+        assert r.status_code == 200
+    conn.rollback()
+    assert conn.execute("select count(*) n from solicitud_contacto where documento='777'").fetchone()["n"] == 1
+    conn.execute("update solicitud_contacto set gestionada=true where documento='777'")
+    conn.commit()
+    client.post("/agendar/identificar", data={"documento": "777", "celular": "3009998877"})
+    conn.rollback()
+    assert conn.execute("select count(*) n from solicitud_contacto where documento='777'").fetchone()["n"] == 2
+
+
+@pytest.mark.parametrize("entorno", ["produccion", "demo"])
+def test_cabeceras_de_seguridad_y_docs_cerrados_fuera_de_local(conn, entorno):
+    conn.commit()
+    c = TestClient(crear_app(entorno), follow_redirects=False)
+    token = links.make_token(make_patient(conn, doc="321"), conn=conn)
+    conn.commit()
+    for ruta in ("/", f"/p/{token}", "/api/v1/marca"):
+        h = c.get(ruta).headers
+        assert h["x-content-type-options"] == "nosniff" and h["x-frame-options"] == "DENY"
+        assert h["referrer-policy"] == "no-referrer"
+        assert "script-src 'self'" in h["content-security-policy"] and "frame-ancestors 'none'" in h["content-security-policy"]
+        assert "unsafe-inline" not in h["content-security-policy"].split("script-src")[1].split(";")[0]
+    assert c.get(f"/p/{token}").headers["cache-control"] == "no-store"
+    assert c.get("/api/v1/marca").headers["cache-control"] == "no-store"
+    for ruta in ("/docs", "/redoc", "/openapi.json"):
+        assert c.get(ruta).status_code == 404
+
+
+def test_hsts_solo_con_base_url_https(client, monkeypatch):
+    from estudia import settings
+    assert "strict-transport-security" not in client.get("/").headers
+    monkeypatch.setattr(settings, "BASE_URL", "https://app.example.com")
+    assert client.get("/").headers["strict-transport-security"].startswith("max-age=31536000")
+
+
+def test_simulador_rechaza_post_de_otro_origen(client):
+    datos = {"paciente": 1, "texto": "hola"}
+    assert client.post("/simulador/texto", data=datos, headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    assert client.post("/simulador/texto", data=datos, headers={"Origin": "https://evil.example"}).status_code == 403
+    assert client.post("/simulador/reloj", data={"accion": "real"}, headers={"Origin": "https://evil.example"}).status_code == 403
+
+
+def test_webhook_canal_desconocido_es_404_y_cuerpo_enorme_413(client):
+    assert client.post("/canales/inexistente/webhook", content=b"x" * (300 * 1024)).status_code == 404
+    from estudia import canales
+    tipo = next(iter(canales._disponibles()))
+    assert client.post(f"/canales/{tipo}/webhook", content=b"x" * (300 * 1024)).status_code == 413

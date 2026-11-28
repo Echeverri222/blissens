@@ -250,3 +250,66 @@ def test_la_auxiliar_registra_el_consentimiento_por_la_api(conn):
     assert r.status_code == 200 and r.json() == {"correo": AN, "acepta": True}
     r = entrar("recepcion").put(f"{API}/pacientes/{a}/correo", json={"correo": None, "acepta": True})
     assert r.status_code == 422
+
+
+def test_correo_smtp_verifica_certificado_tls_en_starttls_y_smtps(conn, monkeypatch):
+    import smtplib
+    import ssl
+
+    from estudia import settings
+
+    monkeypatch.setattr(settings, "ENTORNO", "produccion")
+    monkeypatch.setenv("SMTP_SECRETO_TEST", "smtp://usuario:clave@smtp.example.com:587")
+    canal_correo(1, "citas@example.com", tipo="smtp")
+    a = db.connect_admin(ADMIN)
+    a.execute("update canal_negocio set secreto_ref='SMTP_SECRETO_TEST' where tipo='smtp' and id_externo='citas@example.com'")
+    a.commit()
+    a.close()
+
+    capturado = {}
+
+    class DummySMTP:
+        def __init__(self, host, port, timeout=None, context=None):
+            capturado["host"] = host
+            capturado["port"] = port
+            capturado["init_context"] = context
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self, *, context=None):
+            capturado["starttls_context"] = context
+
+        def login(self, user, password):
+            capturado["login"] = (user, password)
+
+        def send_message(self, msg):
+            capturado["msg"] = msg
+
+    monkeypatch.setattr(smtplib, "SMTP", DummySMTP)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", DummySMTP)
+
+    pro, p = make_pro(conn), paciente(conn)
+    book(conn, p, pro, at(3, "10:00"))
+    tasks.cycle(conn)
+
+    ctx = capturado.get("starttls_context")
+    assert isinstance(ctx, ssl.SSLContext)
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is True
+    assert capturado["login"] == ("usuario", "clave")
+
+    # También con smtps:// directo
+    capturado.clear()
+    monkeypatch.setenv("SMTP_SECRETO_TEST", "smtps://usuario:clave@smtp.example.com:465")
+    book(conn, p, pro, at(4, "10:00"))
+    tasks.cycle(conn)
+
+    ctx_ssl = capturado.get("init_context")
+    assert isinstance(ctx_ssl, ssl.SSLContext)
+    assert ctx_ssl.verify_mode == ssl.CERT_REQUIRED
+    assert ctx_ssl.check_hostname is True
+    assert "starttls_context" not in capturado

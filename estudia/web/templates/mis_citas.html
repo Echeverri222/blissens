@@ -2,14 +2,17 @@
 {% block title %}Mis citas · Blissens{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-<h1>Hola, {{ p.nombres|nombre }}</h1>
+<div class="app-cab">
+  <h1>Hola, {{ p.nombres|nombre }}</h1>
+  <a role="button" class="boton--chico" href="/p/{{ token }}/agendar">Agendar cita</a>
+</div>
 {% if aviso %}<p class="aviso" role="status">{{ aviso }}</p>{% endif %}
 {% if siguientes %}
-  <div class="tarjeta">
-    <p style="margin:0 0 .75rem"><strong>¿Alguien más de tu familia viene ese día?</strong></p>
+  <div class="tarjeta tarjeta--acento">
+    <p class="tarjeta__sub"><strong>¿Alguien más de tu familia viene ese día?</strong></p>
     <div class="acciones">
       {% for x in siguientes.personas %}
-        <a role="button" class="outline" href="/p/{{ token }}/agendar?para={{ x.id }}&servicio={{ siguientes.servicio }}&desde={{ siguientes.desde }}">{{ x.texto }}</a>
+        <a role="button" class="outline boton--chico" href="/p/{{ token }}/agendar?para={{ x.id }}&servicio={{ siguientes.servicio }}&desde={{ siguientes.desde }}">{{ x.texto }}</a>
       {% endfor %}
     </div>
   </div>
@@ -17,50 +20,62 @@
 {% if responsable %}
   <p class="nota">{{ responsable.nombres|nombre }} también ve y gestiona tus citas.</p>
 {% endif %}
-<h2>{% if familiares %}Próximas citas de tu familia{% else %}Mis próximas citas{% endif %}</h2>
+<h2 class="app-sec-titulo">{% if familiares %}Próximas citas de tu familia{% else %}Mis próximas citas{% endif %}</h2>
 {% for c in citas %}
   <article class="cita">
-    {% if familiares %}<small class="muted">{{ 'Tú' if c.paciente_id == p.id else c.paciente_nombres|nombre }}</small><br>{% endif %}
-    <strong>{{ c.rango.lower|local|fecha if c.rango else c.dia|fecha }}{% if c.rango %} · {{ c.rango.lower|local|hora }}{% endif %}</strong><br>
-    {{ c.profesional }} · {{ c.servicio }}<br>
-    <small class="muted">Estado: {{ c.estado.replace('_', ' ') }}</small>
-    <div class="acciones" style="margin-top:.75rem">
+    <div class="cita__top">
+      <div>
+        {% if familiares %}<small class="muted cita__persona">{{ 'Tú' if c.paciente_id == p.id else c.paciente_nombres|nombre }}</small>{% endif %}
+        <strong class="cita__fecha">{{ c.rango.lower|local|fecha if c.rango else c.dia|fecha }}{% if c.rango %} · {{ c.rango.lower|local|hora }}{% endif %}</strong>
+      </div>
+      <span class="estado-pill estado-pill--{{ c.estado }}">{{ c.estado.replace('_', ' ') }}</span>
+    </div>
+    <p class="cita__detalle">{{ c.profesional }} · {{ c.servicio }}</p>
+    <div class="acciones cita__acciones">
       {% if c.id in confirmables %}
         <form method="post" action="/p/{{ token }}/confirmar/{{ c.id }}" style="margin:0">
-          <button type="submit">Confirmar asistencia</button>
+          <button type="submit" class="boton--chico">Confirmar asistencia</button>
         </form>
       {% endif %}
-      <a role="button" class="outline" href="/p/{{ token }}/cambiar/{{ c.id }}">Cambiar fecha</a>
-      <a role="button" class="outline secondary" href="/p/{{ token }}/cancelar/{{ c.id }}">Cancelar</a>
+      <a role="button" class="outline boton--chico" href="/p/{{ token }}/cambiar/{{ c.id }}">Cambiar fecha</a>
+      <a role="button" class="outline secondary boton--chico" href="/p/{{ token }}/cancelar/{{ c.id }}">Cancelar</a>
     </div>
   </article>
 {% else %}
-  <p>{% if familiares %}Nadie de tu familia tiene citas próximas.{% else %}No tienes citas próximas.{% endif %}</p>
+  <div class="tarjeta tarjeta--vacia">
+    <p>{% if familiares %}Nadie de tu familia tiene citas próximas.{% else %}No tienes citas próximas.{% endif %}</p>
+    <a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>
+  </div>
 {% endfor %}
-<a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>
-{% if asistente %}
-  <a role="button" class="outline" href="/p/{{ token }}/asistente">Preguntarle al asistente</a>
-{% endif %}
+<div class="app-cta-pie">
+  {% if citas %}<a role="button" href="/p/{{ token }}/agendar">Agendar una cita</a>{% endif %}
+  {% if asistente %}<a role="button" class="outline" href="/p/{{ token }}/asistente">Preguntarle al asistente</a>{% endif %}
+</div>
 
 {% if not responsable %}
-  <h2>Mi familia</h2>
+  <h2 class="app-sec-titulo">Mi familia</h2>
   {% if familiares %}
     <ul class="familia">
       {% for f in familiares %}
         <li>
           <span><strong>{{ f.nombres|nombre }}</strong> {{ f.apellidos }}<br>
             <small class="muted">{{ f.parentesco_texto }}{% if f.menor %} · Menor de edad{% endif %}</small></span>
-          <a href="/p/{{ token }}/agendar?para={{ f.id }}">Agendar</a>
+          <a class="familia__accion" href="/p/{{ token }}/agendar?para={{ f.id }}">Agendar</a>
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p class="nota">¿Agendas también para tus hijos, tu pareja o tus padres? Agrégalos una vez y gestiona todas las citas desde aquí.</p>
+    <div class="tarjeta tarjeta--suave">
+      <p class="nota" style="margin:0 0 1rem">¿Agendas también para tus hijos, tu pareja o tus padres? Agrégalos una vez y gestiona todas las citas desde aquí.</p>
+      <a role="button" class="outline boton--chico" href="/p/{{ token }}/familia/agregar">Agregar a alguien de mi familia</a>
+    </div>
   {% endif %}
-  <a role="button" class="outline" href="/p/{{ token }}/familia/agregar">Agregar a alguien de mi familia</a>
+  {% if familiares %}
+    <a role="button" class="outline boton--chico" href="/p/{{ token }}/familia/agregar">Agregar a alguien de mi familia</a>
+  {% endif %}
 {% elif not menor %}
   <form method="post" action="/p/{{ token }}/dejar-de-compartir" style="margin-top:2rem"
-        onsubmit="return confirm('{{ responsable.nombres|nombre }} dejará de ver y gestionar tus citas. ¿Continuar?')">
+        data-confirmar="{{ responsable.nombres|nombre }} dejará de ver y gestionar tus citas. ¿Continuar?">
     <button type="submit" class="outline secondary">Dejar de compartir mis citas</button>
   </form>
 {% endif %}

@@ -46,8 +46,8 @@ function Enlaces({ rol, administrador, alNavegar, vertical, compacto }: { rol: R
             {isActive && !vertical && <span className="acento-activo absolute inset-y-1.5 left-0 w-1 rounded-full" aria-hidden />}
             <Icono className="size-5" aria-hidden />
             <span className={cn(compacto && "sr-only")}>{texto}</span>
-            {conteo && total > 0 && <span aria-label={`${total} pendientes`} className={cn("rounded-full bg-white px-1.5 text-xs font-semibold text-marca",
-              compacto ? "absolute -top-0.5 right-0.5 text-[10px]" : "ml-auto")}>{total}</span>}
+            {conteo && total > 0 && <span aria-label={`${total} pendientes`} className={cn("rounded-full bg-white px-1.5 text-xs font-semibold tabular-nums text-marca",
+              compacto ? "absolute -top-0.5 right-0.5 text-[10px]" : "ml-auto py-0.5")}>{total}</span>}
           </>)}
         </NavLink>
       ))}
@@ -65,7 +65,7 @@ function CambiarClave({ abierta, alCerrar }: { abierta: boolean; alCerrar: () =>
     <Dialog.Root open={abierta} onOpenChange={(o) => !o && alCerrar()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-papel p-5 shadow-2xl">
           <Dialog.Title className="text-base font-semibold">Cambiar contraseña</Dialog.Title>
           <Dialog.Description className="mb-3 text-sm text-tinta-suave">Cerraremos tus otras sesiones abiertas. Mínimo 8 caracteres.</Dialog.Description>
           <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); m.mutate({ actual, nueva }); }}>
@@ -104,6 +104,8 @@ function MenuCuenta() {
           )}
           <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100" onClick={() => { setAbierto(false); setClave(true); }}>
             <KeyRound className="size-4" aria-hidden /> Cambiar contraseña</button>
+          <a role="menuitem" href="/" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100">
+            <ExternalLink className="size-4" aria-hidden /> Sitio público</a>
           <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-zinc-100" onClick={() => void salir()}>
             <LogOut className="size-4" aria-hidden /> Cerrar sesión</button>
         </div>
@@ -129,31 +131,33 @@ export function Layout(): ReactNode {
   return (
     <div className="flex min-h-dvh">
       {/* Fija a la altura de la ventana: al bajar por la página solo se mueve el contenido, no el menú. Se contrae a solo íconos. */}
-      <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto bg-marca text-white md:flex", contraido ? "w-16 p-2" : "w-60 p-3")}>
-        <div className={cn("py-4", contraido ? "flex justify-center" : "px-3")}><Distintivo nombre={marca} soloInicial={contraido} /></div>
+      <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-marca text-white md:flex", contraido ? "w-16 p-2" : "w-60 p-3")}>
+        <div className={cn("border-b border-white/10 py-4", contraido ? "flex justify-center" : "px-3")}><Distintivo nombre={marca} soloInicial={contraido} /></div>
         <nav aria-label="Secciones" className="mt-4 flex flex-col gap-1"><Enlaces rol={rol} administrador={sesion.administrador} compacto={contraido} /></nav>
-        <div className="mt-auto flex flex-col gap-1">
+        <div className="mt-auto flex flex-col gap-1 border-t border-white/10 pt-3">
           {sesion.simulador && rol === "auxiliar" && (
             <a href="/simulador" target="_blank" rel="noopener" title={contraido ? "Simulador de WhatsApp" : undefined}
-              className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-white", contraido && "justify-center px-0")}>
+              className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white", contraido && "justify-center px-0")}>
               <ExternalLink className="size-4" aria-hidden /><span className={cn(contraido && "sr-only")}>Simulador de WhatsApp</span></a>
           )}
+          <a href="/" title={contraido ? "Sitio público" : undefined} className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white", contraido && "justify-center px-0")}>
+            <ExternalLink className="size-4" aria-hidden /><span className={cn(contraido && "sr-only")}>Sitio público</span></a>
           <button onClick={() => contraer(!contraido)} aria-label={contraido ? "Expandir menú" : "Contraer menú"} title={contraido ? "Expandir menú" : "Contraer menú"}
-            className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-white", contraido && "justify-center px-0")}>
+            className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white", contraido && "justify-center px-0")}>
             {contraido ? <PanelLeftOpen className="size-4" aria-hidden /> : <><PanelLeftClose className="size-4" aria-hidden /> Contraer menú</>}</button>
         </div>
       </aside>
       {/* Con el asistente acoplado abierto, el contenido se corre para no quedar debajo del panel. */}
       <div className={cn("flex min-w-0 flex-1 flex-col", asistente && !movil && ANCHO_ASISTENTE)}>
-        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-linea bg-papel/95 px-4 py-2 backdrop-blur sm:gap-3">
+        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-linea bg-papel/95 px-4 py-2.5 backdrop-blur-md sm:gap-3">
           {!esp && movil && <button aria-label="Abrir menú" onClick={() => setMenu(true)} className="rounded-md p-1.5 hover:bg-zinc-100 md:hidden"><Menu className="size-5" /></button>}
-          <div className="min-w-0 md:hidden"><Distintivo nombre={marca} /></div>
+          <div className="min-w-0 md:hidden"><Distintivo nombre={marca} claro /></div>
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {/* En el celular solo la hora: la fecha completa no cabe junto a la marca. */}
-            <p className="whitespace-nowrap text-right text-xs text-tinta-suave" aria-label="Hora del sistema">
+            <p className="whitespace-nowrap text-right text-xs tabular-nums text-tinta-suave" aria-label="Hora del sistema">
               <span className="hidden sm:block">Hora del sistema</span>
-              <b className="hidden text-sm text-tinta sm:inline">{fechaHora(ahora)}</b>
-              <b className="text-sm text-tinta sm:hidden">{horaDe(ahora)}</b></p>
+              <b className="hidden text-sm font-semibold text-tinta sm:inline">{fechaHora(ahora)}</b>
+              <b className="text-sm font-semibold text-tinta sm:hidden">{horaDe(ahora)}</b></p>
             {sesion.modo_demo && <span className="whitespace-nowrap rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-950">
               <span className="hidden sm:inline">Modo demo</span><span className="sm:hidden" aria-hidden>Demo</span></span>}
             <Asistente acoplado={!movil} abierto={asistente} alCambiar={setAsistente} />
@@ -174,7 +178,10 @@ export function Layout(): ReactNode {
               <Dialog.Description className="sr-only">Secciones del panel</Dialog.Description>
               <div className="flex items-center justify-between px-3 py-3"><Distintivo nombre={marca} /><Dialog.Close aria-label="Cerrar menú"><X className="size-5" /></Dialog.Close></div>
               <nav aria-label="Secciones" className="mt-2 flex flex-col gap-1"><Enlaces rol="auxiliar" administrador={sesion.administrador} alNavegar={() => setMenu(false)} /></nav>
-              {sesion.simulador && <a href="/simulador" target="_blank" rel="noopener" className="mt-auto flex items-center gap-2 px-3 py-2 text-sm text-zinc-300"><ExternalLink className="size-4" aria-hidden /> Simulador de WhatsApp</a>}
+              <div className="mt-auto space-y-1 border-t border-white/10 pt-3">
+                {sesion.simulador && <a href="/simulador" target="_blank" rel="noopener" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 hover:text-white"><ExternalLink className="size-4" aria-hidden /> Simulador de WhatsApp</a>}
+                <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 hover:text-white"><ExternalLink className="size-4" aria-hidden /> Sitio público</a>
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

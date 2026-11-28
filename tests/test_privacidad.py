@@ -129,3 +129,41 @@ def test_asistente_la_depuracion_borra_por_retencion_asistente_dias_y_solo_infor
     config.set_(conn, "retencion_asistente_dias", 5)
     assert privacidad.depurar(conn) == {"asistente": 1}
     assert conn.execute("select count(*) n from asistente_conversacion").fetchone()["n"] == 0
+
+
+def test_anonimizar_invalida_el_enlace_y_limpia_rastros(conn):
+    from estudia import links
+    pro, pa = make_pro(conn), make_patient(conn, "Ana", "Pérez", doc="123456", celular="+573001112233")
+    cita = book(conn, pa, pro, at(3, "10:00"))
+    hijo = make_patient(conn, "Leo", "Pérez", doc="123457", celular="+573001112233")
+    conn.execute("update paciente set responsable_id=%s, consentimiento_por=%s where id=%s", (pa, pa, hijo))
+    conn.execute("insert into cancelacion(cita_id, texto_libre, canal, antelacion_horas, tardia, momento) "
+                 "values (%s,'me operan de X','enlace',10,false,now())", (cita,))
+    caso = conn.execute("insert into caso_seguimiento(tipo, paciente_id, cita_id, abierto_en) values "
+                        "('cancelacion',%s,%s,now()) returning id", (pa, cita)).fetchone()["id"]
+    conn.execute("insert into intento(caso_id, numero, canal, momento, detalle) values (%s,1,'manual',now(),'dijo que está enferma')",
+                 (caso,))
+    conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values ('123456','+573009990000','x',now())")
+    token = links.make_token(pa, conn=conn)
+    conn.commit()
+    c = TestClient(app, follow_redirects=False)
+    assert c.get(f"/p/{token}").status_code == 200
+    privacidad.anonimizar_paciente(conn, pa)
+    conn.commit()
+    assert c.get(f"/p/{token}").status_code == 404
+    assert conn.execute("select count(*) n from solicitud_contacto where documento='123456'").fetchone()["n"] == 0
+    assert conn.execute("select texto_libre from cancelacion where cita_id=%s", (cita,)).fetchone()["texto_libre"] is None
+    assert conn.execute("select detalle from intento where caso_id=%s", (caso,)).fetchone()["detalle"] == ""
+    assert conn.execute("select consentimiento_por from paciente where id=%s", (hijo,)).fetchone()["consentimiento_por"] is None
+
+
+def test_enlace_con_huella_de_celular_deja_de_servir_si_el_celular_cambia(conn):
+    from estudia import links
+    pa = make_patient(conn, "Ana", doc="654321", celular="+573001112233")
+    token = links.make_token(pa, conn=conn, celular="+573001112233")
+    conn.commit()
+    c = TestClient(app, follow_redirects=False)
+    assert c.get(f"/p/{token}").status_code == 200 and links.read_token(token) == pa
+    conn.execute("update paciente set celular='+573005550000' where id=%s", (pa,))
+    conn.commit()
+    assert c.get(f"/p/{token}").status_code == 404

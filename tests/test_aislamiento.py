@@ -3,11 +3,21 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-from estudia import db, links, migrate, negocios, tasks, usuarios
+from estudia import arranque, db, links, migrate, negocios, settings, tasks, usuarios
+from estudia.api.operacion import limite_cambio_clave, limite_login
 from estudia.web.app import crear_app
 
 from .conftest import ADMIN, URL, at, make_patient, make_pro
 from .test_api import API, CLAVE, nuevo_cliente
+
+
+@pytest.fixture(autouse=True)
+def _limpiar_limites():
+    limite_login.reiniciar()
+    limite_cambio_clave.reiniciar()
+    yield
+    limite_login.reiniciar()
+    limite_cambio_clave.reiniciar()
 
 
 def negocio_b(nombre="otra", zona="America/Bogota") -> int:
@@ -217,11 +227,11 @@ def test_migraciones_subir_bajar_y_comparar_esquema():
         assert migrate.run(url) and migrate.verificar(url) == []
         assert not migrate.run(url)  # al día
         with pytest.raises(migrate.SinReversa):
-            migrate.bajar(url, 10)  # deshace de la 016 a la 007; la 007 contrae y es irreversible
+            migrate.bajar(url, 11)  # deshace de la 017 a la 007; la 007 contrae y es irreversible
         assert migrate.run(url) == ["008_canal_idempotencia.sql", "009_cerrar_api_de_datos.sql",
                                     "010_funciones_auxiliares_privadas.sql", "011_correo.sql", "012_familia.sql",
                                     "013_valor_servicio.sql", "014_resolucion_pendientes.sql", "015_asistente.sql",
-                                    "016_segmentos.sql"]
+                                    "016_segmentos.sql", "017_familia_fk_negocio.sql"]
         # una migración ya aplicada y modificada hace fallar
         c = db.connect_admin(url)
         c.execute("update migracion set huella='x' where nombre='003_negocio.sql'")
@@ -266,3 +276,36 @@ def test_asistente_un_negocio_no_ve_ni_toca_las_conversaciones_de_otro_ni_las_cu
         cb.execute("insert into asistente_conversacion(perfil, paciente_id) values ('paciente', %s)", (dos["pa"],))
     cb.rollback()
     assert conn.execute("select count(*) n from asistente_mensaje").fetchone()["n"] == 1
+
+
+def test_fk_compuesta_familia_bloquea_cruce_entre_negocios(dos):
+    cb = dos["cb"]
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        cb.execute(
+            "insert into paciente(nombres, documento, celular, responsable_id) values ('Hijo', '222', '+573001112244', %s)",
+            (dos["pa"],),
+        )
+    cb.rollback()
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        cb.execute(
+            "insert into paciente(nombres, documento, celular, consentimiento_por) values ('Hijo', '223', '+573001112245', %s)",
+            (dos["pa"],),
+        )
+    cb.rollback()
+
+
+def test_arranque_produccion_rechaza_sslmode_debil_y_clave_demo(conn, monkeypatch):
+    monkeypatch.setattr(settings, "SECRET_KEY", "secreto-real-de-produccion")
+    monkeypatch.setattr(settings, "BASE_URL", "https://app.ejemplo.com")
+    for mala_url in (URL, f"{URL}?sslmode=disable", f"{URL}?sslmode=allow", f"{URL}?sslmode=prefer"):
+        monkeypatch.setattr(settings, "DATABASE_URL", mala_url)
+        assert any("sslmode" in p or "TLS" in p for p in arranque.problemas("produccion", conn=conn))
+    monkeypatch.setattr(settings, "DATABASE_URL", f"{URL}?sslmode=require")
+    assert arranque.problemas("produccion", conn=conn) == []
+    usuarios.crear(conn, "demo_residual", "Demo Residual", usuarios.DEMO_CLAVE, "auxiliar")
+    conn.commit()
+    p_demo = arranque.problemas("produccion", conn=conn)
+    assert any("demo_residual" in p for p in p_demo)
+    usuarios.desactivar(conn, "demo_residual")
+    conn.commit()
+    assert arranque.problemas("produccion", conn=conn) == []

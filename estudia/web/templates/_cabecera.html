@@ -2,20 +2,34 @@
   <div class="cab__fila">
     <a class="cab__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
     <nav class="cab__nav" aria-label="{{ t.nav_aria }}">
-      {% for id, etiqueta in t.nav %}<a href="{{ t.agendar_url if id == 'agendar' else t.home ~ '#' ~ id }}">{{ etiqueta }}</a>{% endfor %}
+      {% for id, etiqueta in t.nav %}<a href="{{ t.home ~ '#' ~ id }}">{{ etiqueta }}</a>{% endfor %}
     </nav>
     <div class="cab__der">
       <a class="idioma" href="{{ t.otro_home }}" hreflang="{{ t.otro_idioma }}" lang="{{ t.otro_idioma }}" aria-label="{{ t.idioma_aria }}"><span aria-hidden="true">{{ t.idioma_nombre }}</span> / <b>{{ t.otro_idioma_nombre }}</b></a>
-      <a class="boton boton--linea boton--chico cab__cta" href="{{ t.agendar_url }}">{{ t.cta }}</a>
+      <a class="cab__panel" href="/panel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>{{ t.ingresar }}</span>
+      </a>
+      <a class="boton boton--blanco boton--chico cab__cta" href="{{ t.agendar_url }}">{{ t.cta }}</a>
       <button class="burger" type="button" aria-expanded="false" aria-controls="menu" data-abrir-menu aria-label="{{ t.menu_abrir }}"><span></span><span></span><span></span></button>
     </div>
   </div>
-  <div class="menu" id="menu" hidden>
-    <button class="menu__cerrar" type="button" data-cerrar-menu aria-label="{{ t.menu_cerrar }}">&times;</button>
-    <nav aria-label="{{ t.nav_aria }}">
-      {% for id, etiqueta in t.nav %}<a href="{{ t.agendar_url if id == 'agendar' else t.home ~ '#' ~ id }}">{{ etiqueta }}</a>{% endfor %}
-    </nav>
-    <a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.cta }}</a>
-    <a class="idioma idioma--menu" href="{{ t.otro_home }}" hreflang="{{ t.otro_idioma }}" lang="{{ t.otro_idioma }}">{{ t.idioma_nombre }} / <b>{{ t.otro_idioma_nombre }}</b></a>
-  </div>
 </header>
+<div class="menu" id="menu" hidden>
+  <div class="menu__panel" role="dialog" aria-modal="true" aria-label="{{ t.nav_aria }}">
+    <div class="menu__top">
+      <a class="menu__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
+      <button class="menu__cerrar" type="button" data-cerrar-menu aria-label="{{ t.menu_cerrar }}">&times;</button>
+    </div>
+    <nav aria-label="{{ t.nav_aria }}">
+      {% for id, etiqueta in t.nav %}<a href="{{ t.home ~ '#' ~ id }}">{{ etiqueta }}</a>{% endfor %}
+    </nav>
+    <div class="menu__pie">
+      <div class="menu__acciones">
+        <a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.cta }}</a>
+        <a class="boton boton--linea" href="/panel">{{ t.ingresar }}</a>
+      </div>
+      <a class="idioma idioma--menu" href="{{ t.otro_home }}" hreflang="{{ t.otro_idioma }}" lang="{{ t.otro_idioma }}">{{ t.idioma_nombre }} / <b>{{ t.otro_idioma_nombre }}</b></a>
+    </div>
+  </div>
+</div>

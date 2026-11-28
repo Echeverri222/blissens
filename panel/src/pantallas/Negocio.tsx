@@ -27,10 +27,13 @@ export function ElegirNegocio() {
 
   if (listo && sesion.rol) return <Navigate to="/agenda" replace />;
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-marca px-4 text-white">
+    <main className="portada-brillo flex min-h-dvh items-center justify-center bg-marca px-4 text-white">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2"><Distintivo nombre="Estud-IA" grande /></div>
-        <section aria-label="Elegir negocio" className="space-y-3 rounded-2xl bg-papel p-6 text-tinta shadow-xl">
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <Distintivo nombre="Estud-IA" grande />
+          <p className="font-serif text-base tracking-wide text-zinc-300">Selecciona tu consultorio</p>
+        </div>
+        <section aria-label="Elegir negocio" className="tarjeta-acento space-y-3 rounded-2xl bg-papel p-7 text-tinta shadow-2xl">
           <h1 className="text-lg font-semibold">¿Con qué negocio vas a trabajar?</h1>
           {error && <Aviso>{error}</Aviso>}
           {sesion.negocios.length === 0 && <Aviso tipo="aviso">No tienes acceso a ningún negocio. Pídelo a quien administra el sistema.</Aviso>}

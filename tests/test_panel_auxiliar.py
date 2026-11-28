@@ -33,7 +33,7 @@ def test_phone_confirmation_works_on_future_programada_and_no_confirmada(mundo, 
         antes = conn.execute("select count(*) as n from mensaje").fetchone()["n"]
         d = mundo.aux.get(f"{API}/citas/{c}").json()
         assert "confirmar" in d["acciones"]
-        assert mundo.aux.post(f"{API}/citas/{c}/confirmar").status_code == 200
+        assert mundo.aux.post(f"{API}/citas/{c}/confirmar", json={}).status_code == 200
         assert status(conn, c) == "confirmada"
         h = hist(conn, c)[-1]
         assert (h["estado_anterior"], h["estado_nuevo"], h["actor"], h["detalle"]) == (
@@ -46,17 +46,17 @@ def test_phone_confirmation_works_on_future_programada_and_no_confirmada(mundo, 
 def test_phone_confirmation_can_be_reverted(mundo, conn):
     c = book(conn, mundo.p1, mundo.pro1, at(3, "09:00"))
     conn.commit()
-    mundo.aux.post(f"{API}/citas/{c}/confirmar")
+    mundo.aux.post(f"{API}/citas/{c}/confirmar", json={})
     h = mundo.aux.get(f"{API}/citas/{c}").json()["historial"][-1]
     assert h["reversible"] is True
-    assert mundo.aux.post(f"{API}/historial/{h['id']}/revertir").status_code == 200
+    assert mundo.aux.post(f"{API}/historial/{h['id']}/revertir", json={}).status_code == 200
     assert status(conn, c) == "programada"
 
 
 def test_phone_confirmation_is_refused_when_it_does_not_apply(mundo, conn):
     futura = book(conn, mundo.p1, mundo.pro1, at(3, "09:00"))
     conn.commit()
-    assert mundo.esp1.post(f"{API}/citas/{futura}/confirmar").status_code == 403
+    assert mundo.esp1.post(f"{API}/citas/{futura}/confirmar", json={}).status_code == 403
     assert "confirmar" not in mundo.esp1.get(f"{API}/citas/{futura}").json()["acciones"]
     assert status(conn, futura) == "programada"
 
@@ -64,7 +64,7 @@ def test_phone_confirmation_is_refused_when_it_does_not_apply(mundo, conn):
                             ("confirmada", "cancelada", "atendida", "no_asistio", "reprogramada")):
         c = book(conn, mundo.p2, mundo.pro2, at(7, hora))
         poner(conn, c, estado)
-        assert mundo.aux.post(f"{API}/citas/{c}/confirmar").status_code == 409, estado
+        assert mundo.aux.post(f"{API}/citas/{c}/confirmar", json={}).status_code == 409, estado
         assert "confirmar" not in mundo.aux.get(f"{API}/citas/{c}").json()["acciones"]
         assert status(conn, c) == estado
 
@@ -72,10 +72,10 @@ def test_phone_confirmation_is_refused_when_it_does_not_apply(mundo, conn):
     poner(conn, pasada, "no_confirmada")
     clock.freeze(at(1, "09:30"))
     assert "confirmar" not in mundo.aux.get(f"{API}/citas/{pasada}").json()["acciones"]
-    r = mundo.aux.post(f"{API}/citas/{pasada}/confirmar")
+    r = mundo.aux.post(f"{API}/citas/{pasada}/confirmar", json={})
     assert r.status_code == 409 and r.json()["codigo"] == "transicion_invalida"
     assert status(conn, pasada) == "no_confirmada"
-    assert mundo.aux.post(f"{API}/citas/99999/confirmar").status_code == 404
+    assert mundo.aux.post(f"{API}/citas/99999/confirmar", json={}).status_code == 404
 
 
 def test_actions_offer_confirmar_only_to_the_auxiliar_before_the_start():

@@ -39,7 +39,10 @@
   if (abrir) abrir.addEventListener("click", function () { menu.hidden ? abrirMenu() : cerrarMenu(true); });
   if (cerrar) cerrar.addEventListener("click", function () { cerrarMenu(true); });
   if (menu) {
-    menu.addEventListener("click", function (e) { if (e.target.closest("a")) cerrarMenu(false); });
+    menu.addEventListener("click", function (e) {
+      if (e.target === menu) { cerrarMenu(true); return; }
+      if (e.target.closest("a")) cerrarMenu(false);
+    });
     menu.addEventListener("keydown", function (e) {
       if (e.key === "Escape") { cerrarMenu(true); return; }
       if (e.key !== "Tab") return;
@@ -49,7 +52,7 @@
       else if (!e.shiftKey && d.activeElement === z) { e.preventDefault(); a.focus(); }
     });
   }
-  window.matchMedia("(min-width: 1100px)").addEventListener("change", function (m) { if (m.matches) cerrarMenu(false); });
+  window.matchMedia("(min-width: 1240px)").addEventListener("change", function (m) { if (m.matches) cerrarMenu(false); });
 
   /* Revelado al entrar en pantalla (se omite con movimiento reducido o sin IntersectionObserver). */
   var revs = d.querySelectorAll(".rev");
@@ -101,10 +104,27 @@
     if (e.detail.xhr && e.detail.xhr.status === 429) { e.detail.shouldSwap = true; e.detail.isError = false; }
   });
 
-  /* Tras un cambio de HTMX en la landing, el foco pasa al mensaje o al primer campo con error. */
-  d.body.addEventListener("htmx:afterSwap", function (e) {
-    var t = e.detail.target; if (!t) return;
+  /* Tras un cambio de HTMX (incluyendo hx-swap="outerHTML"), el foco pasa al mensaje o al primer campo con error. */
+  /* Confirmación de formularios (data-confirmar), sin JavaScript en línea: la CSP no permite 'unsafe-inline'. */
+  d.addEventListener("submit", function (e) {
+    var f = e.target, msg = f && f.getAttribute && f.getAttribute("data-confirmar");
+    if (msg && !window.confirm(msg)) e.preventDefault();
+  });
+
+  /* En pantallas anchas la información se muestra abierta; en el celular queda plegada para no empujar el formulario. */
+  if (window.matchMedia && matchMedia("(min-width: 900px)").matches) {
+    d.querySelectorAll("[data-abrir-en-escritorio]").forEach(function (el) { el.open = true; });
+  }
+
+  d.body.addEventListener("htmx:afterSettle", function (e) {
+    var t = (e.detail && e.detail.elt) || (e.detail && e.detail.target) || e.target;
+    if (!t || !t.querySelector) return;
+    if (!d.body.contains(t) && t.id) t = d.getElementById(t.id);
+    if (!t) return;
     var el = t.querySelector("[role=alert], [role=status]") || t.querySelector("input:not([readonly]):not([type=hidden]):not([type=checkbox])");
-    if (el) { if (!el.hasAttribute("tabindex") && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); }
+    if (el) {
+      if (!el.hasAttribute("tabindex") && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) el.setAttribute("tabindex", "-1");
+      el.focus({ preventScroll: true });
+    }
   });
 })();

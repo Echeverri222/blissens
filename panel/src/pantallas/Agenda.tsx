@@ -61,7 +61,7 @@ export function Agenda() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-xl font-semibold capitalize">{esp ? "Mi agenda" : "Agenda"} <span className="block text-sm font-normal normal-case text-tinta-suave sm:inline sm:pl-2">{titulo}</span></h1>
         <Boton variante="secundario" pequeno onClick={() => setBloquear(true)}><ShieldBan className="size-4" aria-hidden /> Bloquear tiempo</Boton>
-        {!esp && <Link to="/agendar" className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-marca px-3 py-1.5 text-sm font-medium text-white"><Plus className="size-4" aria-hidden /> Agendar cita</Link>}
+        {!esp && <Link to="/agendar" className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] bg-marca px-3 py-1.5 text-sm font-medium text-white hover:bg-marca-suave"><Plus className="size-4" aria-hidden /> Agendar cita</Link>}
       </div>
 
       {!esp && <ResumenDia />}

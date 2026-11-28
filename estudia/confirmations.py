@@ -101,12 +101,15 @@ def _recordar_una(conn, c: dict, horas: int) -> None:
             conn.execute("update cita set datos_origen = datos_origen || %s::jsonb where id=%s", (json.dumps(_enviado(conn)), cita_id))
 
 
-def process_response(conn, patient_id: int, answer: str, cita_id: int) -> None:
-    c = conn.execute("select * from cita where id=%s", (cita_id,)).fetchone()
+def process_response(conn, patient_id: int, answer: str, cita_id: int) -> bool:
+    _, ids = familia.hogar(conn, patient_id)
+    c = conn.execute("select * from cita where id=%s and paciente_id = any(%s)", (cita_id, ids)).fetchone()
+    if c is None:
+        return False
     now = clock.now(conn)
-    if c is None or c["estado"] not in ALIVE or (c["rango"] and c["rango"].lower <= now):
+    if c["estado"] not in ALIVE or (c["rango"] and c["rango"].lower <= now):
         messaging.send(conn, patient_id, "respuesta_tardia", {}, direct=True)
-        return
+        return True
     if answer == "si":
         if c["estado"] != "confirmada":
             lifecycle.transition(conn, cita_id, "confirmada", "paciente", "Confirmó por WhatsApp")
@@ -120,6 +123,9 @@ def process_response(conn, patient_id: int, answer: str, cita_id: int) -> None:
     elif answer == "cambiar":
         link = messaging.patient_link(conn, patient_id, f"/cambiar/{cita_id}")
         messaging.send(conn, patient_id, "cambiar_fecha", {**agenda._info(conn, cita_id), "enlace": link}, direct=True)
+    else:
+        return False
+    return True
 
 
 def process_household(conn, patient_id: int, answer: str, cita_ids: list[int]) -> None:

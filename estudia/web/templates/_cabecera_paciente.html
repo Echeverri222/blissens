@@ -1,0 +1,10 @@
+<header class="cab cab--foco" id="cab">
+  <div class="cab__fila">
+    <a class="cab__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
+    <div class="cab__der">
+      <a class="foco__tel" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
+      {% set volver_txt = t.pag_agendar.volver if t.pag_agendar is defined else t.pie.inicio %}
+      <a class="foco__volver" href="{{ t.home }}" aria-label="{{ volver_txt }}"><span aria-hidden="true">&larr;</span> <span class="foco__volver-txt">{{ volver_txt }}</span></a>
+    </div>
+  </div>
+</header>

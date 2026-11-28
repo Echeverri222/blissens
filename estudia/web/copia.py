@@ -13,7 +13,7 @@ TELEFONO_TEL = "+573053069616"
 # El sitio real muestra los íconos de Instagram y Facebook sin enlace; aquí se dejan sin enlace hasta tener la dirección.
 REDES = {"Instagram": None, "Facebook": None}
 
-IMAGENES = {"equipo": "New-Team.jpg", "confort": "BLISSENSE-1.png", "servicios": "Services.png"}
+IMAGENES = {"equipo": "New-Team.jpg", "confort": "BLISSENSE-1.png", "servicios": "Services.jpg"}
 
 # Interés → etiqueta (en español, para quien lee la bandeja del panel) de las solicitudes que llegan del sitio.
 INTERESES = {"evaluacion_virtual": "Evaluación virtual", "experiencia": "Experiencia", "contacto": "Contacto"}
@@ -35,11 +35,11 @@ ES = {
              "og_locale": "es_CO"},
     "saltar": "Saltar al contenido",
     "nav_aria": "Principal", "nav": [("nosotros", "Nosotros"), ("servicios", "Servicios"),
-                                      ("antes-despues", "Antes y después"), ("agendar", "Agendar cita"),
+                                      ("antes-despues", "Antes y después"),
                                       ("evaluacion", "Evaluación virtual"), ("experiencias", "Experiencias"),
                                       ("contacto", "Contacto")],
     "menu_abrir": "Abrir menú", "menu_cerrar": "Cerrar menú",
-    "cta": "Agendar cita",
+    "cta": "Agendar cita", "ingresar": "Ingresar",
     "hero": {"kicker": "Tu futura sonrisa", "titulo": ["Sonríe y mira", "al futuro"],
              "sub": ["Odontología digital", "Estudio odontológico de alta tecnología"],
              "afuera": "Vivo en el exterior", "local": "Vivo en Medellín", "aria": "Elige cómo quieres empezar"},
@@ -63,7 +63,7 @@ ES = {
                   "texto": "Diseños naturales, pensados para tu rostro y creados con maquetas digitales para que veas tu "
                            "nueva sonrisa antes de empezar el tratamiento. Ideales para cerrar espacios, corregir forma "
                            "y tamaño y renovar bordes desgastados.",
-                  "alt": "Procedimiento odontológico", "ver_mas": "Ver todos los servicios",
+                  "alt": "Diseño de sonrisa y odontología digital en Blissens Medellín", "ver_mas": "Ver todos los servicios",
                   "lista": [("Diseño de sonrisa", "Diseño digital de sonrisa para anticipar el resultado del tratamiento."),
                             ("Cirugía oral", "Procedimientos quirúrgicos orales con planificación digital."),
                             ("Implantes dentales y cirugía plástica periodontal",
@@ -151,10 +151,10 @@ EN = {
              "og_locale": "en_US"},
     "saltar": "Skip to content",
     "nav_aria": "Main", "nav": [("nosotros", "About us"), ("servicios", "Services"), ("antes-despues", "Before - After"),
-                                ("agendar", "Schedule an appointment"), ("evaluacion", "Virtual assessment"),
+                                ("evaluacion", "Virtual assessment"),
                                 ("experiencias", "Experiences"), ("contacto", "Contact")],
     "menu_abrir": "Open menu", "menu_cerrar": "Close menu",
-    "cta": "Book appointment",
+    "cta": "Book appointment", "ingresar": "Sign in",
     "hero": {"kicker": "Your future smile", "titulo": ["Smile and look", "at the future"],
              "sub": ["Digital dentistry", "High technology & dental studio"],
              "afuera": "I live abroad", "local": "I live in Medellín", "aria": "Choose how you want to start"},
@@ -176,7 +176,7 @@ EN = {
                   "texto": "Natural, face-driven designs created with digital mock-ups so you preview your new smile "
                            "before treatment begins. Ideal for closing gaps, correcting shape/size, and refreshing worn "
                            "edges.",
-                  "alt": "Dental procedure", "ver_mas": "See all services",
+                  "alt": "Digital smile design and dental care at Blissens Medellín", "ver_mas": "See all services",
                   "lista": [("Smile design", "Digital smile design to preview the result of your treatment."),
                             ("Oral surgery", "Oral surgical procedures with digital planning."),
                             ("Dental implants and periodontal plastic surgery",

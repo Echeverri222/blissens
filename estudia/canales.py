@@ -124,6 +124,7 @@ class CorreoSMTP(AdaptadorCorreo):
         import html
         import re
         import smtplib
+        import ssl
         from email.message import EmailMessage
         from urllib.parse import unquote, urlparse
 
@@ -142,10 +143,16 @@ class CorreoSMTP(AdaptadorCorreo):
         msg.add_alternative("<html><body style=\"font-family:sans-serif\">"
                             + cuerpo.replace("\n", "<br>") + "</body></html>", subtype="html")
         directo = url.scheme == "smtps"
-        with (smtplib.SMTP_SSL if directo else smtplib.SMTP)(url.hostname, url.port or (465 if directo else 587),
-                                                             timeout=15) as s:
+        ctx = ssl.create_default_context()
+        port = url.port or (465 if directo else 587)
+        client = (
+            smtplib.SMTP_SSL(url.hostname, port, timeout=15, context=ctx)
+            if directo
+            else smtplib.SMTP(url.hostname, port, timeout=15)
+        )
+        with client as s:
             if not directo:
-                s.starttls()
+                s.starttls(context=ctx)
             if url.username:
                 s.login(unquote(url.username), unquote(url.password or ""))
             s.send_message(msg)

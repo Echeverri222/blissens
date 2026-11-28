@@ -17,6 +17,7 @@ from . import config, db, permisos, settings
 
 ROLES = ("auxiliar", "especialista")
 MIN_CLAVE = 8
+MAX_CLAVE = 128
 DEMO_CLAVE = "demo-blissens"  # solo para usuarios creados junto con los datos ficticios
 _SCRYPT = {"n": 2 ** 14, "r": 8, "p": 1}
 
@@ -31,7 +32,7 @@ class InicioBloqueado(Exception):
         self.hasta = hasta
 
 
-class ClaveInvalida(Exception):
+class ClaveInvalida(ValueError):
     pass
 
 
@@ -67,6 +68,8 @@ _FALSO = hash_clave("relleno-contra-tiempos")
 def validar_clave(clave: str) -> None:
     if len(clave) < MIN_CLAVE:
         raise ClaveInvalida(f"La contraseña debe tener al menos {MIN_CLAVE} caracteres")
+    if len(clave) > MAX_CLAVE:
+        raise ClaveInvalida(f"La contraseña no puede superar {MAX_CLAVE} caracteres")
 
 
 #
@@ -275,6 +278,7 @@ def iniciar_sesion(conn, nombre_usuario: str, clave: str) -> tuple[str, dict]:
     db.fijar(conn, None, u["id"])
     u = conn.execute("select * from usuario where id=%s for update", (u["id"],)).fetchone()
     if u["bloqueado_hasta"] and u["bloqueado_hasta"] > ahora:
+        verificar_clave(clave, _FALSO)
         raise InicioBloqueado(u["bloqueado_hasta"])
     if not verificar_clave(clave, u["clave_hash"]):
         fallos = (0 if u["bloqueado_hasta"] else u["intentos_fallidos"]) + 1  # un bloqueo vencido reinicia la cuenta
@@ -301,10 +305,10 @@ def iniciar_sesion(conn, nombre_usuario: str, clave: str) -> tuple[str, dict]:
     return token, _con_acceso(u, activo)
 
 
-def usuario_de_sesion(conn, token: str | None) -> dict | None:
-    """Usuario de una sesión vigente (y la renueva con el uso), con el negocio activo ya fijado en la conexión.
+def usuario_de_sesion(conn, token: str | None, extender: bool = True) -> dict | None:
+    """Usuario de una sesión vigente (y la renueva con el uso si `extender` es True), con el negocio activo fijado.
 
-    None si no existe, venció, el usuario está inactivo o perdió el acceso al negocio de la sesión.
+    None si no existe, venció (por inactividad o por tope absoluto `sesion_max_horas`), el usuario está inactivo o perdió el acceso.
     """
     if not token:
         return None
@@ -314,6 +318,12 @@ def usuario_de_sesion(conn, token: str | None) -> dict | None:
     if s is None:
         return None
     db.fijar(conn, s["negocio_id"], s["usuario_id"])
+    ses = conn.execute("select creada_en from sesion where huella=%s", (h,)).fetchone()
+    max_h = config.plataforma("sesion_max_horas")
+    if ses is None or ses["creada_en"] + timedelta(hours=max_h) <= ahora:
+        conn.execute("delete from sesion where huella=%s", (h,))
+        db.fijar(conn, None, None)
+        return None
     u = conn.execute("select * from usuario where id=%s", (s["usuario_id"],)).fetchone()
     a = None
     if s["negocio_id"] is not None:
@@ -322,8 +332,10 @@ def usuario_de_sesion(conn, token: str | None) -> dict | None:
             conn.execute("delete from sesion where huella=%s", (h,))
             db.fijar(conn, None, None)
             return None
-    conn.execute("update sesion set vence_en=%s where huella=%s",
-                 (ahora + timedelta(hours=config.plataforma("sesion_horas")), h))
+    if extender:
+        tope = ses["creada_en"] + timedelta(hours=max_h)
+        nuevo_vence = min(ahora + timedelta(hours=config.plataforma("sesion_horas")), tope)
+        conn.execute("update sesion set vence_en=%s where huella=%s", (nuevo_vence, h))
     return _con_acceso(u, a)
 
 
@@ -353,6 +365,10 @@ def cambiar_clave(conn, usuario_id: int, actual: str, nueva: str, token_actual: 
     if not verificar_clave(actual, u["clave_hash"]):
         raise CredencialesInvalidas("La contraseña actual no es correcta")
     validar_clave(nueva)
+    if nueva == actual:
+        raise ClaveInvalida("La nueva contraseña debe ser distinta a la actual")
+    if settings.ENTORNO == "produccion" and nueva == DEMO_CLAVE:
+        raise ClaveInvalida("No se puede usar la contraseña de demostración en producción")
     conn.execute("update usuario set clave_hash=%s, debe_cambiar_clave=false where id=%s", (hash_clave(nueva), usuario_id))
     conn.execute("delete from sesion where usuario_id=%s and huella <> %s", (usuario_id, _huella(token_actual or "")))
 

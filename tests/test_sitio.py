@@ -144,3 +144,21 @@ def test_seo_links_only_on_landing_and_footer_scopes(client):
     interior = client.get("/agendar").text
     assert 'rel="canonical"' not in interior and "hreflang=\"x-default\"" not in interior
     assert 'href="/panel"' not in interior and "info@blissens.com" not in interior and "+57 305 306 9616" in interior
+
+
+def test_x_forwarded_for_no_evade_el_limite(client):
+    datos = {"interes": "contacto", "nombre": "Ana", "correo": "ana@example.com", "consentimiento": "1"}
+    for _ in range(5):
+        assert client.post("/sitio/solicitud", data=datos).status_code == 200
+    for i in range(3):
+        r = client.post("/sitio/solicitud", data=datos, headers={"X-Forwarded-For": f"10.0.0.{i}"})
+        assert r.status_code == 429
+
+
+def test_entrada_no_confia_en_cualquier_proxy():
+    from pathlib import Path
+
+    from estudia import settings
+    sh = (Path(__file__).parent.parent / "scripts" / "entrada.sh").read_text(encoding="utf-8")
+    assert "--forwarded-allow-ips='*'" not in sh and "TRUSTED_PROXIES" in sh
+    assert settings.TRUSTED_PROXIES != "*"

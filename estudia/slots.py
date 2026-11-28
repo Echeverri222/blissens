@@ -102,13 +102,22 @@ def next_offer(conn, cupo_id: int) -> int | None:
     return oferta
 
 
-def reject(conn, oferta_id: int) -> None:
+def reject(conn, oferta_id: int, *, patient_id: int | None = None) -> bool:
     now = clock.now(conn)
     o = conn.execute("select * from oferta_adelanto where id=%s for update", (oferta_id,)).fetchone()
+    if o is None:
+        return False
+    if patient_id is not None:
+        from . import familia
+        _, ids = familia.hogar(conn, patient_id)
+        cita = conn.execute("select paciente_id from cita where id=%s", (o["cita_id"],)).fetchone()
+        if cita is None or cita["paciente_id"] not in ids:
+            return False
     if o["estado"] != "pendiente":
-        return
+        return False
     conn.execute("update oferta_adelanto set estado='rechazada', respondida_en=%s where id=%s", (now, oferta_id))
     next_offer(conn, o["cupo_id"])
+    return True
 
 
 def expire(conn, oferta_id: int) -> None:
@@ -120,19 +129,27 @@ def expire(conn, oferta_id: int) -> None:
     next_offer(conn, o["cupo_id"])
 
 
-def accept(conn, oferta_id: int) -> bool:
+def accept(conn, oferta_id: int, *, patient_id: int | None = None) -> bool:
     """Una sola transacción: verifica vigencia, crea la cita en el cupo, cierra la anterior y reinicia la cadena.
 
     Devuelve False si la oferta ya no está disponible (el mensaje de 'no disponible' lo envía el llamador).
     """
-    from . import agenda
+    from . import agenda, familia
 
     now = clock.now(conn)
     o = conn.execute("select * from oferta_adelanto where id=%s for update", (oferta_id,)).fetchone()
+    if o is None:
+        return False
+    cita = conn.execute("select * from cita where id=%s for update", (o["cita_id"],)).fetchone()
+    if cita is None:
+        return False
+    if patient_id is not None:
+        _, ids = familia.hogar(conn, patient_id)
+        if cita["paciente_id"] not in ids:
+            return False
     if o["estado"] != "pendiente" or o["vence_en"] <= now:
         return False
     cupo = conn.execute("select * from cupo_liberado where id=%s for update", (o["cupo_id"],)).fetchone()
-    cita = conn.execute("select * from cita where id=%s for update", (o["cita_id"],)).fetchone()
     if cita["estado"] not in ALIVE:
         conn.execute("update oferta_adelanto set estado='anulada', respondida_en=%s where id=%s", (now, oferta_id))
         return False

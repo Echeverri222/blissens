@@ -2,19 +2,10 @@
 {# Página aparte para agendar: sin menú ni otras secciones, para que el paciente termine lo que vino a hacer. #}
 {% set a = t.pag_agendar %}
 {% block title %}{{ a.titulo }} · Blissens{% endblock %}
+{% block descripcion %}{{ a.lead }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex, follow">{% endblock %}
 {% block body_class %}interior foco-body{% endblock %}
 {% block main_class %}foco{% endblock %}
-{% block cabecera %}
-<header class="cab cab--foco">
-  <div class="cab__fila">
-    <a class="cab__logo" href="{{ t.home }}" aria-label="Blissens"><img src="/static/sitio/logo-1024x110.png" width="1024" height="110" alt="Blissens"></a>
-    <div class="cab__der">
-      <a class="foco__tel" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
-      <a class="foco__volver" href="{{ t.home }}"><span aria-hidden="true">←</span> <span class="foco__volver-txt">{{ a.volver }}</span></a>
-    </div>
-  </div>
-</header>
-{% endblock %}
 {% block negocio %}{% endblock %}
 {% block content %}
 <div class="foco__intro">
@@ -45,8 +36,4 @@
     <span>{{ a.ayuda }}</span><strong>{{ sitio.TELEFONO }}</strong>
   </a>
 </div>
-<script>
-  // En pantallas anchas la información se muestra abierta; en el celular queda plegada para no empujar el formulario.
-  if (matchMedia("(min-width: 900px)").matches) document.querySelectorAll("[data-abrir-en-escritorio]").forEach(d => d.open = true);
-</script>
 {% endblock %}

@@ -16,7 +16,7 @@ function ClaveEmitida({ usuario, clave, alCerrar }: { usuario: string; clave: st
     <Dialog.Root open onOpenChange={(o) => !o && alCerrar()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-papel p-5 shadow-2xl">
           <Dialog.Title className="text-base font-semibold">Contraseña temporal de {usuario}</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-tinta-suave">Anótala ahora: no se vuelve a mostrar. Deberá cambiarla al ingresar.</Dialog.Description>
           <p className="my-4 select-all rounded-lg bg-zinc-100 px-3 py-2 text-center font-mono text-lg" aria-label="Contraseña temporal">{clave}</p>

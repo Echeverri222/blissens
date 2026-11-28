@@ -8,6 +8,20 @@ import { Cargando, ErrorVista } from "@/ui/vistas";
 
 const REFRESCO_MS = 60_000;
 
+async function sondearSesion(): Promise<Sesion | null> {
+  let r: Response;
+  try {
+    r = await fetch("/api/v1/sesion", { credentials: "same-origin", headers: { "X-Sondeo": "1" } });
+  } catch {
+    throw new ApiError("red", "No se pudo conectar con el sistema. Revisa tu conexión e inténtalo de nuevo.", 0);
+  }
+  if (r.ok) return (await r.json()) as Sesion;
+  let datos: { codigo?: string; mensaje?: string } = {};
+  try { datos = await r.json(); } catch { /* respuesta sin cuerpo JSON */ }
+  if (r.status === 401 || datos.codigo === "no_autenticado") return null;
+  throw new ApiError(datos.codigo ?? "desconocido", datos.mensaje ?? "Algo salió mal. Inténtalo de nuevo.", r.status);
+}
+
 interface Valor {
   sesion: Sesion;
   /** Hora del sistema (no la del navegador: el modo demo adelanta el reloj). */
@@ -28,7 +42,9 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const q = useQuery({
     queryKey: CLAVE_SESION, refetchInterval: REFRESCO_MS, retry: false,
     queryFn: async (): Promise<Sesion | null> => {
-      try { return await api.sesion.actual(); } catch (e) {
+      try {
+        return qc.getQueryData(CLAVE_SESION) ? await sondearSesion() : await api.sesion.actual();
+      } catch (e) {
         if (e instanceof ApiError && e.codigo === "no_autenticado") return null;
         throw e;
       }

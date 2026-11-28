@@ -6,11 +6,12 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from estudia import agenda, bandejas, clock, indicators, usuarios
+from estudia import agenda, bandejas, clock, db, indicators, settings, usuarios
 from estudia.api.esquema import ARCHIVO, esquema
+from estudia.api.operacion import limite_cambio_clave, limite_login
 from estudia.web.app import app, crear_app
 
-from .conftest import NOW, at, book, button, make_patient, make_pro, press, status, svc
+from .conftest import ADMIN, NOW, at, book, button, make_patient, make_pro, press, status, svc
 
 CLAVE = "clave-de-prueba"
 API = "/api/v1"
@@ -25,6 +26,15 @@ def entrar(usuario, clave=CLAVE):
     r = c.post(f"{API}/sesion", json={"usuario": usuario, "clave": clave})
     assert r.status_code == 200, r.text
     return c
+
+
+@pytest.fixture(autouse=True)
+def _limpiar_limites():
+    limite_login.reiniciar()
+    limite_cambio_clave.reiniciar()
+    yield
+    limite_login.reiniciar()
+    limite_cambio_clave.reiniciar()
 
 
 @pytest.fixture
@@ -97,9 +107,10 @@ AMBOS_ROLES = [
 
 def test_role_matrix(mundo):
     for method, path, body in SOLO_AUXILIAR:
-        r = mundo.esp1.request(method.upper(), API + path, json=body)
+        kw = {"json": {} if method != "get" and body is None else body}
+        r = mundo.esp1.request(method.upper(), API + path, **kw)
         assert r.status_code == 403 and r.json()["codigo"] == "sin_permiso", (method, path, r.status_code)
-        r = mundo.aux.request(method.upper(), API + path, json=body)
+        r = mundo.aux.request(method.upper(), API + path, **kw)
         assert r.status_code not in (401, 403), (method, path, r.status_code, r.text)
     for method, path, body in AMBOS_ROLES:
         for cli in (mundo.aux, mundo.esp1):
@@ -110,6 +121,14 @@ def test_state_changing_requests_only_accept_json(mundo):
     r = mundo.aux.post(f"{API}/pacientes", data={"nombres": "A", "documento": "1", "celular": "3001112233",
                                                    "consentimiento": "true"})
     assert r.status_code == 422 and r.json()["codigo"] == "solo_json"
+    vacio = mundo.aux.post(f"{API}/indicadores/cierre")
+    assert vacio.status_code == 422 and vacio.json()["codigo"] == "solo_json"
+    externo = mundo.aux.post(f"{API}/indicadores/cierre", json={}, headers={"Origin": "https://atacante.example"})
+    assert externo.status_code == 403 and externo.json()["codigo"] == "origen_invalido"
+    cross = mundo.aux.post(f"{API}/indicadores/cierre", json={}, headers={"Sec-Fetch-Site": "cross-site"})
+    assert cross.status_code == 403 and cross.json()["codigo"] == "origen_invalido"
+    mismo = mundo.aux.post(f"{API}/indicadores/cierre", json={}, headers={"Origin": "http://testserver"})
+    assert mismo.status_code == 200
 
 
 def test_errors_share_one_shape(mundo):
@@ -152,7 +171,7 @@ def test_specialist_gets_404_for_resources_of_another_professional(mundo, conn):
     assert e1.get(f"{API}/profesionales/{mundo.pro1}/horario").status_code == 200
     assert e1.delete(f"{API}/bloqueos/{bid}").status_code == 404
     assert e1.post(f"{API}/bloqueos", json={**rango(3, "10:00", "11:00"), "profesional_id": mundo.pro2}).status_code == 404
-    assert e1.post(f"{API}/historial/{hid}/revertir").status_code == 404
+    assert e1.post(f"{API}/historial/{hid}/revertir", json={}).status_code == 404
     assert e1.get(f"{API}/bloqueos?desde={at(0, '08:00').date()}&hasta={at(7, '08:00').date()}").json() == []
     assert mundo.esp2.get(f"{API}/citas/{c2}").status_code == 200
 
@@ -213,6 +232,53 @@ def test_session_expires_renews_with_use_and_ignores_the_demo_clock(mundo, conn,
     assert c.get(f"{API}/sesion").status_code == 200
     t[0] += timedelta(hours=13)
     assert c.get(f"{API}/sesion").status_code == 401
+
+
+def test_session_absolute_expiration_and_sondeo_does_not_extend(mundo, conn, monkeypatch):
+    t = [usuarios._ahora()]
+    monkeypatch.setattr(usuarios, "_ahora", lambda: t[0])
+    c = entrar("recepcion")
+    huella = usuarios._huella(c.cookies.get("estudia_sesion"))
+    with db.connect_admin(ADMIN) as adm:
+        vence_inicial = adm.execute("select vence_en from sesion where huella=%s", (huella,)).fetchone()["vence_en"]
+    t[0] += timedelta(hours=5)
+    assert c.get(f"{API}/sesion", headers={"X-Sondeo": "1"}).status_code == 200
+    with db.connect_admin(ADMIN) as adm:
+        assert adm.execute("select vence_en from sesion where huella=%s", (huella,)).fetchone()["vence_en"] == vence_inicial
+    t[0] += timedelta(hours=15)  # 20h desde creada_en, supera las 12h iniciales si no se hubiera renovado: aquí ya venció
+    assert c.get(f"{API}/sesion").status_code == 401
+    c2 = entrar("recepcion")
+    t[0] += timedelta(hours=10)
+    assert c2.get(f"{API}/sesion").status_code == 200  # renueva
+    t[0] += timedelta(hours=10)
+    assert c2.get(f"{API}/sesion").status_code == 200  # 20h < 24h
+    t[0] += timedelta(hours=5)   # 25h > 24h tope absoluto, aunque vence_en estaba en 24h
+    assert c2.get(f"{API}/sesion").status_code == 401
+
+
+def test_password_limits_reuse_and_ip_rate_limit(mundo, conn, monkeypatch):
+    larga = "x" * 129
+    assert nuevo_cliente().post(f"{API}/sesion", json={"usuario": "esp1", "clave": larga}).status_code == 422
+    assert mundo.esp1.post(f"{API}/sesion/clave", json={"actual": CLAVE, "nueva": larga}).status_code == 422
+    with pytest.raises(ValueError):
+        usuarios.validar_clave(larga)
+    assert mundo.esp1.post(f"{API}/sesion/clave", json={"actual": CLAVE, "nueva": CLAVE}).status_code == 422
+    monkeypatch.setattr(settings, "ENTORNO", "produccion")
+    assert mundo.esp1.post(f"{API}/sesion/clave", json={"actual": CLAVE, "nueva": usuarios.DEMO_CLAVE}).status_code == 422
+    monkeypatch.setattr(settings, "ENTORNO", "local")
+
+    limite_login.reiniciar()
+    c = nuevo_cliente()
+    for i in range(20):
+        assert c.post(f"{API}/sesion", json={"usuario": f"no-existe-{i}", "clave": CLAVE}).status_code == 401
+    r = c.post(f"{API}/sesion", json={"usuario": "no-existe-20", "clave": CLAVE})
+    assert r.status_code == 429 and r.json()["codigo"] == "demasiados_intentos"
+
+    limite_cambio_clave.reiniciar()
+    for _ in range(10):
+        assert mundo.aux.post(f"{API}/sesion/clave", json={"actual": "mal-mal-mal", "nueva": "otra-clave-9"}).status_code == 401
+    r2 = mundo.aux.post(f"{API}/sesion/clave", json={"actual": "mal-mal-mal", "nueva": "otra-clave-9"})
+    assert r2.status_code == 429 and r2.json()["codigo"] == "demasiados_intentos"
 
 
 def test_logout_deletes_the_session(mundo):
@@ -337,7 +403,7 @@ def test_reverting_into_a_blocked_range_is_rejected(mundo, conn):
     h = conn.execute("select id from historial_estado where estado_nuevo='cancelada'").fetchone()["id"]
     conn.commit()
     assert mundo.esp1.post(f"{API}/bloqueos", json=rango(1, "08:30", "09:30")).status_code == 201
-    r = mundo.aux.post(f"{API}/historial/{h}/revertir")
+    r = mundo.aux.post(f"{API}/historial/{h}/revertir", json={})
     assert r.status_code == 409 and r.json()["codigo"] == "no_reversible" and "bloqueado" in r.json()["mensaje"]
     assert status(conn, c) == "cancelada"
 
@@ -387,8 +453,8 @@ def test_specialist_reverts_only_own_outcome(mundo, conn):
     mundo.esp1.post(f"{API}/citas/{c}/desenlace", json={"desenlace": "no_asistio"})
     detalle = mundo.esp1.get(f"{API}/citas/{c}").json()["historial"]
     nacimiento, desenlace = detalle[0]["id"], detalle[-1]["id"]
-    assert mundo.esp1.post(f"{API}/historial/{nacimiento}/revertir").status_code == 403
-    r = mundo.esp1.post(f"{API}/historial/{desenlace}/revertir")
+    assert mundo.esp1.post(f"{API}/historial/{nacimiento}/revertir", json={}).status_code == 403
+    r = mundo.esp1.post(f"{API}/historial/{desenlace}/revertir", json={})
     assert r.status_code == 200
     assert status(conn, c) in ("programada", "confirmada")
     assert conn.execute("select estado from caso_seguimiento where cita_id=%s", (c,)).fetchone()["estado"] == "anulado"
@@ -478,10 +544,10 @@ def test_trays_and_actions_match_the_domain_functions(mundo, conn):
     assert [r["cita_id"] for r in mundo.aux.get(f"{API}/bandejas/no-confirmadas").json()] == [c]
     mid = mundo.aux.get(f"{API}/bandejas/sin-interpretar").json()[0]["id"]
     sid = mundo.aux.get(f"{API}/bandejas/contactos").json()[0]["id"]
-    assert mundo.aux.post(f"{API}/mensajes/{mid}/gestionar").status_code == 200
-    assert mundo.aux.post(f"{API}/contactos/{sid}/gestionar").status_code == 200
+    assert mundo.aux.post(f"{API}/mensajes/{mid}/gestionar", json={}).status_code == 200
+    assert mundo.aux.post(f"{API}/contactos/{sid}/gestionar", json={}).status_code == 200
     assert mundo.aux.get(f"{API}/bandejas/sin-interpretar").json() == [] and mundo.aux.get(f"{API}/bandejas/contactos").json() == []
-    assert mundo.aux.post("/api/v1/mensajes/9999/gestionar").status_code == 404
+    assert mundo.aux.post("/api/v1/mensajes/9999/gestionar", json={}).status_code == 404
 
 
 def test_follow_up_action_and_indicators_match_the_domain(mundo, conn):
@@ -495,9 +561,9 @@ def test_follow_up_action_and_indicators_match_the_domain(mundo, conn):
     assert conn.execute("select estado from caso_seguimiento").fetchone()["estado"] == "rechazado"
     assert mundo.aux.post(f"{API}/seguimientos/{caso}/gestion", json={"resultado": "acepto"}).status_code == 409
 
-    cierre = mundo.aux.post(f"{API}/indicadores/cierre")
+    cierre = mundo.aux.post(f"{API}/indicadores/cierre", json={})
     assert cierre.status_code == 200 and cierre.json()["dias"] >= 1
-    assert mundo.aux.post(f"{API}/indicadores/cierre").json() == cierre.json()                # idempotente
+    assert mundo.aux.post(f"{API}/indicadores/cierre", json={}).json() == cierre.json()                # idempotente
     f = {"desde": at(-5, "08:00").date(), "hasta": at(5, "08:00").date(), "profesional_id": None, "servicio_id": None}
     q = f"?desde={f['desde']}&hasta={f['hasta']}"
     conn.rollback()

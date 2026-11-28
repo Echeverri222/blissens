@@ -29,6 +29,8 @@ SECRET_KEY_POR_DEFECTO = "cambia-esto-en-cualquier-despliegue"
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY_POR_DEFECTO)
 SECRET_KEY_ANTERIOR = os.environ.get("SECRET_KEY_ANTERIOR", "")
 NEGOCIO_POR_DEFECTO = os.environ.get("NEGOCIO_POR_DEFECTO", "blissens")
+# Proxies cuyas cabeceras X-Forwarded-* se aceptan (lo usa scripts/entrada.sh en uvicorn). Nunca «*».
+TRUSTED_PROXIES = os.environ.get("TRUSTED_PROXIES", "127.0.0.1")
 TICK_SECRETO = os.environ.get("TICK_SECRETO", "")
 # Contraseña del rol de aplicación: solo se fija sola en local; en otros entornos la pone el operador.
 CLAVE_ROL_APP = os.environ.get("CLAVE_ROL_APP", "estudia_app" if ENTORNO == "local" else "")

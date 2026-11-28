@@ -41,13 +41,13 @@ class Ok(Salida):
 # ----------------------------------------------------------------- sesión
 
 class Credenciales(Entrada):
-    usuario: str
-    clave: str
+    usuario: str = Field(min_length=1, max_length=128)
+    clave: str = Field(min_length=1, max_length=128)
 
 
 class CambioClave(Entrada):
-    actual: str
-    nueva: str
+    actual: str = Field(min_length=1, max_length=128)
+    nueva: str = Field(min_length=1, max_length=128)
 
 
 class NegocioOut(Salida):

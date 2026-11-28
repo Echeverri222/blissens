@@ -5,10 +5,10 @@ import json
 
 from fastapi.testclient import TestClient
 
-from estudia import canales, db, negocios
+from estudia import agenda, canales, confirmations, db, followup, negocios, router, slots
 from estudia.web.app import app
 
-from .conftest import ADMIN, URL, make_patient
+from .conftest import ADMIN, URL, at, book, make_patient, make_pro, status
 
 
 def _firmar(secreto, cuerpo: dict):
@@ -66,3 +66,53 @@ def test_envio_usa_el_canal_del_negocio(conn):
     messaging.send(conn, p, "baja_confirmada", direct=True)
     assert len(canales.Prueba.ENVIADOS) == 1
     assert conn.execute("select canal from mensaje order by id desc limit 1").fetchone()["canal"] == "prueba"
+
+
+def test_webhook_bloquea_botones_ajenos_o_malformados_sin_filtrar_datos(conn, monkeypatch):
+    monkeypatch.setenv("SECRETO_A", "secreto-a")
+    _canal(1, "canal-a", "SECRETO_A")
+    pro = make_pro(conn)
+    pa = make_patient(conn, "Ana", doc="101", celular="+573001112233")
+    pb = make_patient(conn, "Beto", doc="202", celular="+573004445566")
+
+    cita_a1 = book(conn, pa, pro, at(3, "10:00"))
+    cita_a2 = book(conn, pa, pro, at(4, "10:00"))
+    cita_a3 = book(conn, pa, pro, at(4, "14:00"))
+    cancel_a = agenda.cancel(conn, cita_a2, "paciente", "enlace")
+    caso_a = conn.execute("select id from caso_seguimiento where cita_id=%s", (cita_a2,)).fetchone()["id"]
+    slots.register_slot(conn, pro, agenda.rng(at(2, "14:00"), 30), None, "cancelacion")
+    oferta_a = conn.execute("select id from oferta_adelanto where cita_id=%s and estado='pendiente'", (cita_a3,)).fetchone()["id"]
+    conn.commit()
+
+    c = TestClient(app)
+    for i, boton in enumerate(
+        (f"conf:no:{cita_a1}", f"oferta:si:{oferta_a}", f"seg:ahora_no:{caso_a}", "conf:malformado"),
+        start=1,
+    ):
+        crudo, h = _firmar("secreto-a", {"canal": "canal-a", "id": f"wamid.b{i}", "de": "3004445566", "boton": boton})
+        r = c.post("/canales/prueba/webhook", content=crudo, headers=h)
+        assert r.status_code == 200 and r.json() == {"estado": "recibido"}
+
+    conn.rollback()
+    entrantes_b = conn.execute("select gestionado from mensaje where paciente_id=%s and direccion='entrante'", (pb,)).fetchall()
+    assert len(entrantes_b) == 4 and all(m["gestionado"] is False for m in entrantes_b)
+    assert status(conn, cita_a1) == "programada"
+    assert conn.execute("select estado from oferta_adelanto where id=%s", (oferta_a,)).fetchone()["estado"] == "pendiente"
+    assert conn.execute("select estado from caso_seguimiento where id=%s", (caso_a,)).fetchone()["estado"] == "abierto"
+    assert conn.execute("select count(*) n from mensaje where paciente_id=%s and direccion='saliente'", (pb,)).fetchone()["n"] == 0
+
+    # Defensa en profundidad: llamadas directas sin pasar por messaging.receive también validan pertenencia al hogar y formato
+    assert confirmations.process_response(conn, pb, "no", cita_a1) is False
+    assert followup.decline(conn, caso_a, patient_id=pb) is False
+    assert slots.accept(conn, oferta_a, patient_id=pb) is False
+    assert slots.reject(conn, oferta_a, patient_id=pb) is False
+    assert router._motivo(conn, pb, [str(cancel_a), "1"], 0) is False
+    assert router._conf(conn, pb, ["malformado"], 0) is False
+    assert router._oferta(conn, pb, ["si", "no-num"], 0) is False
+    assert router._seg(conn, pb, ["ahora_no"], 0) is False
+
+    assert status(conn, cita_a1) == "programada"
+    assert conn.execute("select estado from oferta_adelanto where id=%s", (oferta_a,)).fetchone()["estado"] == "pendiente"
+    assert conn.execute("select estado from caso_seguimiento where id=%s", (caso_a,)).fetchone()["estado"] == "abierto"
+    assert conn.execute("select motivo_id from cancelacion where id=%s", (cancel_a,)).fetchone()["motivo_id"] is None
+    assert conn.execute("select count(*) n from mensaje where paciente_id=%s and direccion='saliente'", (pb,)).fetchone()["n"] == 0

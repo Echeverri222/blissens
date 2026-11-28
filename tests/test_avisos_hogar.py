@@ -1,7 +1,7 @@
 """Un hogar comparte un celular: sus avisos automáticos salen agrupados, uno por evento (docs/prd-familia.md R9)."""
 from datetime import timedelta
 
-from estudia import agenda, clock, familia, lifecycle, slots, tasks
+from estudia import agenda, clock, confirmations, familia, lifecycle, slots, tasks
 from estudia.web.app import _hogar_del_ultimo_mensaje
 
 from .conftest import at, book, make_patient, make_pro, outbox, press, status, svc
@@ -94,6 +94,12 @@ def test_un_boton_no_toca_citas_de_otro_hogar(conn):
     otro = make_patient(conn, "Otro", celular="+573009999999")
     ajena = book(conn, otro, pro, at(3, "15:00"), notify=False)
     press(conn, gente[0], f"confh:si:{ajena}")
+    assert status(conn, ajena) == "programada"
+    entrante = conn.execute("select gestionado from mensaje where direccion='entrante' order by id desc limit 1").fetchone()
+    assert entrante["gestionado"] is False
+    assert not outbox(conn, gente[0], "respuesta_tardia")
+    # Defensa en profundidad: invocando directamente sin pasar por messaging.receive
+    confirmations.process_household(conn, gente[0], "si", [ajena])
     assert status(conn, ajena) == "programada"
     assert outbox(conn, gente[0], "respuesta_tardia")
 

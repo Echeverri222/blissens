@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-27T16:06:00Z",
+  "title": "Design System: Blissens",
+  "extensions": {
+    "colorMeta": {
+      "obsidian-ink": {
+        "role": "primary",
+        "displayName": "Obsidian Ink",
+        "canonical": "#000000",
+        "tonalRamp": ["#000000", "#111113", "#1c1c1e", "#2c2c30", "#52525b", "#8e8e95", "#d4d4d8", "#f6f6f7"]
+      },
+      "studio-charcoal": {
+        "role": "primary",
+        "displayName": "Studio Charcoal",
+        "canonical": "#0a0a0a",
+        "tonalRamp": ["#0a0a0a", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#d4d4d8", "#f4f4f5"]
+      },
+      "pure-canvas": {
+        "role": "primary",
+        "displayName": "Pure Canvas",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#18181b", "#3f3f46", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f6f6f7", "#ffffff"]
+      },
+      "gallery-paper": {
+        "role": "neutral",
+        "displayName": "Gallery Paper",
+        "canonical": "#f6f6f7",
+        "tonalRamp": ["#18181b", "#3f3f46", "#5f5f64", "#8e8e95", "#bdbdc2", "#e4e4e7", "#f6f6f7", "#ffffff"]
+      },
+      "hairline-silver": {
+        "role": "neutral",
+        "displayName": "Hairline Silver",
+        "canonical": "#e4e4e7",
+        "tonalRamp": ["#27272a", "#52525b", "#71717a", "#a1a1aa", "#c4c4c9", "#e4e4e7", "#f4f4f5", "#fafafa"]
+      },
+      "iridescent-aqua": {
+        "role": "secondary",
+        "displayName": "Iridescent Aqua",
+        "canonical": "#3fbfb0",
+        "tonalRamp": ["#0e3b36", "#165c54", "#217e74", "#2fa094", "#3fbfb0", "#6fd2c6", "#a8e6de", "#e2f8f5"]
+      },
+      "iridescent-azure": {
+        "role": "secondary",
+        "displayName": "Iridescent Azure",
+        "canonical": "#3b9fe0",
+        "tonalRamp": ["#0f304a", "#174b73", "#20689e", "#2b84c4", "#3b9fe0", "#6db9ea", "#a6d6f4", "#e3f2fc"]
+      },
+      "iridescent-lilac": {
+        "role": "secondary",
+        "displayName": "Iridescent Lilac",
+        "canonical": "#b07cf0",
+        "tonalRamp": ["#321952", "#4c277a", "#6938a3", "#8c57cc", "#b07cf0", "#c8a2f5", "#e0c8fa", "#f4ecfe"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Titular principal del Hero en landing (mayúsculas)." },
+      "headline": { "displayName": "Headline", "purpose": "Encabezados de sección editorial y página de agendamiento." },
+      "editorial": { "displayName": "Editorial (Cardo)", "purpose": "Kickers, leads de marca y portada de acceso." },
+      "title": { "displayName": "Title", "purpose": "Títulos de pantallas, tarjetas y diálogos operativos." },
+      "body": { "displayName": "Body", "purpose": "Texto principal en landing, formularios y vistas de operación." },
+      "label": { "displayName": "Label", "purpose": "Etiquetas en mayúsculas, metadatos y cabeceras de tabla." }
+    },
+    "shadows": [
+      { "name": "header-condensed", "value": "0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.35)", "purpose": "Cabecera sticky condensada al hacer scroll." },
+      { "name": "focus-card-lift", "value": "0 1px 2px rgba(0,0,0,0.06), 0 14px 40px rgba(0,0,0,0.12)", "purpose": "Tarjeta principal montada sobre banda oscura en /agendar e /panel/ingresar." },
+      { "name": "dialog-sheet", "value": "0 20px 50px rgba(0,0,0,0.22)", "purpose": "Hojas modales y diálogos de confirmación en el panel." }
+    ],
+    "motion": [
+      { "name": "ease-blissens", "value": "cubic-bezier(0.2, 0.7, 0.2, 1)", "purpose": "Curva principal para transiciones, revelados y foco de tarjetas." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Estados hover y selección en controles operativos del panel." },
+      { "name": "duration-base", "value": "250ms", "purpose": "Botones cápsula, cabeceras y despliegue de acordeones." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "900px" },
+      { "name": "lg", "value": "1240px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Pill Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal en landing y flujo del paciente sobre fondo claro.",
+      "html": "<button class=\"ds-btn-primary\">Agendar cita</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 11px 26px; border-radius: 9999px; border: 1px solid #000000; background: #000000; color: #ffffff; font-family: Inter, system-ui, sans-serif; font-size: 0.95rem; font-weight: 500; letter-spacing: 0.02em; cursor: pointer; transition: background 250ms cubic-bezier(0.2,0.7,0.2,1), transform 250ms cubic-bezier(0.2,0.7,0.2,1); } .ds-btn-primary:hover { background: #222222; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 3px solid #7aa7ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Primary Inverse Button",
+      "kind": "button",
+      "refersTo": "button-primary-inverse",
+      "description": "CTA principal sobre cabecera o secciones negras de la landing.",
+      "html": "<button class=\"ds-btn-inverse\">Agendar cita</button>",
+      "css": ".ds-btn-inverse { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 24px; border-radius: 9999px; border: 1px solid #ffffff; background: #ffffff; color: #000000; font-family: Inter, system-ui, sans-serif; font-size: 0.92rem; font-weight: 500; letter-spacing: 0.02em; cursor: pointer; transition: background 250ms cubic-bezier(0.2,0.7,0.2,1), transform 250ms cubic-bezier(0.2,0.7,0.2,1); } .ds-btn-inverse:hover { background: #e8e8ea; transform: translateY(-1px); } .ds-btn-inverse:focus-visible { outline: 3px solid #7aa7ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Campo de entrada limpio compartido entre agendamiento y panel.",
+      "html": "<label class=\"ds-label\">Documento<input class=\"ds-input\" placeholder=\"1020304050\" /></label>",
+      "css": ".ds-label { display: block; font-family: Inter, system-ui, sans-serif; font-size: 0.88rem; font-weight: 500; color: #18181b; } .ds-input { display: block; width: 100%; margin-top: 6px; min-height: 46px; padding: 10px 14px; border-radius: 10px; border: 1px solid #c9c9ce; background: #ffffff; color: #0a0a0a; font-family: Inter, system-ui, sans-serif; font-size: 0.95rem; transition: border-color 150ms, box-shadow 150ms; } .ds-input:focus-visible { border-color: #000000; box-shadow: 0 0 0 3px rgba(0,0,0,0.08); outline: none; }"
+    },
+    {
+      "name": "Time Slot Chip",
+      "kind": "chip",
+      "description": "Selector táctil de hora con estado activo en alto contraste.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-chip\">09:00</button><button class=\"ds-chip ds-chip--on\">09:30</button></div>",
+      "css": ".ds-chip { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid #e4e4e7; background: #ffffff; color: #0a0a0a; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-variant-numeric: tabular-nums; cursor: pointer; transition: background 150ms, border-color 150ms; } .ds-chip:hover { background: #f6f6f7; } .ds-chip--on { background: #000000; color: #ffffff; border-color: #000000; } .ds-chip:focus-visible { outline: 3px solid #7aa7ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Clinical Surface Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Tarjeta blanca plana con borde hairline sobre gallery-paper.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card__kicker\">PRÓXIMA CITA</div><div class=\"ds-card__title\">Valoración estética · 10:30</div></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e4e4e7; border-radius: 16px; padding: 20px; color: #18181b; font-family: Inter, system-ui, sans-serif; } .ds-card__kicker { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.14em; color: #5f5f64; margin-bottom: 6px; } .ds-card__title { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Iridescent Brand Halo",
+      "kind": "custom",
+      "description": "Firma lumínica iridiscente contenida usada en el distintivo del panel.",
+      "html": "<span class=\"ds-halo\"><span>B</span></span>",
+      "css": ".ds-halo { display: inline-flex; padding: 2px; border-radius: 9999px; background: linear-gradient(135deg, #3fbfb0, #3b9fe0 55%, #b07cf0); } .ds-halo > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9999px; background: #0a0a0a; color: #ffffff; font-family: Cardo, Georgia, serif; font-size: 1rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Atelier Clínico Editorial",
+    "overview": "Blissens proyecta serenidad clínica y lujo silencioso: alterna superficies monocromáticas de alto contraste —negro absoluto y blanco puro— para que la fotografía real, la tipografía y las acciones prioritarias respiren sin artificio. El diseño se comporta como un atelier editorial en la landing pública y como una cabina de precisión limpia en el agendamiento y el panel operativo, manteniendo el mismo lenguaje visual en todo el recorrido.",
+    "keyCharacteristics": [
+      "Contraste monocromático firme (obsidian-ink y pure-canvas) amortiguado por superficies neutras frías (gallery-paper y hairline-silver).",
+      "Dúo tipográfico auto-hospedado: Cardo para la voz editorial y la calma de marca; Inter variable para la arquitectura, titulares en mayúsculas y datos operativos con dígitos tabulares.",
+      "Destello iridiscente estrictamente contenido (menos del 10 % del área visible) como señal de identidad y foco activo.",
+      "Cero dependencias de fuentes o activos remotos; todo se sirve localmente desde /static/."
+    ],
+    "rules": [
+      { "name": "The Ten-Percent Iridescence Rule", "body": "El gradiente iridiscente y la textura Bg-1.png ocupan menos del 10 % de cualquier pantalla; nunca se usan como fondo de tarjetas de contenido, tablas ni botones de texto largo.", "section": "colors" },
+      { "name": "The Monochrome First Rule", "body": "La jerarquía primaria siempre se resuelve con contraste tonal (negro, blanco, papel y bordes de 1px) antes de recurrir al color semántico o al acento.", "section": "colors" },
+      { "name": "The Clinical Tabular Rule", "body": "Todas las horas de cita, conteos de bandejas, porcentajes y cifras de dinero en el panel usan font-variant-numeric: tabular-nums en Inter para alinear columnas y evitar saltos visuales.", "section": "typography" },
+      { "name": "The Restrained Serif Rule", "body": "En el panel operativo (/panel/*), Cardo se reserva únicamente para la portada de acceso (Ingresar y ElegirNegocio) y nunca se usa en tablas, botones, formularios ni métricas.", "section": "typography" },
+      { "name": "The Hairline Elevation Rule", "body": "En el panel operativo y en las tarjetas de citas, la separación visual se logra con fondo blanco sobre gallery-paper y borde de 1px solid hairline-silver, nunca apilando sombras difusas en cada fila.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do mantener 100 % de fuentes (inter-var.woff2, cardo-400.woff2), scripts e imágenes auto-hospedados en /static/ (requisito probado por tests/test_sitio.py y tests/test_web.py).",
+      "Do usar font-variant-numeric: tabular-nums en todas las horas, contadores y métricas del panel.",
+      "Do preservar prefers-reduced-motion: reduce anulando animaciones de marquesina, flotación y entrada.",
+      "Do garantizar objetivos táctiles de al menos 44px en móvil en todos los botones, chips de hora y pestañas."
+    ],
+    "donts": [
+      "Don't introducir colores de marca ajenos (azules genéricos de Tailwind, morados saturados o fondos beige cálidos) que contradigan el negro/blanco/papel frío de Blissens.",
+      "Don't usar Cardo en controles operativos, tablas de datos o etiquetas densas del panel.",
+      "Don't inyectar navegación completa de marketing ni enlaces a /panel dentro de /agendar o /p/*.",
+      "Don't depender de Google Fonts, CDNs externos ni consultas a base de datos en GET / o GET /en."
+    ]
+  }
+}

@@ -13,7 +13,12 @@
   <meta property="og:description" content="{{ self.descripcion() }}">
   <meta property="og:locale" content="{{ t.meta.og_locale }}">
   <meta property="og:image" content="{{ base_url }}/static/sitio/New-Team.jpg">
+  <meta property="og:image:alt" content="{% block og_image_alt %}{{ t.emocion.alt }}{% endblock %}">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:description" content="{{ self.descripcion() }}">
+  <meta name="twitter:image" content="{{ base_url }}/static/sitio/New-Team.jpg">
+  <meta name="twitter:image:alt" content="{{ self.og_image_alt() }}">
   <link rel="icon" href="/static/sitio/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/sitio/fuentes/inter-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ estatico('sitio/sitio.css') }}">
@@ -23,7 +28,7 @@
 </head>
 <body class="{% block body_class %}interior{% endblock %}">
   <a class="saltar" href="#contenido">{{ t.saltar }}</a>
-  {% block cabecera %}{% include "_cabecera.html" %}{% endblock %}
+  {% block cabecera %}{% include "_cabecera_paciente.html" %}{% endblock %}
   <main id="contenido" class="{% block main_class %}app{% endblock %}">
     {% block negocio %}{% if negocio %}<p class="app__negocio">{{ negocio.nombre }}</p>{% endif %}{% endblock %}
     {% block content %}{% endblock %}

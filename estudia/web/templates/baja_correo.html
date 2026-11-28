@@ -2,14 +2,16 @@
 {% block title %}Correos · Blissens{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
+<div class="tarjeta tarjeta--angosta tarjeta--elevada">
 {% if hecha %}
-<h1>Listo, no te enviaremos más correos</h1>
-<p>Dejaste de recibir correos de {{ negocio.nombre }}. Esto no cambia los mensajes de WhatsApp: si también quieres
-dejar de recibirlos, responde BAJA a nuestro WhatsApp.</p>
-<p>Si fue un error, pídele a {{ termino }} que vuelva a activar tu correo.</p>
+  <h1>Listo, no te enviaremos más correos</h1>
+  <p>Dejaste de recibir correos de {{ negocio.nombre }}. Esto no cambia los mensajes de WhatsApp: si también quieres
+  dejar de recibirlos, responde BAJA a nuestro WhatsApp.</p>
+  <p class="nota">Si fue un error, pídele a {{ termino }} que vuelva a activar tu correo.</p>
 {% else %}
-<h1>¿Dejar de recibir correos?</h1>
-<p>Dejarás de recibir correos de {{ negocio.nombre }} sobre tus citas. Los mensajes de WhatsApp no cambian.</p>
-<form method="post" action="/correo/baja/{{ token }}"><button type="submit">Sí, no quiero más correos</button></form>
+  <h1>¿Dejar de recibir correos?</h1>
+  <p class="nota">Dejarás de recibir correos de {{ negocio.nombre }} sobre tus citas. Los mensajes de WhatsApp no cambian.</p>
+  <form method="post" action="/correo/baja/{{ token }}"><button type="submit">Sí, no quiero más correos</button></form>
 {% endif %}
+</div>
 {% endblock %}

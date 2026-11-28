@@ -8,7 +8,7 @@ export default defineConfig({
   base: "/panel/",
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  server: { port: 5173, proxy: { "/api": "http://localhost:8000", "/simulador": "http://localhost:8000" } },
+  server: { port: 5173, proxy: { "/api": "http://localhost:8000", "/simulador": "http://localhost:8000", "/static": "http://localhost:8000" } },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false },
   test: { environment: "jsdom", globals: true, setupFiles: ["./src/pruebas/preparar.ts"], css: false, exclude: ["e2e/**", "node_modules/**"] },
 });

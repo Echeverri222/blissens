@@ -29,10 +29,13 @@ export function ClaveObligatoria() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-marca px-4 text-white">
+    <main className="portada-brillo flex min-h-dvh items-center justify-center bg-marca px-4 text-white">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2"><Distintivo nombre={sesion.negocio?.nombre ?? "Estud-IA"} grande /></div>
-        <form onSubmit={(e) => void enviar(e)} aria-label="Cambiar contraseña temporal" className="space-y-4 rounded-2xl bg-papel p-6 text-tinta shadow-xl">
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <Distintivo nombre={sesion.negocio?.nombre ?? "Estud-IA"} grande />
+          <p className="font-serif text-base tracking-wide text-zinc-300">Actualiza tu acceso</p>
+        </div>
+        <form onSubmit={(e) => void enviar(e)} aria-label="Cambiar contraseña temporal" className="tarjeta-acento space-y-4 rounded-2xl bg-papel p-7 text-tinta shadow-2xl">
           <h1 className="text-lg font-semibold">Elige tu contraseña</h1>
           <p className="text-sm text-tinta-suave">Ingresaste con una contraseña temporal. Cámbiala para continuar (mínimo 8 caracteres).</p>
           {error && <Aviso>{error}</Aviso>}

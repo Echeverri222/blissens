@@ -227,3 +227,33 @@ def test_limite_de_familiares(conn):
 
 def test_la_entrada_publica_orienta_a_quien_agenda_para_su_familia(client):
     assert "Regístrate tú primero y agrégalos desde" in client.get("/agendar").text
+
+
+@pytest.fixture(autouse=True)
+def _sin_limite_identificacion():
+    from estudia.web.app import reiniciar_limites_identificacion
+    reiniciar_limites_identificacion()
+    yield
+    reiniciar_limites_identificacion()
+
+
+def test_nombre_hostil_del_responsable_no_inyecta_js_en_la_confirmacion(client, conn):
+    pid = make_patient(conn, "O'Connor');alert(1)//", "Prueba", doc="4101", celular=CEL)
+    conn.commit()
+    agregar(client, links.make_token(pid, conn=conn), doc="4102", nombres="Laura", nacimiento="1990-01-01",
+            parentesco="pareja")
+    conn.rollback()
+    pareja = conn.execute("select id from paciente where documento='4102'").fetchone()["id"]
+    html = client.get(f"/p/{links.make_token(pareja, conn=conn)}").text
+    assert "onsubmit=" not in html and "<script>" not in html
+    assert "data-confirmar=" in html and "O&#39;Connor" in html and "O'Connor');" not in html
+
+
+def test_solicitud_de_familia_a_documento_ajeno_no_se_duplica(client, conn):
+    _, token = responsable(conn)
+    make_patient(conn, "Otro", "Prueba", doc="7001", celular="+573009998877")
+    conn.commit()
+    for _ in range(3):
+        assert agregar(client, token, doc="7001", nombres="Otro", nacimiento="1990-01-01", parentesco="otro").status_code == 200
+    conn.rollback()
+    assert conn.execute("select count(*) n from solicitud_contacto where documento='7001'").fetchone()["n"] == 1
