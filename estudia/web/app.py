@@ -220,6 +220,7 @@ def render(request, name, status_code: int = 200, **ctx):
     ctx.setdefault("t", copia.COPIA[ctx["lang"]])
     ctx.setdefault("sitio", copia)
     ctx.setdefault("base_url", settings.BASE_URL.rstrip("/"))
+    ctx.setdefault("whatsapp_url", copia.enlace_whatsapp(settings.WHATSAPP_PUBLICO, ctx["lang"]))
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 
@@ -363,7 +364,8 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
                           celular=tel, pais=pais[:80] or None, paquete=paquete if interes == "experiencia" else None,
                           mensaje=mensaje[:2000] or None, adjuntos=archivos)
     ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho, uid=uid,
-               horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo))
+               horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo),
+               whatsapp_url=copia.enlace_whatsapp(config.get(conn, "whatsapp_publico") or settings.WHATSAPP_PUBLICO, lang))
     if request.headers.get("HX-Request"):
         return render(request, "_solicitud.html", **ctx)
     return render(request, "solicitud.html", **ctx)

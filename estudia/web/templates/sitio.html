@@ -179,7 +179,8 @@
     <div class="contacto-vias rev">
       <a class="boton" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
       <a class="boton boton--linea" href="https://wa.me/{{ sitio.TELEFONO_TEL[1:] }}" target="_blank" rel="noopener">{{ t.contacto.whatsapp }}</a>
-      <a class="boton boton--linea" href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a>
+      {% if whatsapp_url %}<a class="boton boton--linea" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ t.contacto.whatsapp_escribir }}</a>
+      {% endif %}<a class="boton boton--linea" href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a>
       <a class="boton boton--linea" href="{{ sitio.MAPA }}" target="_blank" rel="noopener">{{ t.contacto.mapa }}</a>
     </div>
   </div>

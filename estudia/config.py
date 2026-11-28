@@ -57,6 +57,9 @@ DEFAULTS = {
     # cuántas horas se le promete respuesta a quien la envía.
     "correo_avisos_solicitudes": None,
     "plazo_respuesta_solicitud_horas": 24,
+    # Número de WhatsApp de la clínica para el enlace «Escríbanos por WhatsApp» del sitio (R22); None = no se muestra.
+    # La landing no abre la base: allí se lee de WHATSAPP_PUBLICO (entorno); la confirmación de solicitud usa esta clave.
+    "whatsapp_publico": None,
 }
 
 

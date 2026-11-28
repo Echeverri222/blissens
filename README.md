@@ -183,6 +183,13 @@ mundo en `tests/golden_asistente/README.md`.
 > la sesión de Claude Code con el servidor MCP. No lo uses después de `make importar` con los Excel reales, y no enciendas el
 > asistente de pacientes en `produccion` hasta que la empresa confirme el tratamiento de datos por un tercero (ADR 0009).
 
+## Lista de despliegue del sitio público
+
+- Apuntar el dominio de la clínica a este sitio: el nuestro responde `index, follow` (el sitio anterior estaba en `noindex`).
+- Definir `WHATSAPP_PUBLICO` (solo dígitos, con indicativo) para mostrar «Escríbanos por WhatsApp» en la landing; la
+  confirmación de solicitud también puede leerlo de la clave `whatsapp_publico` del negocio. Sin número no se muestra nada.
+- Rellenar `REDES` en `estudia/web/copia.py` con las URL confirmadas; las redes sin URL no se muestran.
+
 ## Privacidad y datos reales
 
 El repositorio es público y el reto prohíbe divulgar datos de pacientes. **Ningún dato real se versiona**:
