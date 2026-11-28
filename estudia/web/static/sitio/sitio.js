@@ -111,6 +111,25 @@
     if (msg && !window.confirm(msg)) e.preventDefault();
   });
 
+  /* Asistente del paciente, sin JavaScript en línea (la CSP lo bloquea):
+     - data-limpiar-al-enviar: tras enviar con éxito, vacía el cuadro de texto;
+     - data-descartar: quita la propuesta;
+     - data-alternativa: la propuesta lleva a otra página en vez de cambiar el chat. */
+  d.body.addEventListener("htmx:afterRequest", function (e) {
+    var f = e.detail && e.detail.elt;
+    if (!f || !f.hasAttribute || !f.hasAttribute("data-limpiar-al-enviar") || !e.detail.successful) return;
+    var t = f.querySelector("textarea"); if (t) t.value = "";
+  });
+  d.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-descartar]");
+    if (!b) return;
+    var pr = b.closest(".propuesta"); if (pr) pr.remove();
+  });
+  d.body.addEventListener("htmx:beforeSwap", function (e) {
+    var f = e.detail && e.detail.elt, a = f && f.getAttribute && f.getAttribute("data-alternativa");
+    if (a) { e.preventDefault(); window.location.href = a; }
+  });
+
   /* En pantallas anchas la información se muestra abierta; en el celular queda plegada para no empujar el formulario. */
   if (window.matchMedia && matchMedia("(min-width: 900px)").matches) {
     d.querySelectorAll("[data-abrir-en-escritorio]").forEach(function (el) { el.open = true; });

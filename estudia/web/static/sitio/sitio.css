@@ -267,7 +267,7 @@ main.app h2 { font-size: 1.1rem; margin: 1.75rem 0 .75rem; }
 .app-cab { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .app-cab h1 { margin: 0; }
 main.app h2.app-sec-titulo { font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gris); font-weight: 600; margin: 1.75rem 0 .75rem; }
-.app-cta-pie { margin-top: .5rem; }
+.app-cta-pie { margin-top: .5rem; display: flex; flex-wrap: wrap; gap: .5rem; }
 .tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 1rem; padding: 1.35rem; margin-bottom: 1rem; }
 .tarjeta--elevada { border-color: rgba(0,0,0,.06); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 10px 30px rgba(0,0,0,.07); }
 .tarjeta--acento { position: relative; overflow: hidden; }
@@ -422,3 +422,20 @@ main.foco { position: relative; isolation: isolate; display: grid; grid-template
   .foco__datos dt { color: var(--gris-claro); } .foco__datos dd { color: #e8e8ea; }
   .foco__ayuda { background: none; border: 1px solid rgba(255,255,255,.2); max-width: 26rem; }
 }
+
+/* ---------------------------------------------------------------- Asistente del paciente */
+.chat__mensajes { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+.burbuja { max-width: 88%; padding: .65rem .9rem; border-radius: 1rem; border: 1px solid var(--linea); background: #fff; }
+.burbuja p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }  /* los saltos de línea del texto, sin HTML */
+.burbuja--yo { align-self: flex-end; background: var(--negro); color: var(--blanco); border-color: var(--negro); }
+.burbuja--asistente { align-self: flex-start; }
+.propuesta { align-self: stretch; margin: 0 0 .25rem; }
+.propuesta__resumen { margin: 0 0 .75rem; font-weight: 500; }
+.propuesta .acciones button { margin: 0; }
+.propuesta__alt { margin: .5rem 0 0; }
+.guiados { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.guiados button { margin: 0; width: auto; font-size: .9rem; }
+#chat-form label { font-size: .875rem; font-weight: 500; }
+#chat-form > button[type=submit] { width: 100%; }
+.htmx-indicator { opacity: 0; transition: opacity .2s; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
