@@ -623,7 +623,7 @@ def test_mensajes_conversa_y_la_conversacion_se_puede_volver_a_leer(app):
     r = c.post(f"{API}/mensajes", json={"texto": "¿Qué servicios hay?"})
     assert r.status_code == 200, r.text
     cuerpo = r.json()
-    assert set(cuerpo) == {"conversacion_id", "respuesta", "propuestas"} and cuerpo["respuesta"] == "Hay varios servicios."
+    assert set(cuerpo) == {"conversacion_id", "respuesta", "propuestas", "enlaces"} and cuerpo["respuesta"] == "Hay varios servicios."
     r2 = c.post(f"{API}/mensajes", json={"texto": "Gracias", "conversacion_id": cuerpo["conversacion_id"]})
     assert r2.json()["conversacion_id"] == cuerpo["conversacion_id"] and cita is None
     g = c.get(f"{API}/conversaciones/{cuerpo['conversacion_id']}")
@@ -655,7 +655,7 @@ def test_mensajes_errores_con_la_forma_de_la_api(app, mundo, conn):
     assert c.post(f"{API}/mensajes", json={"texto": "hola", "conversacion_id": ajena}).status_code == 404
     inyectar(app, Falso(mensaje(pensar(), parada="refusal")))
     r = c.post(f"{API}/mensajes", json={"texto": "hola"})
-    assert r.status_code == 200 and r.json() == {"conversacion_id": None, "respuesta": FALLO_STAFF, "propuestas": []}
+    assert r.status_code == 200 and r.json() == {"conversacion_id": None, "respuesta": FALLO_STAFF, "propuestas": [], "enlaces": []}
 
 
 def test_el_especialista_tambien_conversa_con_sus_herramientas(app, mundo, conn):

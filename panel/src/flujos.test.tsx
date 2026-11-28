@@ -63,6 +63,19 @@ describe("navegación por rol", () => {
     expect(screen.getByRole("link", { name: /Simulador/ })).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Hora del sistema")).toHaveTextContent(/16 de nov.*10:30/);
   });
+  it("el menú se contrae a solo íconos (con su nombre para lectores y al pasar el ratón) y lo recuerda", async () => {
+    localStorage.removeItem("panel.menu_contraido");
+    const { unmount } = montar("/agenda", AUX);
+    await userEvent.click(await screen.findByRole("button", { name: "Contraer menú" }));
+    const menu = screen.getAllByRole("navigation", { name: "Secciones" })[0];
+    expect(within(menu).getByRole("link", { name: /Pacientes/ })).toHaveAttribute("title", "Pacientes");
+    expect(within(menu).getByText("Pacientes")).toHaveClass("sr-only");
+    unmount();
+    montar("/agenda", AUX);
+    expect(await screen.findByRole("button", { name: "Expandir menú" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Expandir menú" }));
+    expect(within(screen.getAllByRole("navigation", { name: "Secciones" })[0]).getByText("Pacientes")).not.toHaveClass("sr-only");
+  });
   it("la auxiliar no puede abrir Mi horario", async () => {
     montar("/horario", AUX);
     expect(await screen.findByRole("heading", { name: /Agenda/ })).toBeInTheDocument();
@@ -326,7 +339,7 @@ describe("pacientes precargados", () => {
 });
 
 describe("sistema", () => {
-  const SIS = (o: object) => http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 162, ultimo_cierre: "2026-11-16", configuracion: { recordatorios_horas: [48, 24] }, ...o }));
+  const SIS = (o: object) => http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 162, tareas_atrasadas: 0, ultimo_cierre: "2026-11-16", configuracion: { recordatorios_horas: [48, 24] }, ...o }));
   it("todo bien: dice en palabras que funciona y esconde la configuración en Avanzado", async () => {
     servidor.use(SIS({}));
     montar("/sistema", AUX);
@@ -335,12 +348,31 @@ describe("sistema", () => {
     expect(screen.getByText(/Tareas pendientes \(162\)/)).toBeInTheDocument();
     expect(screen.getByText("Avanzado: valores del sistema (solo lectura)").closest("details")).not.toHaveAttribute("open");
   });
-  it("con tareas fallidas y cierre viejo avisa qué hacer", async () => {
-    servidor.use(SIS({ ultimo_cierre: "2026-11-10", tareas_fallidas: [{ id: 1, tipo: "entregar_mensaje", ejecutar_en: "2026-11-15T10:00:00-05:00", intentos: 3, error: "sin saldo" }] }));
+  const RECORDATORIO = { tipo: "recordatorio", ejecutar_en: "2026-11-15T10:00:00-05:00", intentos: 3, error: "Traceback ...\nKeyError: 'acepta_correo'",
+    titulo: "No salió el recordatorio de una cita", titulo_varias: "recordatorios de cita no salieron", causa: "Falla interna del sistema.",
+    que_hacer: "Llama al paciente para recordarle la cita y confirmarla.", cita_inicio: "2026-11-17T09:00:00-05:00" };
+  it("con tareas fallidas: una alerta en palabras por causa, con a quién llamar; la traza queda escondida", async () => {
+    servidor.use(SIS({ ultimo_cierre: "2026-11-10", tareas_fallidas: [
+      { ...RECORDATORIO, id: 1, paciente_id: 7, paciente: "Ana Pérez", cita_id: 70 },
+      { ...RECORDATORIO, id: 2, paciente_id: 8, paciente: "Luis Mora", cita_id: 80 },
+      { id: 3, tipo: "entregar_mensaje", ejecutar_en: "2026-11-15T10:00:00-05:00", intentos: 3, error: "sin saldo", titulo: "No se entregó un WhatsApp",
+        titulo_varias: "WhatsApp no se entregaron", causa: "sin saldo", que_hacer: "Llama al paciente.", paciente_id: 7, paciente: "Ana Pérez", cita_id: null, cita_inicio: null },
+    ] }));
     montar("/sistema", AUX);
-    expect(await screen.findByText("1 tarea falló")).toBeInTheDocument();
+    expect(await screen.findByText("3 avisos no salieron")).toBeInTheDocument();
     expect(screen.getByText("Indicadores atrasados 6 días")).toBeInTheDocument();
-    expect(screen.getByText("sin saldo")).toBeInTheDocument();
+    const alertas = within(screen.getByRole("region", { name: "Alertas" }));
+    expect(alertas.getByText("2 recordatorios de cita no salieron")).toBeInTheDocument();
+    expect(alertas.getByText("No se entregó un WhatsApp")).toBeInTheDocument();
+    expect(alertas.getByRole("link", { name: "Luis Mora" })).toHaveAttribute("href", "/pacientes/8");
+    expect(alertas.getAllByRole("link", { name: /Cita del/ })[0]).toHaveAttribute("href", "/agenda?fecha=2026-11-17&cita=70");
+    expect(screen.getAllByText("Detalle técnico (para quien administra el sistema)")[0].closest("details")).not.toHaveAttribute("open");
+  });
+  it("con mensajes atrasados avisa que el envío está detenido", async () => {
+    servidor.use(SIS({ tareas_atrasadas: 4 }));
+    montar("/sistema", AUX);
+    expect(await screen.findByText("El envío de mensajes está detenido")).toBeInTheDocument();
+    expect(screen.getByText(/4 mensajes debieron salir hace más de 15 minutos/)).toBeInTheDocument();
   });
   it("nunca cerrado se marca como problema", async () => {
     servidor.use(SIS({ ultimo_cierre: null }));
@@ -359,7 +391,7 @@ describe("indicadores", () => {
       vacio("tendencia", []), vacio("por-profesional", []), vacio("por-servicio", []), vacio("motivos", []), vacio("tiempo-entre-citas", { por_servicio: [], por_paciente_dias: null }),
       vacio("faltas-repetidas", []), vacio("dia-hora", []), vacio("reagendamiento", { mediana_dias: null, total: 0, buckets: { mismo_dia: 0, "1_3": 0, "4_14": 0, "15_60": 0, no_reagendo: 0 } }),
       vacio("pendientes", { cierre_citas: SIN_PENDIENTES, mensajes: SIN_PENDIENTES, seguimientos: SIN_PENDIENTES, por_usuario: [], registro_desde: "2026-11-25" }), vacio("recordatorios", { con_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, sin_recordatorio: { n: 0, no_asistio: 0, inasistencia: null }, embudo: { citas: 0, con_recordatorio: 0, confirmadas: 0, atendidas: 0 } }),
-      http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, ultimo_cierre: null, configuracion: {} })));
+      http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, tareas_atrasadas: 0, ultimo_cierre: null, configuracion: {} })));
     montar("/indicadores", AUX);
     expect(await screen.findByText("25.0 %")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Profesional"), "Dr. Dos");

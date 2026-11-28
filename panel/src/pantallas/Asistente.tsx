@@ -1,12 +1,15 @@
-// Asistente del equipo: un cajón disponible en toda pantalla. El asistente NO ejecuta nada: cada propuesta es una acción
+// Asistente del equipo: en escritorio, un panel fijo a la derecha que sigue abierto mientras se navega y se trabaja en el resto
+// del panel; en el celular, un cajón a pantalla completa. El asistente NO ejecuta nada: cada propuesta es una acción
 // preparada que la persona confirma, y se ejecuta con los mismos endpoints (y las mismas reglas) que el resto del panel.
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { ApiError, api } from "@/api/cliente";
 import { useAccion } from "@/api/consultas";
-import type { Propuesta } from "@/api/tipos";
+import { Link } from "react-router-dom";
+import type { AsistenteRespuesta, Propuesta } from "@/api/tipos";
 import { cn } from "@/lib/utils";
 import { Boton, Confirmar } from "@/ui/controles";
 import { Aviso } from "@/ui/vistas";
@@ -14,7 +17,19 @@ import { Aviso } from "@/ui/vistas";
 const MAX_TEXTO = 1000;
 const POCOS_MENSAJES = 5;
 
-interface Mensaje { rol: "usuario" | "asistente"; texto: string; propuestas: Propuesta[] }
+type Enlace = AsistenteRespuesta["enlaces"][number];
+interface Mensaje { rol: "usuario" | "asistente"; texto: string; propuestas: Propuesta[]; enlaces?: Enlace[] }
+
+/** El texto del asistente con los nombres de pacientes como enlaces a su ficha (el servidor dice cuáles y a dónde). */
+export function TextoConEnlaces({ texto, enlaces = [], alNavegar }: { texto: string; enlaces?: Enlace[]; alNavegar?: () => void }) {
+  if (!enlaces.length) return <>{texto}</>;
+  const porTexto = new Map(enlaces.map((e) => [e.texto, e.ruta]));
+  const patron = new RegExp(`(${enlaces.map((e) => e.texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+  return <>{texto.split(patron).map((trozo, i) => {
+    const ruta = porTexto.get(trozo);
+    return ruta ? <Link key={i} to={ruta} onClick={alNavegar} className="font-medium text-marca underline">{trozo}</Link> : trozo;
+  })}</>;
+}
 type Estado = "enviando" | "hecha" | "descartada";
 
 const numero = (p: Propuesta["parametros"], k: string): number => {
@@ -78,10 +93,14 @@ interface Conversacion {
 }
 const VACIA: Conversacion = { id: null, mensajes: [], estados: {}, errores: {} };
 
-export function Asistente() {
+/** Ancho del panel acoplado; el contenido del panel deja ese margen a la derecha para no quedar debajo. */
+export const ANCHO_ASISTENTE = "md:mr-96";
+
+/** `acoplado`: panel fijo a la derecha, sin tapar el resto (escritorio). Si no, cajón modal (celular). El estado abierto lo
+ * lleva quien lo monta, para correr el contenido cuando está acoplado. */
+export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: { acoplado?: boolean; abierto: boolean; alCambiar: (v: boolean) => void }) {
   const qc = useQueryClient();
   const estado = useQuery({ queryKey: ["asistente", "estado"], queryFn: api.asistente.estado, retry: false, staleTime: 5 * 60_000 });
-  const [abierto, setAbierto] = useState(false);
   const [conv, setConv] = useState<Conversacion>(VACIA);
   const [borrador, setBorrador] = useState("");
   const [fallo, setFallo] = useState<string | null>(null);
@@ -91,8 +110,11 @@ export function Asistente() {
   const envio = useMutation({
     mutationFn: (v: { texto: string; id: number | null }) => api.asistente.enviar(v.texto, v.id),
     onSuccess: (r) => {
-      setConv((c) => ({ ...c, id: r.conversacion_id ?? c.id, mensajes: [...c.mensajes, { rol: "asistente", texto: r.respuesta, propuestas: r.propuestas }] }));
+      setConv((c) => ({ ...c, id: r.conversacion_id ?? c.id, mensajes: [...c.mensajes, { rol: "asistente", texto: r.respuesta, propuestas: r.propuestas, enlaces: r.enlaces }] }));
       void qc.invalidateQueries({ queryKey: ["asistente", "estado"] });
+      // De vuelta al cuadro de texto para seguir la conversación, salvo que la persona ya esté trabajando en otra parte.
+      const activo = document.activeElement;
+      if (!activo || activo === document.body || entrada.current?.closest("aside, [role=dialog]")?.contains(activo)) entrada.current?.focus();
     },
     onError: (e) => {
       setFallo(e instanceof ApiError ? e.mensaje : "No pude responder eso. Intenta de nuevo.");
@@ -113,6 +135,7 @@ export function Asistente() {
   );
 
   useEffect(() => { if (lista.current) lista.current.scrollTop = lista.current.scrollHeight; }, [conv.mensajes.length, envio.isPending, abierto]);
+  useEffect(() => { if (abierto && acoplado) entrada.current?.focus(); }, [abierto, acoplado]);
 
   if (estado.isPending || estado.isError || !estado.data.disponible) return null;
   const restantes = estado.data.mensajes_restantes;
@@ -133,67 +156,89 @@ export function Asistente() {
   };
   const nueva = () => { setConv(VACIA); setFallo(null); setBorrador(""); };
 
+  const AVISO = "Puede equivocarse. Te propone acciones y solo se hacen si las confirmas.";
+  const cuerpo = (titulo: ReactNode, descripcion: ReactNode, cerrar: ReactNode) => (<>
+    <div className="flex items-start justify-between gap-4 border-b border-linea px-4 py-3">
+      <div>
+        {titulo}
+{descripcion}
+      </div>
+      <div className="flex items-center gap-1">
+        <Boton variante="fantasma" pequeno onClick={nueva} disabled={envio.isPending || (!conv.mensajes.length && !conv.id)}>
+          <RotateCcw className="size-4" aria-hidden /> Nueva conversación</Boton>
+        {cerrar}
+      </div>
+    </div>
+
+    <div ref={lista} role="log" aria-live="polite" aria-label="Conversación con el asistente" className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      {conv.mensajes.length === 0 && !envio.isPending && (
+        <p className="text-sm text-tinta-suave">Pregúntame por la agenda, los pendientes o los pacientes, o pídeme preparar una acción.</p>
+      )}
+      {conv.mensajes.map((m, i) => (
+        <div key={i} className={cn("flex flex-col", m.rol === "usuario" ? "items-end" : "items-start")}>
+          <div className={cn("max-w-[90%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
+            m.rol === "usuario" ? "bg-marca text-white" : "bg-zinc-100 text-tinta")}>
+            {m.rol === "asistente" ? <TextoConEnlaces texto={m.texto} enlaces={m.enlaces} alNavegar={acoplado ? undefined : () => setAbierto(false)} /> : m.texto}</div>
+          {m.propuestas.length > 0 && (
+            <div className="w-full max-w-[90%]">
+              {m.propuestas.map((p, j) => {
+                const clave = `${i}:${j}`;
+                return <TarjetaPropuesta key={clave} propuesta={p} estado={conv.estados[clave]} error={conv.errores[clave] || undefined}
+                  alConfirmar={() => confirmar(clave, p)} alDescartar={() => setConv((c) => ({ ...c, estados: { ...c.estados, [clave]: "descartada" } }))} />;
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+      {envio.isPending && <p role="status" className="flex items-center gap-2 text-sm text-tinta-suave"><Loader2 className="size-4 animate-spin" aria-hidden /> Pensando…</p>}
+      {fallo && <Aviso>{fallo}</Aviso>}
+    </div>
+
+    <form onSubmit={enviar} className="border-t border-linea px-4 py-3">
+      {restantes <= POCOS_MENSAJES && (
+        <p className="mb-1 text-xs text-tinta-suave">{restantes === 1 ? "Te queda 1 mensaje hoy." : `Te quedan ${restantes} mensajes hoy.`}</p>
+      )}
+      <div className="flex items-end gap-2">
+        <textarea ref={entrada} aria-label="Escribe tu mensaje" rows={2} maxLength={MAX_TEXTO} value={borrador} placeholder="Escribe tu mensaje…"
+          onChange={(e) => setBorrador(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) enviar(e); }}
+          className="w-full resize-none rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-3 py-2 text-sm text-tinta placeholder:text-zinc-500" />
+        <Boton type="submit" disabled={envio.isPending || !borrador.trim()} aria-label="Enviar"><Send className="size-4" aria-hidden /></Boton>
+      </div>
+      <p className="mt-1 text-right text-xs text-tinta-suave" aria-hidden>{borrador.length}/{MAX_TEXTO}</p>
+    </form>
+  </>);
+  const boton = (props: object = {}) => (
+    <button aria-label="Asistente" {...props} className={cn("flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-zinc-100", acoplado && abierto && "bg-zinc-100")}>
+      <Sparkles className="size-5" aria-hidden /><span className="hidden sm:inline">Asistente</span>
+    </button>
+  );
+
+  if (acoplado) {
+    return (<>
+      {boton({ "aria-expanded": abierto, onClick: () => setAbierto(!abierto) })}
+      {abierto && createPortal(
+        // En <body>: dentro del encabezado (que tiene backdrop-blur) `fixed` quedaría atado a él y no a la ventana.
+        // Sin fondo oscuro ni foco atrapado: se puede seguir usando el resto del panel con el asistente abierto.
+        <aside aria-label="Asistente" className="fixed inset-y-0 right-0 z-30 flex w-96 flex-col border-l border-linea bg-papel shadow-xl"
+          onKeyDown={(e) => { if (e.key === "Escape" && e.currentTarget.contains(e.target as Node)) setAbierto(false); }}>
+          {cuerpo(<h2 className="text-lg font-semibold">Asistente</h2>, <p className="text-xs text-tinta-suave">{AVISO}</p>,
+            <button aria-label="Cerrar" onClick={() => setAbierto(false)} className="rounded-md p-1 hover:bg-zinc-100"><X className="size-5" /></button>)}
+        </aside>, document.body,
+      )}
+    </>);
+  }
+
   return (
     <Dialog.Root open={abierto} onOpenChange={setAbierto}>
-      <Dialog.Trigger asChild>
-        <button aria-label="Asistente" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-zinc-100">
-          <Sparkles className="size-5" aria-hidden /><span className="hidden sm:inline">Asistente</span>
-        </button>
-      </Dialog.Trigger>
+      <Dialog.Trigger asChild>{boton()}</Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content onOpenAutoFocus={(e) => { e.preventDefault(); entrada.current?.focus(); }}
           className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-papel shadow-2xl md:max-w-md">
-          <div className="flex items-start justify-between gap-4 border-b border-linea px-4 py-3">
-            <div>
-              <Dialog.Title className="text-lg font-semibold">Asistente</Dialog.Title>
-              <Dialog.Description className="text-xs text-tinta-suave">
-                Puede equivocarse. Te propone acciones y solo se hacen si las confirmas.
-              </Dialog.Description>
-            </div>
-            <div className="flex items-center gap-1">
-              <Boton variante="fantasma" pequeno onClick={nueva} disabled={envio.isPending || (!conv.mensajes.length && !conv.id)}>
-                <RotateCcw className="size-4" aria-hidden /> Nueva conversación</Boton>
-              <Dialog.Close aria-label="Cerrar" className="rounded-md p-1 hover:bg-zinc-100"><X className="size-5" /></Dialog.Close>
-            </div>
-          </div>
-
-          <div ref={lista} role="log" aria-live="polite" aria-label="Conversación con el asistente" className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {conv.mensajes.length === 0 && !envio.isPending && (
-              <p className="text-sm text-tinta-suave">Pregúntame por la agenda, los pendientes o los pacientes, o pídeme preparar una acción.</p>
-            )}
-            {conv.mensajes.map((m, i) => (
-              <div key={i} className={cn("flex flex-col", m.rol === "usuario" ? "items-end" : "items-start")}>
-                <div className={cn("max-w-[90%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
-                  m.rol === "usuario" ? "bg-marca text-white" : "bg-zinc-100 text-tinta")}>{m.texto}</div>
-                {m.propuestas.length > 0 && (
-                  <div className="w-full max-w-[90%]">
-                    {m.propuestas.map((p, j) => {
-                      const clave = `${i}:${j}`;
-                      return <TarjetaPropuesta key={clave} propuesta={p} estado={conv.estados[clave]} error={conv.errores[clave] || undefined}
-                        alConfirmar={() => confirmar(clave, p)} alDescartar={() => setConv((c) => ({ ...c, estados: { ...c.estados, [clave]: "descartada" } }))} />;
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-            {envio.isPending && <p role="status" className="flex items-center gap-2 text-sm text-tinta-suave"><Loader2 className="size-4 animate-spin" aria-hidden /> Pensando…</p>}
-            {fallo && <Aviso>{fallo}</Aviso>}
-          </div>
-
-          <form onSubmit={enviar} className="border-t border-linea px-4 py-3">
-            {restantes <= POCOS_MENSAJES && (
-              <p className="mb-1 text-xs text-tinta-suave">{restantes === 1 ? "Te queda 1 mensaje hoy." : `Te quedan ${restantes} mensajes hoy.`}</p>
-            )}
-            <div className="flex items-end gap-2">
-              <textarea ref={entrada} aria-label="Escribe tu mensaje" rows={2} maxLength={MAX_TEXTO} value={borrador} placeholder="Escribe tu mensaje…"
-                onChange={(e) => setBorrador(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) enviar(e); }}
-                className="w-full resize-none rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-3 py-2 text-sm text-tinta placeholder:text-zinc-500" />
-              <Boton type="submit" disabled={envio.isPending || !borrador.trim()} aria-label="Enviar"><Send className="size-4" aria-hidden /></Boton>
-            </div>
-            <p className="mt-1 text-right text-xs text-tinta-suave" aria-hidden>{borrador.length}/{MAX_TEXTO}</p>
-          </form>
+          {cuerpo(<Dialog.Title className="text-lg font-semibold">Asistente</Dialog.Title>,
+            <Dialog.Description className="text-xs text-tinta-suave">{AVISO}</Dialog.Description>,
+            <Dialog.Close aria-label="Cerrar" className="rounded-md p-1 hover:bg-zinc-100"><X className="size-5" /></Dialog.Close>)}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

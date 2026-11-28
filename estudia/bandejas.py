@@ -110,11 +110,6 @@ def dados_de_baja(conn):
         "and c.rango is not null and lower(c.rango) > %s order by lower(c.rango)", (list(ALIVE), clock.now(conn))).fetchall()
 
 
-def tareas_fallidas(conn):
-    return conn.execute("select id, tipo, ejecutar_en, intentos, error from tarea_programada where estado='fallida' "
-                        "order by ejecutar_en desc limit 50").fetchall()
-
-
 def mark_message_managed(conn, message_id: int, user_id: int | None = None) -> bool:
     """Marca como gestionado un mensaje entrante, con quién y cuándo. False si no existe."""
     return conn.execute(

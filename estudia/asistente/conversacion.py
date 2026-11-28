@@ -308,13 +308,16 @@ def herramientas_precargadas(perfil: str) -> list[str]:
     return [n for n, _ in _precarga_de(perfil, date.today())]
 
 
-def precarga(actor: Actor, hoy: date, *, conexion=None) -> str:
-    """El bloque <precargado> del mensaje actual; vacío si el perfil no tiene o todo falló."""
+def precarga(actor: Actor, hoy: date, *, conexion=None, vistos: list | None = None) -> str:
+    """El bloque <precargado> del mensaje actual; vacío si el perfil no tiene o todo falló. Con `vistos`, deja ahí cada salida
+    (de ahí salen los enlaces a pacientes de la respuesta)."""
     partes = []
     for nombre, args in _precarga_de(actor.perfil, hoy):
         salida = ejecutar(actor, nombre, args, conexion=conexion)
         if "error" in salida:
             continue  # sin ese dato el modelo llama la herramienta si la necesita
+        if vistos is not None:
+            vistos.append(salida)
         etiqueta = f"{nombre} (hoy)" if nombre == "agenda" else nombre
         partes.append(f"{etiqueta}: {json.dumps(salida, ensure_ascii=False, separators=(',', ':'), default=str)}")
     if not partes:
@@ -324,6 +327,38 @@ def precarga(actor: Actor, hoy: date, *, conexion=None) -> str:
 
 def _respuesta(actor: Actor, motivo: str, conversacion_id: int | None) -> dict:
     return {"conversacion_id": conversacion_id, "respuesta": respuesta_fija(actor.perfil, motivo), "propuestas": []}
+
+
+def _pacientes_en(x, out: dict[str, int]) -> None:
+    """Junta `nombre completo -> paciente_id` de lo que devolvieron las herramientas (filas con `paciente_id` y su nombre, un
+    `paciente: {id, nombre}` o una lista `pacientes` de `{id, nombre}`)."""
+    if isinstance(x, list):
+        for v in x:
+            _pacientes_en(v, out)
+    elif isinstance(x, dict):
+        pid, nombre = x.get("paciente_id"), x.get("paciente")
+        if not isinstance(nombre, str) and x.get("nombres") and x.get("apellidos"):
+            nombre = f"{x['nombres']} {x['apellidos']}"
+        if isinstance(pid, int) and isinstance(nombre, str):
+            out.setdefault(nombre, pid)
+        for k, v in x.items():
+            if k in ("paciente", "pacientes") and isinstance(v, (dict, list)):
+                for q in (v if isinstance(v, list) else [v]):
+                    if isinstance(q, dict) and isinstance(q.get("id"), int) and isinstance(q.get("nombre"), str):
+                        out.setdefault(q["nombre"], q["id"])
+            if isinstance(v, (dict, list)):
+                _pacientes_en(v, out)
+
+
+def enlaces(perfil: str, respuesta: str, vistos: list) -> list[dict]:
+    """Los nombres de pacientes que la respuesta menciona tal cual, con la ruta a su ficha en el panel. Sale de los datos que
+    ya leyó el asistente: no cuesta tokens. Solo para recepción (el paciente no navega fichas)."""
+    if perfil != "auxiliar":
+        return []
+    nombres: dict[str, int] = {}
+    _pacientes_en(vistos, nombres)
+    return [{"texto": n, "ruta": f"/pacientes/{pid}"} for n, pid in sorted(nombres.items(), key=lambda t: -len(t[0]))
+            if len(n) > 3 and n in respuesta]
 
 
 def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, cliente=None) -> dict:
@@ -370,13 +405,15 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
     # 2. El bucle, sin conexión abierta.
     cliente = cliente or cliente_de_la_api()
     entrada = [{"type": "text", "text": marco}, {"type": "text", "text": texto}]
-    precargado = precarga(actor, hoy)
+    vistos: list = []
+    precargado = precarga(actor, hoy, vistos=vistos)
     envio = [entrada[0], {"type": "text", "text": precargado}, entrada[1]] if precargado else entrada
     mensajes = historial + [{"role": "user", "content": envio}]
     nuevos: list[tuple] = [("user", entrada, 0, 0)]
     propuestas: list[dict] = []
     usadas: list[str] = []
     tokens_entrada = tokens_salida = 0
+    cache = {"cache_leidos": 0, "cache_escritos": 0}
     ejecutor = ThreadPoolExecutor(max_workers=1)
     try:
         try:
@@ -387,6 +424,8 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
                              + (getattr(u, "cache_read_input_tokens", 0) or 0))
                 salida_r = getattr(u, "output_tokens", 0) or 0
                 tokens_entrada, tokens_salida = tokens_entrada + entrada_r, tokens_salida + salida_r
+                cache["cache_leidos"] += getattr(u, "cache_read_input_tokens", 0) or 0
+                cache["cache_escritos"] += getattr(u, "cache_creation_input_tokens", 0) or 0
                 if r.stop_reason not in ("end_turn", "stop_sequence", "tool_use"):
                     raise _Fallo(f"parada:{r.stop_reason}")  # refusal, max_tokens y cualquier otra
                 contenido = [_bloque(b) for b in r.content]
@@ -407,6 +446,7 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
                         raise _Fallo("tiempo")
                     usadas.append(b["name"])
                     salida = ejecutar(actor, b["name"], b.get("input") if isinstance(b.get("input"), dict) else {})
+                    vistos.append(salida)
                     resultados.append({"type": "tool_result", "tool_use_id": b["id"], "content": json.dumps(salida, ensure_ascii=False),
                                        **({"is_error": True} if "error" in salida else {})})
                 nuevos.append(("user", resultados, 0, 0))
@@ -415,20 +455,23 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
             id_guardado = _guardar(actor, conversacion_id, nuevos)
         except _Fallo as f:
             _anotar_fallo(actor, conversacion_id, tokens_entrada, tokens_salida)
-            return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"fallo:{f}", _respuesta(actor, "fallo", conversacion_id))
+            return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"fallo:{f}", _respuesta(actor, "fallo", conversacion_id),
+                             cache)
         except Exception as e:  # no se pudo guardar, o una falla inesperada: tampoco se guarda medio turno
             _anotar_fallo(actor, conversacion_id, tokens_entrada, tokens_salida)
             return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"error:{type(e).__name__}",
-                             _respuesta(actor, "fallo", conversacion_id))
+                             _respuesta(actor, "fallo", conversacion_id), cache)
     finally:
         ejecutor.shutdown(wait=False, cancel_futures=True)
     return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, "ok",
-                     {"conversacion_id": id_guardado, "respuesta": respuesta, "propuestas": propuestas})
+                     {"conversacion_id": id_guardado, "respuesta": respuesta, "propuestas": propuestas,
+                      "enlaces": enlaces(actor.perfil, respuesta, vistos)}, cache)
 
 
-def _terminar(actor: Actor, usadas, tokens_entrada, tokens_salida, inicio, resultado, salida: dict) -> dict:
-    """Deja una línea en el registro (sin ningún texto de personas) y devuelve la salida."""
+def _terminar(actor: Actor, usadas, tokens_entrada, tokens_salida, inicio, resultado, salida: dict, cache: dict | None = None) -> dict:
+    """Deja una línea en el registro (sin ningún texto de personas) y devuelve la salida. `tokens_entrada` incluye lo leído y
+    lo escrito en el caché, que aparecen aparte: el caché cambia mucho lo que cuesta el mensaje."""
     logs.evento(evento="asistente", perfil=actor.perfil, negocio=actor.negocio_id, herramientas=usadas,
-                tokens_entrada=tokens_entrada, tokens_salida=tokens_salida, resultado=resultado,
+                tokens_entrada=tokens_entrada, **(cache or {}), tokens_salida=tokens_salida, resultado=resultado,
                 ms=round((time.monotonic() - inicio) * 1000, 1))
     return salida

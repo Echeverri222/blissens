@@ -687,12 +687,21 @@ class TareaFallida(Salida):
     tipo: str
     ejecutar_en: Momento
     intentos: int
-    error: str | None
+    error: str | None = Field(description="Detalle técnico, para quien administra el sistema")
+    titulo: str = Field(description="Qué no salió, en palabras (una tarea)")
+    titulo_varias: str = Field(description="Lo mismo para agrupar varias: «recordatorios de cita no salieron»")
+    causa: str = Field(description="Por qué, en palabras")
+    que_hacer: str = Field(description="Qué hacer con el paciente afectado")
+    paciente_id: int | None
+    paciente: str | None
+    cita_id: int | None
+    cita_inicio: Momento | None
 
 
 class SistemaOut(Salida):
     tareas_fallidas: list[TareaFallida]
     tareas_pendientes: int
+    tareas_atrasadas: int = Field(description="Pendientes que debieron salir hace más de 15 minutos: el envío está detenido")
     ultimo_cierre: str | None
     configuracion: dict[str, Any]
 
@@ -757,10 +766,16 @@ class PropuestaOut(Salida):
     resumen: str = Field(description="Una línea para la tarjeta de confirmación")
 
 
+class EnlaceOut(Salida):
+    texto: str = Field(description="Tal como aparece en `respuesta` (el nombre completo de un paciente)")
+    ruta: str = Field(description="Ruta del panel, p. ej. `/pacientes/12`")
+
+
 class AsistenteRespuestaOut(Salida):
     conversacion_id: int | None = Field(description="Null solo si se respondió con una respuesta fija sin abrir conversación")
     respuesta: str = Field(description="Texto plano con saltos de línea")
     propuestas: list[PropuestaOut]
+    enlaces: list[EnlaceOut] = Field(default=[], description="Nombres de la respuesta que el panel vuelve enlaces (solo recepción)")
 
 
 class AsistenteTurnoOut(Salida):

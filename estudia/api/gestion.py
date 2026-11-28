@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
-from .. import bandejas, clock, config, correo, familia, followup, indicators, lifecycle, pacientes, permisos
+from .. import alertas, bandejas, clock, config, correo, familia, followup, indicators, lifecycle, pacientes, permisos
 from . import schemas as sc
 from .comun import ApiError, auditar, auxiliar, get_conn, inicio, solo_json
 
@@ -269,5 +269,6 @@ def cierre(conn=Depends(get_conn), u=Depends(auxiliar)):
 def sistema(conn=Depends(get_conn), u=Depends(auxiliar)):
     # Un cierre fechado en el futuro (reloj simulado que retrocedió) no se muestra: el máximo es hoy.
     ultimo, hoy = config.get(conn, "ultimo_diario"), clock.now(conn).date().isoformat()
-    return sc.SistemaOut(tareas_fallidas=bandejas.tareas_fallidas(conn), tareas_pendientes=bandejas.pending_tasks(conn),
+    return sc.SistemaOut(tareas_fallidas=alertas.fallidas(conn), tareas_pendientes=bandejas.pending_tasks(conn),
+                         tareas_atrasadas=alertas.atrasadas(conn),
                          ultimo_cierre=min(ultimo, hoy) if ultimo else None, configuracion=config.effective(conn))

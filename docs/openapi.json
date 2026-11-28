@@ -8472,6 +8472,15 @@
             },
             "type": "array",
             "title": "Propuestas"
+          },
+          "enlaces": {
+            "items": {
+              "$ref": "#/components/schemas/EnlaceOut"
+            },
+            "type": "array",
+            "title": "Enlaces",
+            "description": "Nombres de la respuesta que el panel vuelve enlaces (solo recepción)",
+            "default": []
           }
         },
         "type": "object",
@@ -10124,6 +10133,26 @@
           "deportista"
         ],
         "title": "EnRiesgoOut"
+      },
+      "EnlaceOut": {
+        "properties": {
+          "texto": {
+            "type": "string",
+            "title": "Texto",
+            "description": "Tal como aparece en `respuesta` (el nombre completo de un paciente)"
+          },
+          "ruta": {
+            "type": "string",
+            "title": "Ruta",
+            "description": "Ruta del panel, p. ej. `/pacientes/12`"
+          }
+        },
+        "type": "object",
+        "required": [
+          "texto",
+          "ruta"
+        ],
+        "title": "EnlaceOut"
       },
       "Error": {
         "properties": {
@@ -12459,6 +12488,11 @@
             "type": "integer",
             "title": "Tareas Pendientes"
           },
+          "tareas_atrasadas": {
+            "type": "integer",
+            "title": "Tareas Atrasadas",
+            "description": "Pendientes que debieron salir hace más de 15 minutos: el envío está detenido"
+          },
           "ultimo_cierre": {
             "anyOf": [
               {
@@ -12480,6 +12514,7 @@
         "required": [
           "tareas_fallidas",
           "tareas_pendientes",
+          "tareas_atrasadas",
           "ultimo_cierre",
           "configuracion"
         ],
@@ -12512,7 +12547,72 @@
                 "type": "null"
               }
             ],
-            "title": "Error"
+            "title": "Error",
+            "description": "Detalle técnico, para quien administra el sistema"
+          },
+          "titulo": {
+            "type": "string",
+            "title": "Titulo",
+            "description": "Qué no salió, en palabras (una tarea)"
+          },
+          "titulo_varias": {
+            "type": "string",
+            "title": "Titulo Varias",
+            "description": "Lo mismo para agrupar varias: «recordatorios de cita no salieron»"
+          },
+          "causa": {
+            "type": "string",
+            "title": "Causa",
+            "description": "Por qué, en palabras"
+          },
+          "que_hacer": {
+            "type": "string",
+            "title": "Que Hacer",
+            "description": "Qué hacer con el paciente afectado"
+          },
+          "paciente_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paciente"
+          },
+          "cita_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cita Id"
+          },
+          "cita_inicio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cita Inicio"
           }
         },
         "type": "object",
@@ -12521,7 +12621,15 @@
           "tipo",
           "ejecutar_en",
           "intentos",
-          "error"
+          "error",
+          "titulo",
+          "titulo_varias",
+          "causa",
+          "que_hacer",
+          "paciente_id",
+          "paciente",
+          "cita_id",
+          "cita_inicio"
         ],
         "title": "TareaFallida"
       },

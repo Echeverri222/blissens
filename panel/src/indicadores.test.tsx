@@ -53,7 +53,7 @@ const usar = (r: Resumen, servicios: object[] = SERVICIOS) => servidor.use(
   http.get(`${API}/indicadores/citas-perdidas`, () => HttpResponse.json([{
     cita_id: 55, dia: "2026-11-10", inicio: "2026-11-10T09:00:00-05:00", estado: "no_asistio", paciente_id: 7, paciente: "Ana Pérez",
     profesional: "Dra. Uno", servicio: "Valoración", motivo: null, cancelacion_tardia: null, reagendada: false }])),
-  http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, ultimo_cierre: "2026-11-16", configuracion: {} })),
+  http.get(`${API}/sistema`, () => HttpResponse.json({ tareas_fallidas: [], tareas_pendientes: 0, tareas_atrasadas: 0, ultimo_cierre: "2026-11-16", configuracion: {} })),
 );
 
 describe("indicadores", () => {
