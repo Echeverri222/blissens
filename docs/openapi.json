@@ -8998,6 +8998,26 @@
             "type": "string",
             "title": "Idioma",
             "default": "es"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio",
+            "default": ""
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional",
+            "default": ""
+          },
+          "desde": {
+            "type": "string",
+            "title": "Desde",
+            "default": ""
+          },
+          "panel": {
+            "type": "string",
+            "title": "Panel",
+            "default": ""
           }
         },
         "type": "object",
@@ -9046,6 +9066,26 @@
             "type": "string",
             "title": "Idioma",
             "default": "es"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio",
+            "default": ""
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional",
+            "default": ""
+          },
+          "desde": {
+            "type": "string",
+            "title": "Desde",
+            "default": ""
+          },
+          "panel": {
+            "type": "string",
+            "title": "Panel",
+            "default": ""
           }
         },
         "type": "object",
