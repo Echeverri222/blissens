@@ -24,6 +24,7 @@ from .. import (
     links,
     logs,
     messaging,
+    privacidad,
     settings,
     tasks,
     usuarios,
@@ -180,8 +181,8 @@ def mismo_origen(request: Request) -> None:
 def patient_from_token(conn, token: str) -> dict:
     pid = links.read_token(token, config.get(conn, "vigencia_enlace_dias"))
     p = conn.execute("select * from paciente where id=%s", (pid,)).fetchone() if pid else None
-    if p is not None and p["documento"] is None:  # anonimizado: sus enlaces dejan de servir
-        p = None
+    if p is not None and p["documento"] is None and p["nombres"] == privacidad.ANONIMO:
+        p = None  # anonimizado: sus enlaces dejan de servir (hay pacientes importados sin documento que sí son reales)
     if p is not None:
         huella = links.huella_del_token(token, config.get(conn, "vigencia_enlace_dias"))
         if huella is not None and huella != links.huella_celular(p["celular"]):
@@ -208,7 +209,8 @@ def render(request, name, status_code: int = 200, **ctx):
 
 # 5 solicitudes del sitio por IP cada 10 minutos (en memoria: se reinicia con el proceso y no se comparte entre procesos).
 limite_solicitudes = LimiteVentana(maximo=5, segundos=600)
-# Identificación y alta de familiares (enumeración de documentos): por IP y por documento, 10 minutos.
+# Identificación y alta de familiares (enumeración de documentos): por IP y por documento, 10 minutos. El cupo del
+# documento solo se gasta con intentos que no coinciden: así nadie puede bloquearle la entrada al paciente real.
 limite_identificacion = LimiteVentana(maximo=15, segundos=600)
 limite_documento = LimiteVentana(maximo=10, segundos=600)
 
@@ -218,14 +220,23 @@ def reiniciar_limites_identificacion() -> None:
     limite_documento.reiniciar()
 
 
-def _identificacion_permitida(request: Request, documento: str) -> bool:
-    """Cuenta el intento y dice si todavía cabe en la cuota de la IP y del documento."""
-    ip, doc = _ip_cliente(request), documento or "-"
-    ok = limite_identificacion.disponible(ip) and limite_documento.disponible(doc)
+def _identificacion_permitida(request: Request, documento: str | None = None) -> bool:
+    """Cuenta el intento y dice si todavía cabe en la cuota de la IP (y del documento, si se pasa)."""
+    ip = _ip_cliente(request)
+    ok = limite_identificacion.disponible(ip) and (documento is None or limite_documento.disponible(documento or "-"))
     if ok:
         limite_identificacion.registrar(ip)
-        limite_documento.registrar(doc)
+        if documento is not None:
+            limite_documento.registrar(documento or "-")
     return ok
+
+
+def _fallo_de_documento_permitido(documento: str) -> bool:
+    """Un intento con un documento que existe pero otro celular: gasta el cupo de ese documento."""
+    if not limite_documento.disponible(documento):
+        return False
+    limite_documento.registrar(documento)
+    return True
 
 
 def _landing(request, lang: str):
@@ -359,12 +370,16 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
     if not documento or not phone:
         return pagina(error=i["err_datos"],
                       nuevo=None, values=values)
-    if not _identificacion_permitida(request, documento):
+    def limite():
         return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, nuevo=None, values=values,
                       error=copia.COPIA[lang]["form"]["err_limite"], status_code=429)
+    if not _identificacion_permitida(request):
+        return limite()
     p = conn.execute("select * from paciente where documento=%s", (documento,)).fetchone()
     if p and p["celular"] == phone:
         return ir(f"/p/{links.make_token(p['id'], conn=conn, celular=p['celular'])}")
+    if p and not _fallo_de_documento_permitido(documento):
+        return limite()
     if p:  # No se revela nada: la clínica lo contactará y el caso aparece en el panel.
         familia.solicitar_contacto(conn, documento, phone, "Documento ya registrado con otro celular")
         return render(request, "_contacto.html" if hx else "contacto.html", lang=lang)

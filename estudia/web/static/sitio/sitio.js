@@ -136,7 +136,7 @@
   }
 
   d.body.addEventListener("htmx:afterSettle", function (e) {
-    var t = (e.detail && e.detail.elt) || (e.detail && e.detail.target) || e.target;
+    var t = (e.detail && e.detail.target) || (e.detail && e.detail.elt) || e.target;
     if (!t || !t.querySelector) return;
     if (!d.body.contains(t) && t.id) t = d.getElementById(t.id);
     if (!t) return;

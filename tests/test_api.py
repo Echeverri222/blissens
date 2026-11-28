@@ -268,6 +268,8 @@ def test_password_limits_reuse_and_ip_rate_limit(mundo, conn, monkeypatch):
     monkeypatch.setattr(settings, "ENTORNO", "local")
 
     limite_login.reiniciar()
+    for _ in range(25):  # los ingresos correctos no gastan el cupo
+        assert nuevo_cliente().post(f"{API}/sesion", json={"usuario": "recepcion", "clave": CLAVE}).status_code == 200
     c = nuevo_cliente()
     for i in range(20):
         assert c.post(f"{API}/sesion", json={"usuario": f"no-existe-{i}", "clave": CLAVE}).status_code == 401

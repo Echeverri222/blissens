@@ -30,11 +30,11 @@ VENTANA_DEDUPLICACION = timedelta(hours=24)
 
 
 def solicitar_contacto(conn, documento: str, celular: str, nota: str) -> bool:
-    """Deja una solicitud de contacto para la clínica, salvo que ya haya una abierta y reciente para ese documento
-    (evita que repetir el formulario llene la bandeja). Devuelve True si la creó."""
+    """Deja una solicitud de contacto para la clínica, salvo que ya haya una abierta y reciente con el mismo documento,
+    celular y nota (evita que repetir el formulario llene la bandeja, sin tapar la de otro celular). True si la creó."""
     ahora = clock.now(conn)
-    if conn.execute("select 1 from solicitud_contacto where documento=%s and not gestionada and momento > %s limit 1",
-                    (documento, ahora - VENTANA_DEDUPLICACION)).fetchone():
+    if conn.execute("select 1 from solicitud_contacto where documento=%s and celular=%s and nota=%s and not gestionada "
+                    "and momento > %s limit 1", (documento, celular, nota, ahora - VENTANA_DEDUPLICACION)).fetchone():
         return False
     conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
                  (documento, celular, nota, ahora))

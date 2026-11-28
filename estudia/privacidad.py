@@ -52,6 +52,8 @@ def anonimizar_paciente(conn, paciente_id: int) -> None:
     # Solicitudes de contacto: por su documento; por su celular solo si ningún otro paciente (p. ej. su hogar) lo comparte.
     if documento:
         conn.execute("delete from solicitud_contacto where documento=%s", (documento,))
+        # familia.agregar deja el documento de quien lo pidió en la nota de la solicitud de otra persona
+        conn.execute("delete from solicitud_contacto where nota like %s", (f"%(documento {documento})%",))
     if celular and not conn.execute("select 1 from paciente where celular=%s and id<>%s limit 1", (celular, paciente_id)).fetchone():
         conn.execute("delete from solicitud_contacto where celular=%s", (celular,))
     conn.execute("update cancelacion set texto_libre=null where cita_id in (select id from cita where paciente_id=%s)",

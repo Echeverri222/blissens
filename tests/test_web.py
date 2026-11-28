@@ -176,10 +176,33 @@ def test_identificar_devuelve_429_tras_una_rafaga(client):
     assert client.post("/agendar/identificar", data={"documento": "9999", "celular": "3001234567"}).status_code == 429
 
 
-def test_identificar_limita_por_documento(client):
+def test_identificar_limita_por_documento_sin_bloquear_al_paciente_real(client, conn):
+    make_patient(conn, "Ana", doc="555", celular="+573001112233")
+    conn.commit()
     for _ in range(10):
-        assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3001234567"}).status_code == 200
-    assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3001234567"}).status_code == 429
+        assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3009998877"}).status_code == 200
+    assert client.post("/agendar/identificar", data={"documento": "555", "celular": "3009998877"}).status_code == 429
+    # con su celular, la paciente real sigue entrando aunque otros hayan gastado el cupo de su documento
+    r = client.post("/agendar/identificar", data={"documento": "555", "celular": "3001112233"}, follow_redirects=False)
+    assert r.status_code in (200, 303) and "/p/" in (r.headers.get("location", "") + r.headers.get("hx-redirect", ""))
+
+
+def test_solicitud_de_contacto_con_otro_celular_no_queda_tapada(client, conn):
+    make_patient(conn, "Ana", doc="778", celular="+573001112233")
+    conn.commit()
+    client.post("/agendar/identificar", data={"documento": "778", "celular": "3009998877"})
+    client.post("/agendar/identificar", data={"documento": "778", "celular": "3005556677"})
+    conn.rollback()
+    assert conn.execute("select count(*) n from solicitud_contacto where documento='778'").fetchone()["n"] == 2
+
+
+def test_enlace_de_paciente_importado_sin_documento_sigue_sirviendo(client, conn):
+    from estudia import links
+    pa = make_patient(conn, "Sin", celular="+573001112299")
+    conn.execute("update paciente set documento=null where id=%s", (pa,))
+    token = links.make_token(pa, conn=conn)
+    conn.commit()
+    assert client.get(f"/p/{token}").status_code == 200
 
 
 def test_documento_con_otro_celular_no_duplica_la_solicitud_abierta(client, conn):
