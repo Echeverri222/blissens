@@ -330,8 +330,8 @@ def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):
     assert mundo.c_luis not in {c["id"] for c in d["citas"]}
     assert all(h["desde"] >= at(2, "10:10").isoformat() for h in d["huecos_libres"])
     huecos = [(h["desde"], h["hasta"]) for h in d["huecos_libres"]]
-    assert (at(2, "10:30").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana y Sofía
-    assert (at(2, "11:30").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
+    assert (at(2, "10:45").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana (valoración de 45 min) y Sofía
+    assert (at(2, "11:45").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
     assert [c["id"] for c in ok(ej(mundo.a_esp1, "citas_sin_desenlace"))["filas"]] == [mundo.c_ana]
     assert [c["id"] for c in ok(ej(mundo.a_esp2, "citas_sin_desenlace"))["filas"]] == [mundo.c_luis]
     otro = ok(ej(mundo.a_esp2, "mi_dia"))

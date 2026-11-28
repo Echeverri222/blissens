@@ -19,7 +19,7 @@ distingue por herramienta, sino por lo que la respuesta debe decir.
 ## El mundo: martes 17 de noviembre de 2026, 10:30 (hora de Bogotá)
 
 Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín. Todos atienden de lunes a viernes,
-07:30–12:00 y 13:00–17:30.
+08:00–12:00 y 13:00–17:00.
 
 **Profesionales** (`{pro.x}`): `rios` Dra. Valentina Ríos, `mejia` Dr. Andrés Mejía, `torres` Dra. Camila Torres.
 

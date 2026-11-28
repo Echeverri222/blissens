@@ -26,7 +26,8 @@ def del_hogar(conn, ids, plantilla_like):
 
 
 def citas_seguidas(conn, pro, gente, dia=3):
-    return [book(conn, p, pro, at(dia, h), notify=False) for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=False)]
+    # Limpieza (30 min) y no valoración (45): las tres citas van seguidas, de media hora en media hora.
+    return [book(conn, p, pro, at(dia, h), "Limpieza", notify=False) for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=False)]
 
 
 def test_un_solo_recordatorio_de_48h_para_todo_el_hogar_y_un_toque_confirma_todas(conn):
@@ -128,7 +129,7 @@ def test_las_citas_agendadas_seguidas_salen_en_un_solo_mensaje(conn):
     pro = make_pro(conn)
     gente = hogar(conn)
     for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=True):
-        agenda.book(conn, p, pro, svc(conn), at(3, h), "paciente", "paciente")
+        agenda.book(conn, p, pro, svc(conn, "Limpieza"), at(3, h), "paciente", "paciente")
         clock.freeze(clock.now(conn) + timedelta(minutes=2))  # entre una y otra, menos que la espera
         tasks.cycle(conn)
     assert not del_hogar(conn, gente, "cita_agendada%")  # todavía agendando: nada sale
@@ -176,8 +177,8 @@ def test_una_sola_oferta_de_adelanto_pendiente_por_hogar(conn):
     book(conn, carlos, pro, at(3, "10:00"), notify=False)
     book(conn, mateo, pro, at(4, "10:00"), notify=False)
     book(conn, otro, pro, at(2, "10:00"), notify=False)
-    slots.register_slot(conn, pro, agenda.rng(at(0, "14:00"), 30), None, "cancelacion")
-    slots.register_slot(conn, pro, agenda.rng(at(0, "15:00"), 30), None, "cancelacion")
+    slots.register_slot(conn, pro, agenda.rng(at(0, "14:00"), 45), None, "cancelacion")
+    slots.register_slot(conn, pro, agenda.rng(at(0, "15:00"), 45), None, "cancelacion")
     hogar_ofertas = del_hogar(conn, (carlos, mateo), "oferta_adelanto")
     assert len(hogar_ofertas) == 1 and hogar_ofertas[0]["paciente_id"] == mateo  # la cita más lejana, primero
     assert len(outbox(conn, otro, "oferta_adelanto")) == 1
