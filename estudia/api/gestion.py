@@ -17,6 +17,7 @@ from .. import (
     lifecycle,
     pacientes,
     permisos,
+    planes,
     solicitudes,
 )
 from . import schemas as sc
@@ -129,6 +130,38 @@ def quitar_no_contactar(paciente_id: int, conn=Depends(get_conn), u=Depends(auxi
     return r
 
 
+def _plan_o_error(r):
+    if r is None:
+        raise permisos.NoExiste("No existe ese tratamiento")
+    return r
+
+
+@router.put("/pacientes/{paciente_id}/tratamientos/{tratamiento_id}/plan-entregado", tags=["Pacientes"],
+            response_model=sc.PlanOut, summary="Registrar que se entregó el plan de tratamiento",
+            description="Fecha (por defecto hoy) y valor opcional, que solo ve el panel. Abre el seguimiento de acompañamiento "
+                        "(3 y 7 días, sin montos). 422 si es un prospecto.",
+            dependencies=[auditar("plan_entregado")])
+def plan_entregado(paciente_id: int, tratamiento_id: int, datos: sc.PlanEntregado, conn=Depends(get_conn),
+                   u=Depends(auxiliar)):
+    try:
+        r = _plan_o_error(planes.plan_entregado(conn, paciente_id, tratamiento_id, datos.fecha, datos.valor_plan))
+    except planes.PlanInvalido as e:
+        raise ApiError(422, "plan_invalido", str(e)) from None
+    return sc.PlanOut(**{k: r[k] for k in ("tratamiento_id", "plan_entregado_en", "caso_id")})
+
+
+@router.put("/pacientes/{paciente_id}/tratamientos/{tratamiento_id}/abono", tags=["Pacientes"],
+            response_model=sc.PlanOut, summary="Registrar un abono al plan (solo la fecha)",
+            dependencies=[auditar("registrar_abono")])
+def registrar_abono(paciente_id: int, tratamiento_id: int, datos: sc.Abono, conn=Depends(get_conn),
+                    u=Depends(auxiliar)):
+    try:
+        r = _plan_o_error(planes.registrar_abono(conn, paciente_id, tratamiento_id, datos.fecha))
+    except planes.PlanInvalido as e:
+        raise ApiError(422, "plan_invalido", str(e)) from None
+    return sc.PlanOut(**{k: r[k] for k in ("tratamiento_id", "ultimo_abono_en", "caso_id")})
+
+
 @router.get("/pacientes/{paciente_id}", tags=["Pacientes"], summary="Ficha completa del paciente",
             response_model=sc.FichaCompleta, dependencies=[auditar("ver_ficha")])
 def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
@@ -138,6 +171,7 @@ def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return sc.FichaCompleta(
         paciente={**r["paciente"], "semaforo": pacientes.semaforo(conn, [paciente_id])[paciente_id]}, familia=familia.resumen(conn, paciente_id),
+        tratamientos=planes.tratamientos_de(conn, paciente_id),
         citas=[{**c, "inicio": inicio(c)} for c in r["citas"]],
         historial=[{**h, "reversible": permisos.puede_revertir(u, h, estados[h["cita_id"]])} for h in r["historial"]],
         casos=[{**c, "intentos": c["intentos"] or []} for c in r["casos"]], mensajes=r["mensajes"])
@@ -162,7 +196,7 @@ def conteo(conn=Depends(get_conn), u=Depends(auxiliar)):
         en_riesgo=len(bandejas.en_riesgo(conn)), cupos_libres=len(bandejas.cupos_libres(conn)),
         sin_desenlace=len(bandejas.sin_desenlace(conn)), sin_interpretar=len(bandejas.sin_interpretar(conn)),
         contactos=len(bandejas.contactos_pendientes(conn)), dados_de_baja=len(bandejas.dados_de_baja(conn)),
-        celulares_por_revisar=len(bandejas.celulares_por_revisar(conn)))
+        celulares_por_revisar=len(bandejas.celulares_por_revisar(conn)), planes=len(planes.sin_siguiente_paso(conn)))
 
 
 @router.get("/resumen-dia", tags=["Bandejas"], summary="Contadores de la franja superior de la agenda",
@@ -190,6 +224,14 @@ def seguimientos(conn=Depends(get_conn), u=Depends(auxiliar)):
 def en_riesgo(profesional_id: int | None = None, servicio_id: int | None = None, conn=Depends(get_conn),
               u=Depends(auxiliar)):
     return [_nombre(r) for r in bandejas.en_riesgo(conn, profesional_id, servicio_id)]
+
+
+@router.get("/bandejas/planes", tags=["Bandejas"], summary="Planes sin siguiente paso",
+            description="Plan entregado hace más de 7 días, sin cita posterior con ese profesional ni abono desde entonces. "
+                        "Primero los pacientes de alto valor y luego el `valor_plan` más alto.",
+            response_model=list[sc.PlanSinPasoOut])
+def planes_sin_siguiente_paso(conn=Depends(get_conn), u=Depends(auxiliar)):
+    return planes.sin_siguiente_paso(conn)
 
 
 @router.get("/bandejas/cupos-libres", tags=["Bandejas"], summary="Cupos liberados abiertos o en oferta",
@@ -375,6 +417,13 @@ def reagendamiento(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxilia
             response_model=list[sc.CeldaDiaHora])
 def dia_hora(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
     return indicators.weekday_hour(conn, f)
+
+
+@router.get("/indicadores/planes", tags=["Indicadores"], summary="Planes entregados y su siguiente paso",
+            description="Planes entregados en el periodo, % con cita o abono dentro de los 15 días y `valor_plan` de los que "
+                        "no tienen siguiente paso (solo si hay valores).", response_model=sc.PlanesIndicadorOut)
+def indicador_planes(conn=Depends(get_conn), f=Depends(filtros), u=Depends(auxiliar)):
+    return planes.resumen_periodo(conn, f["desde"], f["hasta"])
 
 
 @router.post("/indicadores/cierre", tags=["Indicadores"], summary="Ejecutar el cierre de todo el historial",

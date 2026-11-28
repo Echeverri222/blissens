@@ -440,8 +440,58 @@ class FamiliaOut(Salida):
     menor: bool
 
 
+class TratamientoFicha(Salida):
+    id: int
+    tipo: str
+    estado: str
+    sesiones_previstas: int | None
+    generado_en: date
+    profesional: str
+    plan_entregado_en: Momento | None
+    valor_plan: int | None = Field(None, description="Solo del panel: nunca sale en un mensaje.")
+    ultimo_abono_en: Momento | None
+    proxima_cita: Momento | None = Field(None, description="Siguiente paso: cita viva futura con ese profesional.")
+
+
+class PlanEntregado(Entrada):
+    fecha: date | None = Field(None, description="Día en que se entregó el plan; por defecto hoy.")
+    valor_plan: int | None = Field(None, ge=0, description="Valor del plan en pesos; opcional y solo del panel.")
+
+
+class Abono(Entrada):
+    fecha: date | None = Field(None, description="Día del abono; por defecto hoy. No se guarda el monto.")
+
+
+class PlanOut(Salida):
+    tratamiento_id: int
+    plan_entregado_en: Momento | None = None
+    ultimo_abono_en: Momento | None = None
+    caso_id: int | None = Field(None, description="El caso de acompañamiento que se abrió, si se abrió.")
+
+
+class PlanSinPasoOut(Salida):
+    tratamiento_id: int
+    paciente_id: int
+    paciente: str
+    celular: str | None
+    profesional: str
+    plan_entregado_en: Momento
+    dias_desde_entrega: int
+    valor_plan: int | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+
+
+class PlanesIndicadorOut(Salida):
+    entregados: int
+    con_siguiente_paso: int = Field(description="Con cita o abono en los 15 días siguientes a la entrega.")
+    conversion_pct: float | None
+    valor_sin_siguiente_paso: int | None = Field(None, description="Suma de `valor_plan` sin siguiente paso; solo si hay valores.")
+
+
 class FichaCompleta(Salida):
     paciente: FichaPaciente
+    tratamientos: list[TratamientoFicha] = []
     familia: FamiliaOut
     citas: list[CitaFicha]
     historial: list[CambioFicha]
@@ -461,6 +511,7 @@ class ConteoBandejas(Salida):
     contactos: int
     dados_de_baja: int
     celulares_por_revisar: int
+    planes: int
 
 
 class CelularPorRevisarOut(Salida):

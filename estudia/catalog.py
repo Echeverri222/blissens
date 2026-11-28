@@ -45,6 +45,9 @@ PLANTILLAS = {
     "seguimiento_reasignacion": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio. Elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
     "seguimiento_inasistencia": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio. Si desea retomar su cita del {fecha}, elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
     "continuidad_tratamiento": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio para continuar su plan. Elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
+    # R14: acompañan, no cobran. Nunca montos ni palabras como deuda, cobro o saldo.
+    "plan_acompanamiento_1": ("Hola, {nombre}. {profesional} quiere saber cómo se siente con su plan de tratamiento. Cuando quiera dar el siguiente paso, aquí puede elegir su próxima cita: {enlace}", "botones", _AHORA_NO),
+    "plan_acompanamiento_2": ("Hola, {nombre}. Seguimos pendientes de usted para continuar su plan con {profesional}. Si tiene alguna duda sobre el siguiente paso, responda este mensaje y recepción le ayuda.", "botones", _AHORA_NO),
     "oferta_adelanto": ("Hola, {nombre}. Su cita podría adelantarse de {fecha_actual} a las {hora_actual} a {fecha_nueva} a las {hora_nueva}. ¿Desea hacerlo?", "botones",
                         [{"id": "oferta:si:{oferta_id}", "title": "Sí, adelantarla"},
                          {"id": "oferta:no:{oferta_id}", "title": "No, gracias"}]),
