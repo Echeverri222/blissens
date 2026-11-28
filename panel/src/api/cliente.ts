@@ -80,13 +80,13 @@ export const api = {
   },
   citas: {
     detalle: (id: number) => get<CitaDetalle>(`/citas/${id}`),
-    agendar: (d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string }) => post<{ cita_id: number }>("/citas", d),
+    agendar: (d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string; duracion_min?: number }) => post<{ cita_id: number }>("/citas", d),
     cancelar: (id: number, motivo_id: number, texto?: string) => post<{ ok: boolean }>(`/citas/${id}/cancelar`, { motivo_id, texto: texto || null }),
     cambiarFecha: (id: number, inicio: string) => post<{ cita_id: number }>(`/citas/${id}/cambiar-fecha`, { inicio }),
     confirmar: (id: number) => post<{ ok: boolean }>(`/citas/${id}/confirmar`),
     desenlace: (id: number, desenlace: Desenlace) => post<{ ok: boolean }>(`/citas/${id}/desenlace`, { desenlace }),
-    espacios: (profesionalId: number, servicioId: number, dias = 21) =>
-      get<Espacios>("/espacios", { profesional_id: profesionalId, servicio_id: servicioId, dias }),
+    espacios: (profesionalId: number, servicioId: number, dias = 21, duracionMin?: number) =>
+      get<Espacios>("/espacios", { profesional_id: profesionalId, servicio_id: servicioId, dias, ...(duracionMin ? { duracion_min: duracionMin } : {}) }),
     revertir: (historialId: number) => post<{ historial_id: number }>(`/historial/${historialId}/revertir`),
   },
   bloqueos: {

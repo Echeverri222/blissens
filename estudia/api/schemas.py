@@ -217,6 +217,7 @@ class NuevaCita(Entrada):
     profesional_id: int
     servicio_id: int
     inicio: datetime
+    duracion_min: int | None = Field(None, ge=15, le=240, description="Minutos de esta cita (15 a 240, de 15 en 15). Sin él, la duración del servicio.")
 
 
 class Cancelacion(Entrada):

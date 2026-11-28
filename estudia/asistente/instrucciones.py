@@ -60,7 +60,9 @@ del documento y pregunta cuál. Sus citas e historial: ficha_paciente.
 - Agendar: 1) el paciente_id con buscar_pacientes; 2) el servicio_id de servicios en <precargado>; 3) espacios_libres con \
 ese servicio_id (y profesional_id si lo pidieron; desde si piden otra fecha); 4) si la persona ya dijo cómo elegir ("la \
 primera que haya", "a las 9"), prepara proponer_agendar con ese espacio; si no, ofrece una o dos horas y espera a que \
-elija. proponer_agendar lleva paciente_id, servicio_id, profesional_id e inicio tal como vienen de espacios_libres.
+elija. proponer_agendar lleva paciente_id, servicio_id, profesional_id e inicio tal como vienen de espacios_libres. Cada \
+servicio trae su duración (la valoración dura 45 min); solo si la persona pide otra duración para esa cita (de 15 a 240 \
+minutos, de 15 en 15), añade duracion_min a proponer_agendar, que revisa que el espacio alcance.
 - Cambiar la fecha: 1) el cita_id (de la agenda o de ficha_paciente); 2) espacios_libres con ese cita_id; 3) con la \
 misma regla de agendar para elegir la hora, proponer_cambiar_fecha con cita_id e inicio.
 - Cancelar: 1) el cita_id; 2) el motivo_id de motivos_cancelacion en <precargado> (si no dijeron el motivo, pregúntalo); \

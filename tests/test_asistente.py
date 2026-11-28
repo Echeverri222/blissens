@@ -368,6 +368,21 @@ def test_propuestas_del_paciente_tienen_la_forma_y_los_parametros_de_los_formula
     assert co["tipo"] == "contacto" and co["parametros"] == {}
 
 
+def test_proponer_agendar_de_la_auxiliar_acepta_duracion_y_la_valida(mundo):
+    h1 = espacio(mundo, mundo.a_aux, profesional_id=mundo.pro1)
+    p = ok(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+              inicio=h1, duracion_min=60))["propuesta"]
+    assert p["parametros"]["duracion_min"] == 60 and "(60 min)" in p["resumen"]
+    for mala in (50, 10, 300):  # fuera de paso o fuera de rango
+        assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc,
+                         profesional_id=mundo.pro1, inicio=h1, duracion_min=mala)) == "datos_invalidos", mala
+    # una duración que no cabe en el espacio: el espacio ya no sirve
+    assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+                     inicio=at(2, "11:30").isoformat(), duracion_min=240)) == "espacio_ocupado"
+    # el paciente no puede cambiar la duración: su modelo no la trae
+    assert codigo(ej(mundo.a_ana, "proponer_agendar", servicio_id=mundo.svc, inicio=h1, duracion_min=60)) == "datos_invalidos"
+
+
 def test_propuestas_de_la_auxiliar_tienen_la_forma_y_los_parametros_de_los_endpoints(mundo):
     h1, h2 = espacio(mundo, mundo.a_aux, profesional_id=mundo.pro1), espacio(mundo, mundo.a_aux, 1, profesional_id=mundo.pro1)
     p = ok(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1, inicio=h1))["propuesta"]

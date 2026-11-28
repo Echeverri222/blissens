@@ -118,6 +118,8 @@ describe("propuestas", () => {
   const casos: [string, Propuesta, string, string, unknown][] = [
     ["agendar", pr("agendar", { paciente_id: 7, profesional_id: 1, servicio_id: 1, inicio: "2026-11-17T09:00:00-05:00" }), "POST", "/citas",
       { paciente_id: 7, profesional_id: 1, servicio_id: 1, inicio: "2026-11-17T09:00:00-05:00" }],
+    ["agendar con duración", pr("agendar", { paciente_id: 7, profesional_id: 1, servicio_id: 1, inicio: "2026-11-17T09:00:00-05:00", duracion_min: 60 }), "POST", "/citas",
+      { paciente_id: 7, profesional_id: 1, servicio_id: 1, inicio: "2026-11-17T09:00:00-05:00", duracion_min: 60 }],
     ["cambiar_fecha", pr("cambiar_fecha", { cita_id: 10, inicio: "2026-11-18T10:00:00-05:00" }), "POST", "/citas/10/cambiar-fecha", { inicio: "2026-11-18T10:00:00-05:00" }],
     ["cancelar", pr("cancelar", { cita_id: 10, motivo_id: 3, texto: "Viaje" }), "POST", "/citas/10/cancelar", { motivo_id: 3, texto: "Viaje" }],
     ["confirmar_telefono", pr("confirmar_telefono", { cita_id: 10 }), "POST", "/citas/10/confirmar", {}],

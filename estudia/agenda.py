@@ -28,10 +28,28 @@ def _local(day: date, t) -> datetime:
     return datetime.combine(day, t, tzinfo=clock.TZ)
 
 
-def day_slots(conn, professional_id: int, service_id: int, day: date, now: datetime | None = None) -> list[datetime]:
-    """Espacios agendables en un día: horario, duración, citas vivas, bloqueos y cupos con oferta pendiente."""
+DURACION_MIN, DURACION_MAX, DURACION_PASO = 15, 240, 15
+
+
+def validar_duracion(duracion_min: int | None) -> int | None:
+    """La duración de una cita que recepción cambia a mano: de 15 a 240 minutos, en múltiplos de 15."""
+    from .pacientes import DatosInvalidos
+
+    if duracion_min is None:
+        return None
+    if not DURACION_MIN <= duracion_min <= DURACION_MAX or duracion_min % DURACION_PASO:
+        raise DatosInvalidos(f"La duración debe estar entre {DURACION_MIN} y {DURACION_MAX} minutos, de {DURACION_PASO} en {DURACION_PASO}")
+    return duracion_min
+
+
+def day_slots(conn, professional_id: int, service_id: int, day: date, now: datetime | None = None,
+              duracion_min: int | None = None) -> list[datetime]:
+    """Espacios agendables en un día: horario, duración, citas vivas, bloqueos y cupos con oferta pendiente.
+
+    `duracion_min` reemplaza la del servicio (recepción puede alargar o acortar una cita)."""
     now = now or clock.now(conn)
-    dur = conn.execute("select duracion_min from servicio where id=%s", (service_id,)).fetchone()["duracion_min"]
+    dur = validar_duracion(duracion_min) or conn.execute(
+        "select duracion_min from servicio where id=%s", (service_id,)).fetchone()["duracion_min"]
     step = config.get(conn, "paso_min")
     earliest = now + timedelta(hours=config.get(conn, "antelacion_minima_agendar_horas"))
     latest = now + timedelta(days=config.get(conn, "horizonte_dias"))
@@ -61,13 +79,14 @@ def day_slots(conn, professional_id: int, service_id: int, day: date, now: datet
     return out
 
 
-def available_slots(conn, professional_id: int, service_id: int, days: int | None = None) -> dict[date, list[datetime]]:
+def available_slots(conn, professional_id: int, service_id: int, days: int | None = None,
+                    duracion_min: int | None = None) -> dict[date, list[datetime]]:
     now = clock.now(conn)
     days = days or config.get(conn, "horizonte_dias")
     out = {}
     for i in range(days + 1):
         d = now.date() + timedelta(days=i)
-        s = day_slots(conn, professional_id, service_id, d, now)
+        s = day_slots(conn, professional_id, service_id, d, now, duracion_min)
         if s:
             out[d] = s
     return out
@@ -112,15 +131,17 @@ def _schedule_reminders(conn, cita_id: int, start: datetime, now: datetime) -> N
 
 def book(conn, patient_id: int, professional_id: int | None, service_id: int, start: datetime, origin: str,
          actor: str, treatment_id: int | None = None, previous_id: int | None = None,
-         notify: bool = True, user_id: int | None = None) -> int:
+         notify: bool = True, user_id: int | None = None, duracion_min: int | None = None) -> int:
     """Agenda una cita. Lanza SlotTaken si el espacio ya no está (la base impide cruces).
 
-    `professional_id=None` es «cualquier especialista»: se asigna uno solo entre los que tienen libre ese espacio."""
+    `professional_id=None` es «cualquier especialista»: se asigna uno solo entre los que tienen libre ese espacio.
+    `duracion_min` (15 a 240) cambia la duración de esta cita; sin él vale la del servicio."""
     from . import followup
     from .pacientes import DatosInvalidos
 
     if conn.execute("select 1 from paciente where id=%s and etapa='prospecto'", (patient_id,)).fetchone():
         raise DatosInvalidos("Es un prospecto: primero hay que registrar su documento para agendarle una cita presencial")
+    validar_duracion(duracion_min)
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
     if professional_id is None:
@@ -129,13 +150,13 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
             elegido = assign_professional(conn, service_id, start)  # SlotTaken si ya nadie lo tiene
             try:
                 return book(conn, patient_id, elegido, service_id, start, origin, actor, treatment_id, previous_id,
-                            notify, user_id)
+                            notify, user_id, duracion_min)
             except SlotTaken:
                 continue
         raise SlotTaken("Ese espacio ya no está disponible")
-    if start not in day_slots(conn, professional_id, service_id, start.date(), now):
+    if start not in day_slots(conn, professional_id, service_id, start.date(), now, duracion_min):
         raise SlotTaken("Ese espacio ya no está disponible")
-    dur = conn.execute("select duracion_min from servicio where id=%s", (service_id,)).fetchone()["duracion_min"]
+    dur = duracion_min or conn.execute("select duracion_min from servicio where id=%s", (service_id,)).fetchone()["duracion_min"]
     born_confirmed = (start - now) < timedelta(hours=24)
     estado = "confirmada" if born_confirmed else "programada"
     try:
