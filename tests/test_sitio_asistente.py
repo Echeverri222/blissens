@@ -76,11 +76,26 @@ def test_cada_paso_devuelve_su_formulario(cliente):
     assert "/sitio/asistente/paso/afuera" in paso("inicio")
 
 
-def test_un_paso_desconocido_es_404_y_sin_htmx_redirige_a_la_seccion(cliente):
+def test_un_paso_desconocido_es_404_y_sin_htmx_redirige_a_la_pagina_aparte(cliente):
     assert cliente.get("/sitio/asistente/paso/nada", headers=HX).status_code == 404
-    r = cliente.get("/sitio/asistente/paso/agendar")
-    assert r.status_code == 303 and r.headers["location"].endswith("#agendar")
-    assert cliente.get("/sitio/asistente/paso/afuera", params={"idioma": "en"}).headers["location"].startswith("/en")
+
+    def destino(clave, **q):
+        r = cliente.get(f"/sitio/asistente/paso/{clave}", params=q)
+        assert r.status_code == 303
+        return r.headers["location"]
+    assert destino("agendar") == "/agendar" and destino("afuera") == "/evaluacion"
+    assert destino("direccion") == "/contacto" and destino("otra") == "/contacto" and destino("inicio") == "/"
+    assert destino("afuera", idioma="en") == "/evaluacion?idioma=en" and destino("otra", idioma="en") == "/contacto?idioma=en"
+    assert destino("agendar", idioma="en") == "/agendar?idioma=en"
+    assert destino("experiencia", paquete="premium") == "/experiencia?idioma=es&paquete=premium"
+    assert destino("experiencia", idioma="en", paquete="malo") == "/experiencia?idioma=en"
+
+
+def test_el_paso_de_experiencia_trae_el_formulario_con_el_paquete_elegido(cliente):
+    r = cliente.get("/sitio/asistente/paso/experiencia", params={"paquete": "premium"}, headers=HX)
+    assert r.status_code == 200 and 'value="experiencia"' in r.text and 'name="panel" value="asistente"' in r.text
+    assert re.search(r'<option value="premium"\s+selected', r.text)
+    assert "selected" not in cliente.get("/sitio/asistente/paso/experiencia", headers=HX).text
 
 
 def test_otra_pregunta_muestra_el_cuadro_solo_si_esta_disponible_y_si_no_el_contacto(conn, app, cliente):

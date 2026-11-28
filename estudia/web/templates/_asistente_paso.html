@@ -9,6 +9,10 @@
     <p class="asist__texto">{{ a.afuera }}</p>
     {% set uid = '-asistente' %}{% set interes = 'evaluacion_virtual' %}{% set values = {} %}{% set error = None %}{% set hecho = False %}
     {% include "_solicitud.html" %}
+  {% elif paso == 'experiencia' %}
+    <p class="asist__texto">{{ a.experiencia }}</p>
+    {% set uid = '-asistente' %}{% set interes = 'experiencia' %}{% set values = {'paquete': paquete} %}{% set error = None %}{% set hecho = False %}
+    {% include "_solicitud.html" %}
   {% elif paso == 'direccion' %}
     <p class="asist__texto">{{ a.direccion }}</p>
     <address class="asist__texto">{{ sitio.DIRECCION }}</address>

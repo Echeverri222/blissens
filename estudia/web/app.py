@@ -354,8 +354,34 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
 
 @publico.get("/agendar", response_class=HTMLResponse)
 @publico.get("/n/{nombre}/agendar", response_class=HTMLResponse)
-def agendar(request: Request, nombre: str | None = None, caso: int | None = None, conn=Depends(conn_publica)):
-    return render(request, "identificar.html", error=None, nuevo=None, values={})
+def agendar(request: Request, nombre: str | None = None, caso: int | None = None, idioma: str = "es", conn=Depends(conn_publica)):
+    return render(request, "identificar.html", lang=idioma if idioma in copia.COPIA else "es", error=None, nuevo=None, values={})
+
+
+def _pagina_solicitud(request: Request, interes: str, idioma: str, paquete: str = ""):
+    """El formulario de solicitud en página aparte: el respaldo sin JavaScript de los botones que abren el asistente.
+    No abre la base de datos; el envío es el mismo `POST /sitio/solicitud`."""
+    lang = idioma if idioma in copia.COPIA else "es"
+    t = copia.COPIA[lang]
+    titulo = {"evaluacion_virtual": t["evaluacion"]["form_titulo"], "experiencia": t["experiencias"]["form_titulo"],
+              "contacto": t["contacto"]["titulo"]}[interes]
+    values = {"paquete": paquete if paquete in copia.PAQUETES else ""}
+    return render(request, "solicitud.html", lang=lang, interes=interes, titulo=titulo, values=values, error=None, hecho=False)
+
+
+@publico.get("/evaluacion", response_class=HTMLResponse, include_in_schema=False)
+def pagina_evaluacion(request: Request, idioma: str = "es"):
+    return _pagina_solicitud(request, "evaluacion_virtual", idioma)
+
+
+@publico.get("/experiencia", response_class=HTMLResponse, include_in_schema=False)
+def pagina_experiencia(request: Request, idioma: str = "es", paquete: str = ""):
+    return _pagina_solicitud(request, "experiencia", idioma, paquete)
+
+
+@publico.get("/contacto", response_class=HTMLResponse, include_in_schema=False)
+def pagina_contacto(request: Request, idioma: str = "es"):
+    return _pagina_solicitud(request, "contacto", idioma)
 
 
 @publico.post("/agendar/identificar", response_class=HTMLResponse)
