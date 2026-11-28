@@ -56,7 +56,7 @@ def test_daily_close_and_summary_definitions(conn):
     assert s["cancelaciones"] == 2 and s["cancelaciones_tardias"] == 1
     assert s["recuperacion"] == 1 / 2                                           # cancelaciones con cita nueva ÷ total
     assert s["confirmacion"] == 3 / 4                                           # confirmadas explícitas ÷ con recordatorio
-    assert s["ocupacion"] == 90 / 540                                           # minutos atendidos ÷ horario del día
+    assert s["ocupacion"] == 90 / 480                                          # minutos atendidos ÷ horario del día
 
 
 def test_reasons_distribution_with_late_share(conn):

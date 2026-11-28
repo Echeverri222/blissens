@@ -45,7 +45,8 @@ def close_day(conn, day: date) -> None:
         select c.dia, c.profesional_id, c.servicio_id, count(*),
             count(*) filter (where c.estado='atendida'),
             count(*) filter (where c.estado='no_asistio'),
-            count(*) filter (where c.estado='cancelada'),
+            count(*) filter (where c.estado='cancelada' and not exists (
+                select 1 from cancelacion x where x.cita_id=c.id and x.canal='clinica')),
             count(*) filter (where c.estado='reprogramada'),
             count(*) filter (where (c.datos_origen->>'recordatorio_enviado')::boolean),
             count(*) filter (where exists (select 1 from historial_estado h where h.cita_id=c.id
@@ -62,7 +63,7 @@ def close_day(conn, day: date) -> None:
                    coalesce(m.etiqueta, 'sin especificar') as motivo
             from cancelacion x join cita c on c.id=x.cita_id
             left join motivo_cancelacion m on m.id=x.motivo_id
-            where c.dia=%s group by c.profesional_id, c.servicio_id, m.etiqueta
+            where c.dia=%s and x.canal <> 'clinica' group by c.profesional_id, c.servicio_id, m.etiqueta
             """, (day,)).fetchall():
         conn.execute(
             """
@@ -154,6 +155,17 @@ def _sin_desenlace_por_dia(conn, filters: dict) -> dict[date, int]:
     return {r["dia"]: r["n"] for r in rows}
 
 
+def _por_depurar(conn, filters: dict) -> int:
+    """Citas pasadas que quedaron vivas (típico de la importación: «Confirmado» sin cerrar). Se cuentan aunque no
+    tengan hora, y nunca como atendidas."""
+    w, p = _cita_filters(filters)
+    ahora = clock.now(conn)
+    return conn.execute(
+        f"select count(*) as n from cita c where {w} and c.estado = any(%(alive)s) "
+        f"and ((c.rango is not null and upper(c.rango) < %(now)s) or (c.rango is null and c.dia < %(hoy)s))",
+        {**p, "alive": list(ALIVE), "now": ahora, "hoy": ahora.date()}).fetchone()["n"]
+
+
 def period_before(filters: dict) -> dict:
     """El periodo de igual duración que termina el día anterior a `desde`."""
     dias = (filters["hasta"] - filters["desde"]).days + 1
@@ -185,12 +197,15 @@ def _summary(conn, filters: dict, comparar: bool = False) -> dict:
         f"coalesce(sum(cupos_ocupados_oferta),0) oferta, coalesce(sum(cupos_ocupados_agendamiento),0) agend, "
         f"coalesce(sum(cupos_vacios),0) vacios from hecho_diario_profesional hp where {wp}", pp).fetchone()
     min_at = r["min_at"]
+    por_depurar = _por_depurar(conn, filters)
     out = {
         "citas": r["citas"], "atendidas": r["atendidas"], "no_asistio": r["no_asistio"],
         # Obsoleto: atendidas ÷ todas las citas. Se conserva por compatibilidad; la cifra vigente es `asistencia`.
         "atencion_efectiva": _ratio(r["atendidas"], r["citas"]),
         "asistencia": _ratio(r["atendidas"], r["atendidas"] + r["no_asistio"] + r["canceladas"]),
         "inasistencia": _ratio(r["no_asistio"], r["atendidas"] + r["no_asistio"]),
+        "inasistencia_por_depurar": por_depurar,
+        "inasistencia_con_pendientes": _ratio(r["no_asistio"] + por_depurar, r["atendidas"] + r["no_asistio"] + por_depurar),
         "cancelaciones": r["canc"], "cancelaciones_tardias": r["tard"], "cancelaciones_recuperadas": r["recup"],
         "recuperacion": _ratio(r["recup"], r["canc"]),
         "confirmacion": _ratio(r["conf"], r["con_rec"]),

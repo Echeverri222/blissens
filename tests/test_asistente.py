@@ -263,7 +263,7 @@ def test_lecturas_espacios_libres_son_horas_futuras_y_como_mucho_doce(mundo):
 def test_lecturas_datos_del_negocio_y_servicios(mundo):
     r = ok(ej(mundo.a_ana, "datos_del_negocio"))
     assert r["nombre"] and r["direccion"] and r["horario"][0] == {"dia": "lunes", "franjas": [
-        {"desde": "07:30", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:30"}]}  # el cierre del mediodía se ve
+        {"desde": "08:00", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:00"}]}  # el cierre del mediodía se ve
     assert len(r["horario"]) == 5 and r["dias_sin_atencion"] == ["sábado", "domingo"]
     assert {p["id"] for p in r["profesionales"]} == {mundo.pro1, mundo.pro2}
     assert ok(ej(mundo.a_ana, "servicios"))["servicios"]
@@ -279,7 +279,7 @@ def test_lecturas_la_agenda_del_especialista_es_la_suya_y_la_de_la_auxiliar_es_d
     assert {c["id"] for c in ok(ej(mundo.a_aux, "agenda", desde=d, profesional_id=mundo.pro2))["citas"]} == {mundo.c_luis}
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, profesional_id=999999)) == "no_existe"
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, hasta="2027-12-31")) == "datos_invalidos"
-    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "07:30", "hasta": "12:00"}
+    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "08:00", "hasta": "12:00"}
 
 
 def test_lecturas_de_la_auxiliar_pacientes_bandejas_e_indicadores(mundo, conn):
@@ -330,8 +330,8 @@ def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):
     assert mundo.c_luis not in {c["id"] for c in d["citas"]}
     assert all(h["desde"] >= at(2, "10:10").isoformat() for h in d["huecos_libres"])
     huecos = [(h["desde"], h["hasta"]) for h in d["huecos_libres"]]
-    assert (at(2, "10:30").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana y Sofía
-    assert (at(2, "11:30").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
+    assert (at(2, "10:45").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana (valoración de 45 min) y Sofía
+    assert (at(2, "11:45").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
     assert [c["id"] for c in ok(ej(mundo.a_esp1, "citas_sin_desenlace"))["filas"]] == [mundo.c_ana]
     assert [c["id"] for c in ok(ej(mundo.a_esp2, "citas_sin_desenlace"))["filas"]] == [mundo.c_luis]
     otro = ok(ej(mundo.a_esp2, "mi_dia"))
@@ -366,6 +366,21 @@ def test_propuestas_del_paciente_tienen_la_forma_y_los_parametros_de_los_formula
     assert cf["tipo"] == "confirmar" and cf["parametros"] == {"cita_id": mundo.c_hija} and "Sofía" in cf["resumen"]
     co = ok(ej(mundo.a_ana, "pedir_contacto"))["propuesta"]
     assert co["tipo"] == "contacto" and co["parametros"] == {}
+
+
+def test_proponer_agendar_de_la_auxiliar_acepta_duracion_y_la_valida(mundo):
+    h1 = espacio(mundo, mundo.a_aux, profesional_id=mundo.pro1)
+    p = ok(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+              inicio=h1, duracion_min=60))["propuesta"]
+    assert p["parametros"]["duracion_min"] == 60 and "(60 min)" in p["resumen"]
+    for mala in (50, 10, 300):  # fuera de paso o fuera de rango
+        assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc,
+                         profesional_id=mundo.pro1, inicio=h1, duracion_min=mala)) == "datos_invalidos", mala
+    # una duración que no cabe en el espacio: el espacio ya no sirve
+    assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+                     inicio=at(2, "11:30").isoformat(), duracion_min=240)) == "espacio_ocupado"
+    # el paciente no puede cambiar la duración: su modelo no la trae
+    assert codigo(ej(mundo.a_ana, "proponer_agendar", servicio_id=mundo.svc, inicio=h1, duracion_min=60)) == "datos_invalidos"
 
 
 def test_propuestas_de_la_auxiliar_tienen_la_forma_y_los_parametros_de_los_endpoints(mundo):

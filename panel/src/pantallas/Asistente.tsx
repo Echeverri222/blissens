@@ -56,7 +56,8 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
   try {
     switch (pr.tipo) {
       case "agendar":
-        return api.citas.agendar({ paciente_id: numero(p, "paciente_id"), profesional_id: numero(p, "profesional_id"), servicio_id: numero(p, "servicio_id"), inicio: texto(p, "inicio") });
+        return api.citas.agendar({ paciente_id: numero(p, "paciente_id"), profesional_id: numero(p, "profesional_id"), servicio_id: numero(p, "servicio_id"), inicio: texto(p, "inicio"),
+          ...(p.duracion_min !== undefined ? { duracion_min: numero(p, "duracion_min") } : {}) });
       case "cambiar_fecha": return api.citas.cambiarFecha(numero(p, "cita_id"), texto(p, "inicio"));
       case "cancelar": return api.citas.cancelar(numero(p, "cita_id"), numero(p, "motivo_id"), typeof p.texto === "string" ? p.texto : undefined);
       case "confirmar_telefono": return api.citas.confirmar(numero(p, "cita_id"));

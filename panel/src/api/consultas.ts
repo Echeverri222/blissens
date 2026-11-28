@@ -50,10 +50,10 @@ export function useAccion<V, D>(fn: (v: V) => Promise<D>, opts: { ok?: string | 
   return m;
 }
 
-export const useEspacios = (profesionalId: number | null, servicioId: number | null) =>
+export const useEspacios = (profesionalId: number | null, servicioId: number | null, duracionMin?: number) =>
   useQuery({
-    queryKey: ["espacios", profesionalId, servicioId],
-    queryFn: () => api.citas.espacios(profesionalId!, servicioId!),
+    queryKey: ["espacios", profesionalId, servicioId, duracionMin ?? null],
+    queryFn: () => api.citas.espacios(profesionalId!, servicioId!, 21, duracionMin),
     enabled: profesionalId !== null && servicioId !== null,
   });
 

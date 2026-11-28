@@ -4,23 +4,23 @@ actor: jorge
 categoria: accion
 pregunta:
   - quiero sacar cita de limpieza, q tienen el viernes?
-  - la de 7 y media porfa
+  - la de las 8 porfa
 intencion: >-
   Busca horas libres de limpieza el viernes 20 de noviembre con cualquier especialista y, en el segundo turno, prepara
-  agendar la de las 7:30 para Jorge.
+  agendar la de las 8:00 para Jorge.
 herramientas:
   esperadas: [espacios_libres, proponer_agendar]
   aceptables: [servicios, mis_citas]
 contexto:
   - llamada: espacios_libres
     args: {servicio_id: "{servicio.limpieza}", desde: "{fecha.viernes}", dias: 1}
-    incluye: ["Limpieza", "viernes 20 de noviembre a las 7:30 a. m."]
+    incluye: ["Limpieza", "viernes 20 de noviembre a las 8:00 a. m."]
   - llamada: proponer_agendar
-    args: {servicio_id: "{servicio.limpieza}", inicio: "{fecha.viernes}T07:30:00-05:00"}
-    incluye: ["agendar", "Limpieza", "Jorge", "viernes 20 de noviembre a las 7:30 a. m."]
+    args: {servicio_id: "{servicio.limpieza}", inicio: "{fecha.viernes}T08:00:00-05:00"}
+    incluye: ["agendar", "Limpieza", "Jorge", "viernes 20 de noviembre a las 8:00 a. m."]
     excluye: ["Ramírez"]
 respuesta:
-  incluye_alguno: ["7:30", "7 y media", "7.30"]
+  incluye_alguno: ["8:00", "8 a. m.", "8 de la mañana"]
   excluye: ["quedo agendada", "ya esta agendada", "listo, agendada"]
   propuestas: [agendar]
 notas: Multi-turno. La propuesta se prepara solo después de mirar los espacios libres, y nunca se da por hecha.

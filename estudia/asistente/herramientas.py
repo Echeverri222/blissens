@@ -12,6 +12,7 @@ from pydantic import Field
 
 from .. import agenda, bandejas, clock, config, familia, fmt, horario, indicators, permisos
 from ..lifecycle import ALIVE
+from ..pacientes import DatosInvalidos
 from .actor import Actor
 from .base import LECTURA, PROPUESTA, Entrada, ErrorHerramienta, herramienta
 
@@ -532,10 +533,10 @@ def indicadores(conn, actor, a: Indicadores) -> dict:
 # Una propuesta describe lo que la persona confirma; el cliente la ejecuta con el endpoint o formulario que ya existe,
 # con sus propias validaciones. Aquí solo se valida, sin escribir, lo que se puede ver ahora.
 
-def _espacio_libre(conn, profesional_id: int | None, servicio_id: int, inicio: datetime) -> None:
+def _espacio_libre(conn, profesional_id: int | None, servicio_id: int, inicio: datetime, duracion_min: int | None = None) -> None:
     ahora = clock.now(conn)
     if profesional_id:
-        libre = inicio in agenda.day_slots(conn, profesional_id, servicio_id, inicio.date(), ahora)
+        libre = inicio in agenda.day_slots(conn, profesional_id, servicio_id, inicio.date(), ahora, duracion_min)
     else:
         try:
             agenda.assign_professional(conn, servicio_id, inicio)  # solo lee; SlotTaken si nadie lo tiene
@@ -593,6 +594,8 @@ class AgendarEquipo(Entrada):
     servicio_id: int = Field(ge=1)
     profesional_id: int = Field(ge=1)
     inicio: datetime = Field(description="Inicio de la cita, ISO 8601 (hora de Bogotá). Debe salir de `espacios_libres`.")
+    duracion_min: int | None = Field(None, ge=15, le=240, description="Minutos de esta cita (15 a 240, de 15 en 15) si no es "
+                                     "la del servicio. Sin él, la del servicio.")
 
 
 @herramienta("proponer_agendar", "Prepara agendar una cita. No agenda: la persona debe confirmar. Antes revisa el espacio con `espacios_libres`.",
@@ -614,11 +617,18 @@ def proponer_agendar(conn, actor, a) -> dict:
         raise permisos.NoExiste("No existe ese paciente")
     srv = _servicio(conn, a.servicio_id, False)
     pro = _profesional(conn, a.profesional_id)
-    _espacio_libre(conn, pro["id"], srv["id"], inicio)
+    try:
+        agenda.validar_duracion(a.duracion_min)
+    except DatosInvalidos as e:
+        raise ErrorHerramienta("datos_invalidos", str(e)) from None
+    _espacio_libre(conn, pro["id"], srv["id"], inicio, a.duracion_min)
     # El cuerpo de `POST /citas`.
-    return _propuesta("agendar", {"paciente_id": p["id"], "profesional_id": pro["id"], "servicio_id": srv["id"],
-                                  "inicio": _iso(inicio)},
-                      f"Agendar {srv['nombre']} para {_nombre(p)} el {_cuando(inicio)} con {pro['nombre']}.")
+    parametros = {"paciente_id": p["id"], "profesional_id": pro["id"], "servicio_id": srv["id"], "inicio": _iso(inicio)}
+    duracion = f" ({a.duracion_min} min)" if a.duracion_min else ""
+    if a.duracion_min:
+        parametros["duracion_min"] = a.duracion_min
+    return _propuesta("agendar", parametros,
+                      f"Agendar {srv['nombre']}{duracion} para {_nombre(p)} el {_cuando(inicio)} con {pro['nombre']}.")
 
 
 class CambiarFecha(Entrada):

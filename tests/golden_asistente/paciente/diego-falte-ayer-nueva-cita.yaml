@@ -20,7 +20,7 @@ contexto:
     excluye: ["Valoración", "lunes 16"]
   - llamada: espacios_libres
     args: {servicio_id: "{servicio.valoracion}", desde: "{fecha.jueves}", dias: 1}
-    incluye: ["jueves 19 de noviembre a las 7:30 a. m.", "jueves 19 de noviembre a las 8:00 a. m."]
+    incluye: ["jueves 19 de noviembre a las 8:00 a. m.", "jueves 19 de noviembre a las 8:30 a. m."]
   - llamada: proponer_agendar
     args: {servicio_id: "{servicio.valoracion}", inicio: "{fecha.jueves}T08:00:00-05:00"}
     incluye: ["Valoración", "Diego", "jueves 19 de noviembre a las 8:00 a. m."]

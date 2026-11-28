@@ -10,6 +10,9 @@ import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Tarjeta } fro
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 
+/** La recepción puede alargar o acortar una cita: de 15 a 240 minutos, de 15 en 15 (la API valida lo mismo). */
+const DURACIONES = Array.from({ length: 16 }, (_, i) => (i + 1) * 15);
+
 /** Flujo de tres pasos: paciente → servicio y profesional → día y hora. */
 export function Agendar() {
   const [params] = useSearchParams();
@@ -17,14 +20,16 @@ export function Agendar() {
   const [paciente, setPaciente] = useState<{ id: number; nombre: string } | null>(null);
   const [servicio, setServicio] = useState("");
   const [pro, setPro] = useState("");
+  const [duracion, setDuracion] = useState("");  // "" = la del servicio
   const [inicio, setInicio] = useState<string | null>(null);
   const [creada, setCreada] = useState<{ id: number; inicio: string } | null>(null);
   const servicios = useServicios();
   const profs = useProfesionales();
   const ficha = useQuery({ queryKey: ["paciente-min", pacienteInicial], queryFn: () => api.pacientes.ficha(pacienteInicial!), enabled: pacienteInicial !== null && !paciente });
+  const servicioElegido = servicios.data?.find((s) => String(s.id) === servicio);
   const elegido = paciente ?? (ficha.data ? { id: ficha.data.paciente.id, nombre: `${ficha.data.paciente.nombres} ${ficha.data.paciente.apellidos}`.trim() } : null);
 
-  const agendar = useAccion((d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string }) => api.citas.agendar(d), {
+  const agendar = useAccion((d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string; duracion_min?: number }) => api.citas.agendar(d), {
     ok: "Cita agendada", alExito: (r, d) => setCreada({ id: r.cita_id, inicio: d.inicio }),
   });
   const alElegir = useCallback((i: string | null) => setInicio(i), []);
@@ -36,7 +41,7 @@ export function Agendar() {
         <p className="text-sm text-tinta-suave">{elegido?.nombre} · {fechaHora(creada.inicio)}. La confirmación se envió por WhatsApp.</p>
         <div className="flex justify-center gap-2">
           <Link className="rounded-[var(--radius-control)] bg-marca px-4 py-2 text-sm font-medium text-white" to={`/agenda?fecha=${fechaDe(creada.inicio)}&cita=${creada.id}`}>Ir a la cita</Link>
-          <Boton variante="secundario" onClick={() => { setCreada(null); setInicio(null); setPaciente(null); setServicio(""); setPro(""); }}>Agendar otra</Boton>
+          <Boton variante="secundario" onClick={() => { setCreada(null); setInicio(null); setPaciente(null); setServicio(""); setPro(""); setDuracion(""); }}>Agendar otra</Boton>
         </div>
       </Tarjeta>
     );
@@ -52,7 +57,7 @@ export function Agendar() {
       </Paso>
       <Paso n={2} titulo="Servicio y profesional" deshabilitado={!elegido}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Seleccion etiqueta="Servicio" value={servicio} onChange={(e) => { setServicio(e.target.value); setInicio(null); }}>
+          <Seleccion etiqueta="Servicio" value={servicio} onChange={(e) => { setServicio(e.target.value); setDuracion(""); setInicio(null); }}>
             <option value="">Elige un servicio</option>
             {servicios.data?.map((s) => <option key={s.id} value={s.id}>{s.nombre} ({s.duracion_min} min)</option>)}
           </Seleccion>
@@ -60,13 +65,17 @@ export function Agendar() {
             <option value="">Elige un profesional</option>
             {profs.data?.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </Seleccion>
+          <Seleccion etiqueta="Duración" value={duracion} disabled={!servicio} onChange={(e) => { setDuracion(e.target.value); setInicio(null); }}>
+            <option value="">{servicioElegido ? `La del servicio (${servicioElegido.duracion_min} min)` : "La del servicio"}</option>
+            {DURACIONES.filter((m) => m !== servicioElegido?.duracion_min).map((m) => <option key={m} value={m}>{m} min</option>)}
+          </Seleccion>
         </div>
       </Paso>
       <Paso n={3} titulo="Día y hora" deshabilitado={!elegido || !servicio || !pro}>
         {err && <div className="mb-3"><Aviso tipo={err.codigo === "espacio_ocupado" ? "aviso" : "error"}>{err.mensaje}{err.codigo === "espacio_ocupado" && " Estos son los espacios actualizados."}</Aviso></div>}
-        <SelectorEspacios profesionalId={pro ? Number(pro) : null} servicioId={servicio ? Number(servicio) : null} valor={inicio} alCambiar={alElegir} />
+        <SelectorEspacios profesionalId={pro ? Number(pro) : null} servicioId={servicio ? Number(servicio) : null} duracionMin={duracion ? Number(duracion) : undefined} valor={inicio} alCambiar={alElegir} />
         <Boton className="mt-4" disabled={!elegido || !inicio || agendar.isPending}
-          onClick={() => elegido && inicio && agendar.mutate({ paciente_id: elegido.id, profesional_id: Number(pro), servicio_id: Number(servicio), inicio })}>
+          onClick={() => elegido && inicio && agendar.mutate({ paciente_id: elegido.id, profesional_id: Number(pro), servicio_id: Number(servicio), inicio, ...(duracion ? { duracion_min: Number(duracion) } : {}) })}>
           Agendar cita{inicio ? ` · ${fechaHora(inicio)}` : ""}
         </Boton>
       </Paso>

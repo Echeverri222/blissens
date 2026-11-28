@@ -17,7 +17,7 @@ def setup_three(conn):
 
 
 def free_slot(conn, pro, day=1, hhmm="14:00"):
-    return slots.register_slot(conn, pro, agenda.rng(at(day, hhmm), 30), None, "cancelacion")
+    return slots.register_slot(conn, pro, agenda.rng(at(day, hhmm), 45), None, "cancelacion")
 
 
 def test_offer_goes_to_farthest_appointment_first(conn):
@@ -106,7 +106,7 @@ def test_two_simultaneous_accepts_only_one_wins(conn, conn2):
     conn.commit()
     assert slots.accept(conn2, o1) is False  # ya no está pendiente
     assert conn2.execute("select count(*) n from cita where rango && %s and estado<>'cancelada' and estado<>'reprogramada'",
-                         (agenda.rng(at(0, "14:00"), 30),)).fetchone()["n"] == 1
+                         (agenda.rng(at(0, "14:00"), 45),)).fetchone()["n"] == 1
 
 
 def test_slot_taken_by_normal_booking_closes_as_occupied(conn):
@@ -124,7 +124,7 @@ def test_slot_taken_by_normal_booking_closes_as_occupied(conn):
 
 def test_unfilled_slot_closes_as_empty(conn):
     pro, _, _ = setup_three(conn)
-    cupo = slots.register_slot(conn, pro, agenda.rng(at(1, "14:00"), 30), None, "cancelacion")
+    cupo = slots.register_slot(conn, pro, agenda.rng(at(1, "14:00"), 45), None, "cancelacion")
     clock.advance(timedelta(days=1, hours=7))
     tasks.cycle(conn)
     assert conn.execute("select estado from cupo_liberado where id=%s", (cupo,)).fetchone()["estado"] == "vacio"
@@ -151,7 +151,7 @@ def test_candidate_rules(conn):
 
 def test_slot_with_less_than_min_lead_is_registered_but_not_offered(conn):
     pro, _, _ = setup_three(conn)
-    cupo = slots.register_slot(conn, pro, agenda.rng(NOW + timedelta(minutes=90), 30), None, "cancelacion")
+    cupo = slots.register_slot(conn, pro, agenda.rng(NOW + timedelta(minutes=90), 45), None, "cancelacion")
     assert conn.execute("select count(*) n from oferta_adelanto").fetchone()["n"] == 0
     assert conn.execute("select estado from cupo_liberado where id=%s", (cupo,)).fetchone()["estado"] == "abierto"
 

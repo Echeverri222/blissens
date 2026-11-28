@@ -511,6 +511,27 @@ def test_auxiliar_books_and_slot_conflicts_return_409(mundo, conn):
     assert dias and all(h.endswith("-05:00") for h in dias[0]["horas"])
 
 
+def test_auxiliar_cambia_la_duracion_de_una_cita_y_el_cruce_lo_impide_la_base(mundo, conn):
+    body = {"paciente_id": mundo.p1, "profesional_id": mundo.pro1, "servicio_id": svc(conn), "inicio": at(2, "09:00").isoformat()}
+    r = mundo.aux.post(f"{API}/citas", json={**body, "duracion_min": 90})
+    assert r.status_code == 201
+    rango_ = conn.execute("select upper(rango) - lower(rango) d from cita where id=%s", (r.json()["cita_id"],)).fetchone()["d"]
+    assert rango_ == timedelta(minutes=90)
+    # sin duración, la del servicio (valoración: 45 min); la cita de 90 min ocupa hasta las 10:30
+    assert mundo.aux.post(f"{API}/citas", json={**body, "paciente_id": mundo.p2, "inicio": at(2, "10:00").isoformat()}
+                          ).json()["codigo"] == "espacio_ocupado"
+    ok_ = mundo.aux.post(f"{API}/citas", json={**body, "paciente_id": mundo.p2, "inicio": at(2, "10:30").isoformat()})
+    assert ok_.status_code == 201
+    assert conn.execute("select upper(rango) - lower(rango) d from cita where id=%s", (ok_.json()["cita_id"],)).fetchone()["d"] == timedelta(minutes=45)
+    # fuera de rango o fuera de paso: 422
+    for mala in (10, 250, 50):
+        r = mundo.aux.post(f"{API}/citas", json={**body, "inicio": at(3, "09:00").isoformat(), "duracion_min": mala})
+        assert r.status_code == 422, mala
+    # los espacios respetan la duración pedida: una de 240 min no cabe a las 11:00 (cierra a las 12:00)
+    horas = mundo.aux.get(f"{API}/espacios?profesional_id={mundo.pro1}&servicio_id={svc(conn)}&dias=3&duracion_min=240").json()["dias"]
+    assert horas and all(h[11:16] in ("08:00", "13:00") for d in horas for h in d["horas"])
+
+
 def test_patients_search_create_and_full_record(mundo, conn):
     nuevo = {"nombres": "Rosa", "apellidos": "Mejía", "documento": "555.666", "celular": "300 111 2233", "consentimiento": True}
     r = mundo.aux.post(f"{API}/pacientes", json=nuevo)

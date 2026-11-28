@@ -60,13 +60,14 @@ function Ayuda({ children }: { children: ReactNode }) {
   );
 }
 
-function Clave({ titulo, valor, anterior, mejorSiSube, ayuda, meta }: { titulo: string; valor: number | null; anterior: number | null | undefined; mejorSiSube: boolean; ayuda: string; meta?: Limite }) {
+function Clave({ titulo, valor, anterior, mejorSiSube, ayuda, meta, nota }: { nota?: string; titulo: string; valor: number | null; anterior: number | null | undefined; mejorSiSube: boolean; ayuda: string; meta?: Limite }) {
   return (
     <Tarjeta className="p-4">
       <p className="text-sm text-tinta-suave">{titulo}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{pct(valor)}</p>
       <Delta actual={valor} anterior={anterior} mejorSiSube={mejorSiSube} />
       <Meta valor={valor} meta={meta} formato={pctMeta} />
+      {nota && <p className="mt-1 text-xs text-tinta-suave">{nota}</p>}
       <Ayuda>{ayuda}</Ayuda>
     </Tarjeta>
   );
@@ -178,7 +179,7 @@ export function Indicadores() {
               <Link to="/bandejas?b=sin-desenlace" className="font-medium underline">Cerrarlas</Link></Aviso>)}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
             <DineroPerdido s={s} sinValores={!!servs.data && servs.data.every((x) => x.valor === null)} administra={sesion.administrador} meta={metaDe(s.metas, "dinero_perdido", "max")} />
-            <Clave titulo="Inasistencia" valor={s.inasistencia} anterior={s.anterior?.inasistencia} mejorSiSube={false} meta={metaDe(s.metas, "inasistencia", "max")} ayuda="No asistió ÷ (atendidas + no asistió). Menos es mejor." />
+            <Clave titulo="Inasistencia" valor={s.inasistencia} anterior={s.anterior?.inasistencia} mejorSiSube={false} meta={metaDe(s.metas, "inasistencia", "max")} nota={s.inasistencia_por_depurar > 0 ? `Si las ${s.inasistencia_por_depurar} citas sin cerrar fueron inasistencias: ${pct(s.inasistencia_con_pendientes)}` : undefined} ayuda="No asistió ÷ (atendidas + no asistió). Menos es mejor." />
             <Clave titulo="Asistencia" valor={s.asistencia} anterior={s.anterior?.asistencia} mejorSiSube meta={metaDe(s.metas, "asistencia", "min")} ayuda="Atendidas ÷ (atendidas + no asistió + canceladas). No cuenta las reprogramadas ni las que aún no tienen desenlace." />
             <Clave titulo="Confirmación" valor={s.confirmacion} anterior={s.anterior?.confirmacion} mejorSiSube meta={metaDe(s.metas, "confirmacion", "min")} ayuda="Citas que el paciente confirmó ÷ citas con recordatorio enviado." />
           </div>

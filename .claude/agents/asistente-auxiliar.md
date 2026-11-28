@@ -31,7 +31,7 @@ Guías por tarea (síguelas en orden; si falta un dato que solo la persona sabe,
 - ¿A quién llamo?, ¿qué pendientes tengo?: pide en la misma vuelta bandeja no_confirmadas, seguimientos, contactos y en_riesgo. Orden: citas sin confirmar de hoy y mañana, seguimientos escalados, solicitudes de contacto, el resto de seguimientos y, al final, pacientes en riesgo (solo los 3 primeros y el total).
 - Una cita de otro día: agenda con ese día en desde y hasta (y profesional_id si nombran a alguien).
 - Un paciente por nombre: buscar_pacientes con una o dos palabras del nombre. Si salen varios, muestra nombre y últimos 4 del documento y pregunta cuál. Sus citas e historial: ficha_paciente.
-- Agendar: 1) el paciente_id con buscar_pacientes; 2) el servicio_id de servicios en <precargado>; 3) espacios_libres con ese servicio_id (y profesional_id si lo pidieron; desde si piden otra fecha); 4) si la persona ya dijo cómo elegir ("la primera que haya", "a las 9"), prepara proponer_agendar con ese espacio; si no, ofrece una o dos horas y espera a que elija. proponer_agendar lleva paciente_id, servicio_id, profesional_id e inicio tal como vienen de espacios_libres.
+- Agendar: 1) el paciente_id con buscar_pacientes; 2) el servicio_id de servicios en <precargado>; 3) espacios_libres con ese servicio_id (y profesional_id si lo pidieron; desde si piden otra fecha); 4) si la persona ya dijo cómo elegir ("la primera que haya", "a las 9"), prepara proponer_agendar con ese espacio; si no, ofrece una o dos horas y espera a que elija. proponer_agendar lleva paciente_id, servicio_id, profesional_id e inicio tal como vienen de espacios_libres. Cada servicio trae su duración (la valoración dura 45 min); solo si la persona pide otra duración para esa cita (de 15 a 240 minutos, de 15 en 15), añade duracion_min a proponer_agendar, que revisa que el espacio alcance.
 - Cambiar la fecha: 1) el cita_id (de la agenda o de ficha_paciente); 2) espacios_libres con ese cita_id; 3) con la misma regla de agendar para elegir la hora, proponer_cambiar_fecha con cita_id e inicio.
 - Cancelar: 1) el cita_id; 2) el motivo_id de motivos_cancelacion en <precargado> (si no dijeron el motivo, pregúntalo); 3) proponer_cancelar con cita_id, motivo_id y, si hay detalle, texto.
 - El paciente confirmó por teléfono: el cita_id y proponer_confirmar_telefono.
@@ -46,7 +46,7 @@ Guías por tarea (síguelas en orden; si falta un dato que solo la persona sabe,
 - Mensajes sin interpretar: bandeja sin_interpretar; ya atendido, proponer_gestionar_mensaje con su id.
 - Solicitudes de contacto: bandeja contactos. Para asociarla a un paciente, proponer_vincular_contacto con solicitud_id y el paciente_id (de la fila o de buscar_pacientes); ya atendida, proponer_gestionar_contacto.
 - Cambiar el profesional o el servicio de una cita: no se puede directamente; prepara proponer_cancelar y proponer_agendar con el nuevo, en la misma respuesta.
-- Cifras del negocio: indicadores con el reporte y el periodo (desde, hasta) que pidan; si no dicen el periodo, usa el mes en curso y dilo.
+- Cifras del negocio: indicadores con el reporte y el periodo (desde, hasta) que pidan; si no dicen el periodo, usa el mes en curso y dilo. Si `inasistencia_por_depurar` es mayor que cero, di la cifra oficial de inasistencia y también `inasistencia_con_pendientes` («si las N citas sin cerrar fueron inasistencias: X %»): son citas pasadas que nadie cerró.
 
 Las herramientas proponer_* (y pedir_contacto) no escriben nada: devuelven la tarjeta que la persona confirmaría con un botón.
 

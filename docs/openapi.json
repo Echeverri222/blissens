@@ -1618,6 +1618,26 @@
               "default": 21,
               "title": "Dias"
             }
+          },
+          {
+            "name": "duracion_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 240,
+                  "minimum": 15
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Duración de la cita si no es la del servicio.",
+              "title": "Duracion Min"
+            },
+            "description": "Duración de la cita si no es la del servicio."
           }
         ],
         "responses": {
@@ -11683,6 +11703,20 @@
             "type": "string",
             "format": "date-time",
             "title": "Inicio"
+          },
+          "duracion_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 240.0,
+                "minimum": 15.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duracion Min",
+            "description": "Minutos de esta cita (15 a 240, de 15 en 15). Sin él, la duración del servicio."
           }
         },
         "additionalProperties": false,
@@ -12312,6 +12346,23 @@
             ],
             "title": "Inasistencia"
           },
+          "inasistencia_por_depurar": {
+            "type": "integer",
+            "title": "Inasistencia Por Depurar",
+            "description": "Citas pasadas que siguen vivas (programadas, confirmadas o sin confirmar), con o sin hora: posibles inasistencias sin cerrar."
+          },
+          "inasistencia_con_pendientes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inasistencia Con Pendientes",
+            "description": "(No asistió + por depurar) ÷ (atendidas + no asistió + por depurar): la inasistencia si todas las citas sin cerrar hubieran sido inasistencias."
+          },
           "cancelaciones": {
             "type": "integer",
             "title": "Cancelaciones"
@@ -12453,6 +12504,8 @@
           "atencion_efectiva",
           "asistencia",
           "inasistencia",
+          "inasistencia_por_depurar",
+          "inasistencia_con_pendientes",
           "cancelaciones",
           "cancelaciones_tardias",
           "cancelaciones_recuperadas",
@@ -12554,6 +12607,23 @@
               }
             ],
             "title": "Inasistencia"
+          },
+          "inasistencia_por_depurar": {
+            "type": "integer",
+            "title": "Inasistencia Por Depurar",
+            "description": "Citas pasadas que siguen vivas (programadas, confirmadas o sin confirmar), con o sin hora: posibles inasistencias sin cerrar."
+          },
+          "inasistencia_con_pendientes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inasistencia Con Pendientes",
+            "description": "(No asistió + por depurar) ÷ (atendidas + no asistió + por depurar): la inasistencia si todas las citas sin cerrar hubieran sido inasistencias."
           },
           "cancelaciones": {
             "type": "integer",
@@ -12743,6 +12813,8 @@
           "atencion_efectiva",
           "asistencia",
           "inasistencia",
+          "inasistencia_por_depurar",
+          "inasistencia_con_pendientes",
           "cancelaciones",
           "cancelaciones_tardias",
           "cancelaciones_recuperadas",
