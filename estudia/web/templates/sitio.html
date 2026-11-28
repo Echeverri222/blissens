@@ -1,9 +1,14 @@
 {% extends "base.html" %}
+{% block robots %}<meta name="robots" content="index, follow, max-image-preview:large">{% endblock %}
+{% block cabecera %}{% include "_cabecera.html" %}{% endblock %}
 {% block head %}
   <link rel="canonical" href="{{ base_url }}{{ t.home }}">
   <link rel="alternate" hreflang="es" href="{{ base_url }}/">
   <link rel="alternate" hreflang="en" href="{{ base_url }}/en">
   <link rel="alternate" hreflang="x-default" href="{{ base_url }}/">
+  <meta property="og:url" content="{{ base_url }}{{ t.home }}">
+  <meta property="og:locale:alternate" content="{{ 'en_US' if lang == 'es' else 'es_CO' }}">
+  <script type="application/ld+json">{{ json_ld | tojson }}</script>
 {% endblock %}
 {% block pie %}{% include "_pie.html" %}{% endblock %}
 {% block body_class %}landing{% endblock %}
@@ -44,7 +49,7 @@
       <h2 id="emo-t" class="titulo rev">{{ t.emocion.titulo }}</h2>
       <p class="rev">{{ t.emocion.texto }}</p>
     </div>
-    <figure class="foto rev"><img src="/static/sitio/{{ sitio.IMAGENES.equipo }}" width="700" height="810" loading="lazy" alt="{{ t.emocion.alt }}"></figure>
+    <figure class="foto rev"><img src="/static/sitio/{{ sitio.IMAGENES.equipo }}" width="700" height="810" loading="lazy" decoding="async" alt="{{ t.emocion.alt }}"></figure>
   </div>
 </section>
 
@@ -55,13 +60,13 @@
       <ol class="pasos3 rev">{% for p in t.confort.pasos %}<li><span class="num">{{ loop.index }}</span>{{ p }}</li>{% endfor %}</ol>
       <p class="rev claro">{{ t.confort.texto }}</p>
     </div>
-    <div class="sello rev" aria-hidden="true"><img src="/static/sitio/{{ sitio.IMAGENES.confort }}" width="646" height="658" loading="lazy" alt=""></div>
+    <div class="sello rev" aria-hidden="true"><img src="/static/sitio/{{ sitio.IMAGENES.confort }}" width="646" height="658" loading="lazy" decoding="async" alt=""></div>
   </div>
 </section>
 
 <section class="sec sec--blanca" id="servicios" aria-labelledby="serv-t">
   <div class="contenedor dos">
-    <figure class="foto foto--ancha rev"><img src="/static/sitio/{{ sitio.IMAGENES.servicios }}" width="1074" height="805" loading="lazy" alt="{{ t.servicios.alt }}"></figure>
+    <figure class="foto foto--ancha rev"><img src="/static/sitio/{{ sitio.IMAGENES.servicios }}" width="1074" height="805" loading="lazy" decoding="async" alt="{{ t.servicios.alt }}"></figure>
     <div class="dos__texto">
       <p class="kicker kicker--oscuro rev">{{ t.servicios.kicker }}</p>
       <h2 id="serv-t" class="titulo rev">{{ t.servicios.titulo }}</h2>
@@ -101,8 +106,8 @@
       {% set n = loop.index %}
       <figure class="caso rev">
         <div class="ba" style="--pos:50%">
-          <img class="ba__img" src="/static/sitio/caso-{{ n }}-despues.svg" width="800" height="600" loading="lazy" alt="{{ t.antes.despues }} · {{ etiqueta }} ({{ t.antes.ejemplo }})">
-          <img class="ba__img ba__antes" src="/static/sitio/caso-{{ n }}-antes.svg" width="800" height="600" loading="lazy" alt="">
+          <img class="ba__img" src="/static/sitio/caso-{{ n }}-despues.svg" width="800" height="600" loading="lazy" decoding="async" alt="{{ t.antes.despues }} · {{ etiqueta }} ({{ t.antes.ejemplo }})">
+          <img class="ba__img ba__antes" src="/static/sitio/caso-{{ n }}-antes.svg" width="800" height="600" loading="lazy" decoding="async" alt="">
           <span class="ba__tag ba__tag--a" aria-hidden="true">{{ t.antes.antes }}</span>
           <span class="ba__tag ba__tag--d" aria-hidden="true">{{ t.antes.despues }}</span>
           <span class="ba__linea" aria-hidden="true"></span>
@@ -126,7 +131,7 @@
     <div class="paquetes">
       {% for clave, nombre, tipo, img in t.experiencias.paquetes %}
       <article class="paquete rev">
-        <img src="/static/sitio/{{ img }}" width="460" height="460" loading="lazy" alt="">
+        <img src="/static/sitio/{{ img }}" width="460" height="460" loading="lazy" decoding="async" alt="">
         <div class="paquete__pie">
           <div><h3>{{ nombre }}</h3><p>{{ tipo }}</p></div>
           <button class="boton boton--blanco boton--chico" type="button" data-paquete="{{ clave }}" aria-label="{{ t.experiencias.elegir }} {{ nombre }}">{{ t.experiencias.elegir }}</button>
@@ -146,7 +151,7 @@
     <h2 id="eq-t" class="titulo centrado rev">{{ t.equipo.titulo }}</h2>
     <ul class="equipo">
       {% for nombre, cargo, img, w, h in t.equipo.personas %}
-      <li class="persona rev"><img src="/static/sitio/{{ img }}" width="{{ w }}" height="{{ h }}" loading="lazy" alt="{{ nombre }}"><div class="persona__pie"><h3>{{ nombre }}</h3><p>{{ cargo }}</p></div></li>
+      <li class="persona rev"><img src="/static/sitio/{{ img }}" width="{{ w }}" height="{{ h }}" loading="lazy" decoding="async" alt="{{ nombre }}"><div class="persona__pie"><h3>{{ nombre }}</h3><p>{{ cargo }}</p></div></li>
       {% endfor %}
     </ul>
   </div>
@@ -160,7 +165,7 @@
       <p class="rev claro">{{ t.agendar.texto }}</p>
       <ol class="migas rev" aria-hidden="true"><li class="on">1</li><li>2</li><li>3</li></ol>
     </div>
-    <div class="panel-form rev">
+    <div class="panel-form panel-form--acento rev">
       <h3>{{ t.agendar.paso1 }}</h3>
       {% set nuevo = None %}{% include "_identificar.html" %}
     </div>

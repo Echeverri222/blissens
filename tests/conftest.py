@@ -30,6 +30,22 @@ def _schema():
     migrate.run(ADMIN)
 
 
+@pytest.fixture(autouse=True)
+def _reset_limites():
+    from estudia.api import operacion
+    from estudia.web import app as web
+
+    def _limpiar():
+        operacion.limite_login.reiniciar()
+        operacion.limite_cambio_clave.reiniciar()
+        web.limite_solicitudes.reiniciar()
+        web.reiniciar_limites_identificacion()
+
+    _limpiar()
+    yield
+    _limpiar()
+
+
 def vaciar():
     """Deja la base vacía (solo el negocio Blissens, tal como lo crea la migración)."""
     a = db.connect_admin(ADMIN)

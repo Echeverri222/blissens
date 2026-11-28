@@ -125,17 +125,22 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
 
     now = clock.now(conn)
     shown = text or ""
+    matched = False
     if button_id:
         # El celular es del hogar: el botón puede ser de un mensaje que se le envió a un familiar. La respuesta queda
         # registrada en quien recibió ese mensaje.
         hogar = familia.hogar(conn, patient_id)[1]
-        for m in conn.execute("select id, paciente_id, botones from mensaje where paciente_id = any(%s) "
-                              "and direccion='saliente' order by id desc limit 60", (hogar,)):
-            for b in m["botones"]:
-                if b["id"] == button_id:
+        for m in conn.execute(
+            "select id, paciente_id, botones from mensaje where paciente_id = any(%s) "
+            "and direccion='saliente' and estado_entrega='entregado' order by id desc limit 60",
+            (hogar,),
+        ):
+            for b in m["botones"] or []:
+                if isinstance(b, dict) and b.get("id") == button_id:
                     shown = b["title"]
                     patient_id = m["paciente_id"]
                     conn.execute("update mensaje set respuesta=%s where id=%s", (button_id, m["id"]))
+                    matched = True
                     break
             else:
                 continue
@@ -143,15 +148,14 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
     mid = conn.execute(
         "insert into mensaje(paciente_id, direccion, canal, texto, respuesta, momento, gestionado, id_externo) "
         "values (%s,'entrante',%s,%s,%s,%s,%s,%s) returning id",
-        (patient_id, channel, shown, button_id, now, button_id is not None, id_externo),
+        (patient_id, channel, shown, button_id, now, matched, id_externo),
     ).fetchone()["id"]
     if button_id:
-        prefix, *parts = button_id.split(":")
-        fn = ROUTES.get(prefix)
-        if fn is None:
-            conn.execute("update mensaje set gestionado=false where id=%s", (mid,))
-        else:
-            fn(conn, patient_id, parts, mid)
+        if matched:
+            prefix, *parts = button_id.split(":")
+            fn = ROUTES.get(prefix)
+            if fn is None or fn(conn, patient_id, parts, mid) is False:
+                conn.execute("update mensaje set gestionado=false where id=%s", (mid,))
     elif normalize_word(shown) == "baja":
         # el celular es del hogar: la baja vale para todos sus miembros
         conn.execute("update paciente set acepta_mensajes=false where id = any(%s)",

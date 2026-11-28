@@ -8253,45 +8253,6 @@
           }
         }
       }
-    },
-    "/tick": {
-      "post": {
-        "summary": "Tick",
-        "description": "Ejecuta el mismo ciclo que el trabajador (para un programador externo, como `pg_cron`).",
-        "operationId": "tick_tick_post",
-        "parameters": [
-          {
-            "name": "x-tick-secreto",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Tick-Secreto"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -8941,10 +8902,14 @@
         "properties": {
           "actual": {
             "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
             "title": "Actual"
           },
           "nueva": {
             "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
             "title": "Nueva"
           }
         },
@@ -9880,10 +9845,14 @@
         "properties": {
           "usuario": {
             "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
             "title": "Usuario"
           },
           "clave": {
             "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
             "title": "Clave"
           }
         },

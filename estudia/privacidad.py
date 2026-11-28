@@ -45,8 +45,22 @@ def _conversaciones_del_asistente(conn, paciente_id: int) -> list[dict]:
 
 def anonimizar_paciente(conn, paciente_id: int) -> None:
     """Borra lo que identifica a la persona y conserva los hechos de sus citas para los indicadores."""
-    if not conn.execute("select 1 from paciente where id=%s", (paciente_id,)).fetchone():
+    previo = conn.execute("select documento, celular, responsable_id from paciente where id=%s", (paciente_id,)).fetchone()
+    if not previo:
         raise permisos.NoExiste("No existe ese paciente")
+    documento, celular = previo["documento"], previo["celular"]
+    # Solicitudes de contacto: por su documento; por su celular solo si ningún otro paciente (p. ej. su hogar) lo comparte.
+    if documento:
+        conn.execute("delete from solicitud_contacto where documento=%s", (documento,))
+        # familia.agregar deja el documento de quien lo pidió en la nota de la solicitud de otra persona
+        conn.execute("delete from solicitud_contacto where nota like %s", (f"%(documento {documento})%",))
+    if celular and not conn.execute("select 1 from paciente where celular=%s and id<>%s limit 1", (celular, paciente_id)).fetchone():
+        conn.execute("delete from solicitud_contacto where celular=%s", (celular,))
+    conn.execute("update cancelacion set texto_libre=null where cita_id in (select id from cita where paciente_id=%s)",
+                 (paciente_id,))
+    conn.execute("update intento set detalle='' where caso_id in (select id from caso_seguimiento where paciente_id=%s)",
+                 (paciente_id,))
+    conn.execute("update paciente set consentimiento_por=null where consentimiento_por=%s", (paciente_id,))
     conn.execute(
         "update paciente set nombres=%s, apellidos='', documento=null, celular=null, correo=null, fecha_nacimiento=null, "
         "external_id=null, acepta_mensajes=false, acepta_correo=false, consentimiento_correo_en=null, internacional=false, "

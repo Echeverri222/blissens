@@ -26,12 +26,12 @@ export function Leyenda() {
         <div role="group" aria-label="Significado de los colores" className="absolute left-0 top-full z-30 mt-1 w-64 space-y-1.5 rounded-xl border border-linea bg-papel p-3 shadow-lg">
           {(Object.keys(ESTADOS) as Estado[]).map((e) => (
             <p key={e} className="flex items-center gap-2 text-sm">
-              <span className={cn("inline-flex size-6 items-center justify-center rounded border-l-4", ESTADOS[e].clases, ESTADOS[e].borde)}><IconoEstado estado={e} /></span>
+              <span className={cn("inline-flex size-6 items-center justify-center rounded-md border", ESTADOS[e].clases, ESTADOS[e].borde)}><IconoEstado estado={e} /></span>
               {ESTADOS[e].texto}
             </p>
           ))}
           <p className="flex items-center gap-2 border-t border-linea pt-1.5 text-sm">
-            <span className="inline-flex size-6 items-center justify-center rounded border-l-4 border-zinc-400 bg-zinc-100 text-zinc-700" />
+            <span className="inline-flex size-6 items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 text-zinc-700" />
             Pasada y por cerrar
           </p>
         </div>

@@ -4,10 +4,10 @@ import re
 import secrets
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, FastAPI, Form, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -24,6 +24,7 @@ from .. import (
     links,
     logs,
     messaging,
+    privacidad,
     settings,
     tasks,
     usuarios,
@@ -32,7 +33,7 @@ from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
 from ..lifecycle import ALIVE
-from . import copia
+from . import copia, seo
 from .limite import LimiteVentana
 from .panel import router as panel_router
 
@@ -156,6 +157,8 @@ def conn_simulador(request: Request):
             raise HTTPException(401, "Inicia sesión como auxiliar en el panel para usar el simulador.")
         if u["rol"] != "auxiliar":
             raise HTTPException(403, "El simulador es solo para recepción.")
+        if u.get("debe_cambiar_clave"):
+            raise HTTPException(403, "Cambia tu clave antes de usar el simulador.")
         request.state.negocio = conn.execute("select * from negocio where id=%s", (u["negocio_id"],)).fetchone()
         request.state.prefijo = ""
     except Exception:
@@ -164,9 +167,26 @@ def conn_simulador(request: Request):
     yield from _con_conexion(conn)
 
 
+def mismo_origen(request: Request) -> None:
+    """Los POST del simulador solo valen desde esta misma página (defensa contra CSRF además de SameSite)."""
+    if request.headers.get("sec-fetch-site", "").lower() == "cross-site":
+        raise HTTPException(403, "Origen no permitido")
+    origen = request.headers.get("origin")
+    if origen and origen != "null" and urlparse(origen).netloc != request.headers.get("host", ""):
+        raise HTTPException(403, "Origen no permitido")
+    if origen == "null":
+        raise HTTPException(403, "Origen no permitido")
+
+
 def patient_from_token(conn, token: str) -> dict:
     pid = links.read_token(token, config.get(conn, "vigencia_enlace_dias"))
     p = conn.execute("select * from paciente where id=%s", (pid,)).fetchone() if pid else None
+    if p is not None and p["documento"] is None and p["nombres"] == privacidad.ANONIMO:
+        p = None  # anonimizado: sus enlaces dejan de servir (hay pacientes importados sin documento que sí son reales)
+    if p is not None:
+        huella = links.huella_del_token(token, config.get(conn, "vigencia_enlace_dias"))
+        if huella is not None and huella != links.huella_celular(p["celular"]):
+            p = None
     if p is None:
         raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
     return p
@@ -189,10 +209,42 @@ def render(request, name, status_code: int = 200, **ctx):
 
 # 5 solicitudes del sitio por IP cada 10 minutos (en memoria: se reinicia con el proceso y no se comparte entre procesos).
 limite_solicitudes = LimiteVentana(maximo=5, segundos=600)
+# Identificación y alta de familiares (enumeración de documentos): por IP y por documento, 10 minutos. El cupo del
+# documento solo se gasta con intentos que no coinciden: así nadie puede bloquearle la entrada al paciente real.
+limite_identificacion = LimiteVentana(maximo=15, segundos=600)
+limite_documento = LimiteVentana(maximo=10, segundos=600)
+
+
+def reiniciar_limites_identificacion() -> None:
+    limite_identificacion.reiniciar()
+    limite_documento.reiniciar()
+
+
+def _identificacion_permitida(request: Request, documento: str | None = None) -> bool:
+    """Cuenta el intento y dice si todavía cabe en la cuota de la IP (y del documento, si se pasa)."""
+    ip = _ip_cliente(request)
+    ok = limite_identificacion.disponible(ip) and (documento is None or limite_documento.disponible(documento or "-"))
+    if ok:
+        limite_identificacion.registrar(ip)
+        if documento is not None:
+            limite_documento.registrar(documento or "-")
+    return ok
+
+
+def _fallo_de_documento_permitido(documento: str) -> bool:
+    """Un intento con un documento que existe pero otro celular: gasta el cupo de ese documento."""
+    if not limite_documento.disponible(documento):
+        return False
+    limite_documento.registrar(documento)
+    return True
+
 
 def _landing(request, lang: str):
     """Texto estático: no abre conexión a la base de datos, así que la landing sirve aunque falte el negocio."""
-    return render(request, "sitio.html", lang=lang, values={}, error=None, hecho=False)
+    return render(
+        request, "sitio.html", lang=lang, values={}, error=None, hecho=False,
+        json_ld=seo.json_ld(settings.BASE_URL.rstrip("/"), lang),
+    )
 
 
 @publico.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -204,6 +256,21 @@ def inicio(request: Request):
 @publico.get("/en", response_class=HTMLResponse, include_in_schema=False)
 def inicio_en(request: Request):
     return _landing(request, "en")
+
+
+@publico.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+def robots_txt():
+    return PlainTextResponse(seo.robots_txt(settings.BASE_URL))
+
+
+@publico.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    return Response(seo.sitemap_xml(settings.BASE_URL), media_type="application/xml; charset=utf-8")
+
+
+@publico.get("/llms.txt", response_class=PlainTextResponse, include_in_schema=False)
+def llms_txt():
+    return PlainTextResponse(seo.llms_txt(settings.BASE_URL))
 
 
 def _ip_cliente(request: Request) -> str:
@@ -303,12 +370,18 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
     if not documento or not phone:
         return pagina(error=i["err_datos"],
                       nuevo=None, values=values)
+    def limite():
+        return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, nuevo=None, values=values,
+                      error=copia.COPIA[lang]["form"]["err_limite"], status_code=429)
+    if not _identificacion_permitida(request):
+        return limite()
     p = conn.execute("select * from paciente where documento=%s", (documento,)).fetchone()
     if p and p["celular"] == phone:
-        return ir(f"/p/{links.make_token(p['id'], conn=conn)}")
+        return ir(f"/p/{links.make_token(p['id'], conn=conn, celular=p['celular'])}")
+    if p and not _fallo_de_documento_permitido(documento):
+        return limite()
     if p:  # No se revela nada: la clínica lo contactará y el caso aparece en el panel.
-        conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
-                     (documento, phone, "Documento ya registrado con otro celular", clock.now(conn)))
+        familia.solicitar_contacto(conn, documento, phone, "Documento ya registrado con otro celular")
         return render(request, "_contacto.html" if hx else "contacto.html", lang=lang)
     if not nombres.strip():
         return pagina(error=None, nuevo=True, values=values)
@@ -330,7 +403,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
          now, en_ingles, "sitio_en" if en_ingles else None, now if en_ingles else None)).fetchone()["id"]
     if correo.strip():
         correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
-    return ir(f"/p/{links.make_token(pid, conn=conn)}/nueva")
+    return ir(f"/p/{links.make_token(pid, conn=conn, celular=phone)}/nueva")
 
 
 # ----------------------------------------------------------------- Mis citas
@@ -416,6 +489,10 @@ def familia_agregar(request: Request, token: str, documento: str = Form(""), nom
     p = patient_from_token(conn, token)
     values = {"documento": documento, "nombres": nombres, "apellidos": apellidos, "nacimiento": nacimiento,
               "parentesco": parentesco}
+    if not _identificacion_permitida(request, "".join(ch for ch in documento if ch.isdigit())):
+        return render(request, "familia.html", p=p, token=token, error=copia.COPIA["es"]["form"]["err_limite"],
+                      values=values, parentescos=familia.PARENTESCOS, responsable=familia.responsable_de(conn, p),
+                      status_code=429)
     try:
         fid, ya_estaba = familia.agregar(conn, p, documento, nombres, apellidos, nacimiento, parentesco, bool(consentimiento))
     except familia.DatosInvalidos as e:
@@ -690,7 +767,7 @@ def burbujas(request: Request, patient_id: int, conn=Depends(conn_simulador)):
     return render(request, "_burbujas.html", chat=_chat_ctx(conn, patient_id))
 
 
-@sim.post("/simulador/boton", response_class=HTMLResponse)
+@sim.post("/simulador/boton", response_class=HTMLResponse, dependencies=[Depends(mismo_origen)])
 def boton(request: Request, paciente: int = Form(...), boton: str = Form(...), conn=Depends(conn_simulador)):
     messaging.receive(conn, paciente, button_id=boton)
     conn.commit()
@@ -698,13 +775,13 @@ def boton(request: Request, paciente: int = Form(...), boton: str = Form(...), c
     return RedirectResponse(f"/simulador?paciente={paciente}", status_code=303)
 
 
-@sim.post("/simulador/texto", response_class=HTMLResponse)
+@sim.post("/simulador/texto", response_class=HTMLResponse, dependencies=[Depends(mismo_origen)])
 def texto(request: Request, paciente: int = Form(...), texto: str = Form(...), conn=Depends(conn_simulador)):
     messaging.receive(conn, paciente, text=texto)
     return RedirectResponse(f"/simulador?paciente={paciente}", status_code=303)
 
 
-@sim.post("/simulador/reloj", response_class=HTMLResponse)
+@sim.post("/simulador/reloj", response_class=HTMLResponse, dependencies=[Depends(mismo_origen)])
 def reloj(request: Request, accion: str = Form(...), paciente: int | None = Form(None), cita: int | None = Form(None),
           conn=Depends(conn_simulador)):
     if accion == "1h":
@@ -727,15 +804,29 @@ def reloj(request: Request, accion: str = Form(...), paciente: int | None = Form
 
 # ----------------------------------------------------------------- Operación
 
+MAX_CUERPO_WEBHOOK = 256 * 1024
+
+
 @canal_entrante.post("/canales/{tipo}/webhook", include_in_schema=False)
 async def webhook_canal(tipo: str, request: Request):
     """Entrada de mensajes de un proveedor: se resuelve el negocio por el canal, se verifica la firma con el secreto
     de ESE canal, se fija el contexto y se procesa como cualquier mensaje entrante (sin repetir reenvíos)."""
     from ..data import normalize_phone
     a = canales.adaptador(tipo)
-    crudo = await request.body()
+    if a is None:
+        raise HTTPException(404, "Canal desconocido")
+    declarado = request.headers.get("content-length", "")
+    if declarado.isdigit() and int(declarado) > MAX_CUERPO_WEBHOOK:
+        raise HTTPException(413, "Cuerpo demasiado grande")
+    trozos, total = [], 0
+    async for trozo in request.stream():
+        total += len(trozo)
+        if total > MAX_CUERPO_WEBHOOK:
+            raise HTTPException(413, "Cuerpo demasiado grande")
+        trozos.append(trozo)
+    crudo = b"".join(trozos)
     cuerpo = canales.cuerpo_json(crudo)
-    if a is None or cuerpo is None:
+    if cuerpo is None:
         raise HTTPException(404, "Canal desconocido")
     id_canal = a.identificar(cuerpo)
     conn = db.connect(negocio=None)
@@ -792,7 +883,7 @@ def exigir_tick(request: Request, x_tick_secreto: str = Header("")) -> None:
         raise HTTPException(401, "Falta el secreto del ciclo de tareas")
 
 
-@operacion.post("/tick")
+@operacion.post("/tick", include_in_schema=False)
 def tick(_=Depends(exigir_tick)):
     """Ejecuta el mismo ciclo que el trabajador (para un programador externo, como `pg_cron`)."""
     return tasks.cycle()
@@ -802,6 +893,39 @@ def tick(_=Depends(exigir_tick)):
 def salud(conn=Depends(get_conn)):
     conn.execute("select 1")
     return {"ok": True}
+
+
+CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; "
+       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+SIN_CACHE = ("/p/", "/correo/baja/", "/api/v1/", "/simulador")
+NOINDEX_NOFOLLOW = ("/p/", "/panel", "/simulador", "/correo/baja/", "/api/", "/sitio/")
+
+
+async def cabeceras_de_seguridad(request: Request, call_next):
+    """Cabeceras de defensa en profundidad en todas las respuestas (H-08)."""
+    resp = await call_next(request)
+    ruta = request.url.path
+    h = resp.headers
+    h["X-Content-Type-Options"] = "nosniff"
+    h["X-Frame-Options"] = "DENY"
+    h["Referrer-Policy"] = "no-referrer"
+    # En `local` Swagger/ReDoc cargan recursos de un CDN: solo ahí se omite la CSP.
+    if not (request.app.state.entorno == "local" and ruta in ("/docs", "/redoc")):
+        h["Content-Security-Policy"] = CSP
+    if settings.BASE_URL.startswith("https://"):
+        h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if ruta.startswith(SIN_CACHE):
+        h["Cache-Control"] = "no-store"
+    elif ruta.startswith("/static/"):
+        if "v" in request.query_params:
+            h["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            h["Cache-Control"] = "public, max-age=604800"
+    if ruta == "/agendar" or ruta.startswith("/agendar/"):
+        h["X-Robots-Tag"] = "noindex, follow"
+    elif ruta.startswith(NOINDEX_NOFOLLOW):
+        h["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
 
 
 def crear_app(entorno: str | None = None, asistente: bool | None = None) -> FastAPI:
@@ -815,11 +939,13 @@ def crear_app(entorno: str | None = None, asistente: bool | None = None) -> Fast
         asistente = settings.asistente_configurado()
     if entorno != "local" and not os.environ.get("PYTEST_CURRENT_TEST"):
         arranque.exigir(entorno)
-    app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas")
+    sin_docs = {} if entorno == "local" else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    app = FastAPI(title="Estud-IA", description="Gestión inteligente de citas", **sin_docs)
     app.state.entorno = entorno
     app.state.asistente = bool(asistente)
     registrar_errores(app)
     logs.instalar(app)
+    app.middleware("http")(cabeceras_de_seguridad)
     app.include_router(api_router)
     if asistente:
         from ..api.asistente import router as asistente_router

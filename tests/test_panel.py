@@ -97,7 +97,7 @@ def test_only_the_latest_movement_is_reversible_and_by_role(mundo, conn):
     assert [h["reversible"] for h in esp] == [False, True]
     aux = mundo.aux.get(f"{API}/citas/{c}").json()["historial"]
     assert [h["reversible"] for h in aux] == [False, True]
-    mundo.esp1.post(f"{API}/historial/{esp[-1]['id']}/revertir")
+    mundo.esp1.post(f"{API}/historial/{esp[-1]['id']}/revertir", json={})
     despues = mundo.aux.get(f"{API}/citas/{c}").json()["historial"]
     assert not any(h["reversible"] for h in despues)
 

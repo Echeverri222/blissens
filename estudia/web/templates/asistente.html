@@ -29,7 +29,7 @@
     <div id="chat-error" role="alert">{% if error %}<p class="error">{{ error }}</p>{% endif %}</div>
     <form id="chat-form" method="post" action="/p/{{ token }}/asistente" hx-post="/p/{{ token }}/asistente" hx-target="#mensajes"
           hx-swap="beforeend" hx-indicator="#escribiendo" hx-disabled-elt="#chat-form button, #chat-form textarea"
-          hx-on::after-request="if (event.detail.successful) this.querySelector('textarea').value = ''">
+          data-limpiar-al-enviar>
       <input type="hidden" id="conversacion" name="conversacion" value="{{ conversacion_id or '' }}">
       <div class="guiados">
         <button type="submit" name="guiado" value="cita" class="outline" formnovalidate>{{ guiados.cita }}</button>
@@ -49,7 +49,7 @@
   <p><a href="/p/{{ token }}">Volver a mis citas</a></p>
   {% if not consent.por_responsable %}
     <form method="post" action="/p/{{ token }}/asistente/consentimiento" style="margin-top:2rem"
-          onsubmit="return confirm('El asistente dejará de funcionar para ti y tu familia. ¿Continuar?')">
+          data-confirmar="El asistente dejará de funcionar para ti y tu familia. ¿Continuar?">
       <input type="hidden" name="accion" value="retirar">
       <button type="submit" class="outline secondary">Retirar mi autorización del asistente</button>
     </form>

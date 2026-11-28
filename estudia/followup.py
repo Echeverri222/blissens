@@ -93,12 +93,20 @@ def exhaust(conn, caso_id: int) -> None:
     conn.execute("update caso_seguimiento set estado='agotado', escalado=true, cerrado_en=%s where id=%s", (now, caso_id))
 
 
-def decline(conn, caso_id: int, user_id: int | None = None) -> None:
+def decline(conn, caso_id: int, user_id: int | None = None, *, patient_id: int | None = None) -> bool:
     """El paciente tocó 'Ahora no' (o la auxiliar lo registró): sin más intentos."""
+    if patient_id is not None:
+        from . import familia
+        _, ids = familia.hogar(conn, patient_id)
+        caso = conn.execute("select id from caso_seguimiento where id=%s and paciente_id = any(%s)",
+                            (caso_id, ids)).fetchone()
+        if caso is None:
+            return False
     now = clock.now(conn)
     conn.execute("update intento set resultado='rechazo' where caso_id=%s and resultado is null", (caso_id,))
     conn.execute("update caso_seguimiento set estado='rechazado', cerrado_en=%s, cerrado_por=%s "
                  "where id=%s and estado='abierto'", (now, user_id, caso_id))
+    return True
 
 
 def register_manual(conn, caso_id: int, resultado: str, detalle: str = "", user_id: int | None = None) -> None:

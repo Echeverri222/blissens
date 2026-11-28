@@ -1,11 +1,12 @@
 """Piezas comunes de la API: errores, autenticación y traducción de errores de dominio."""
 from datetime import datetime
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from .. import agenda, clock, db, horario, lifecycle, pacientes, permisos, usuarios
+from .. import agenda, clock, db, horario, lifecycle, pacientes, permisos, settings, usuarios
 
 PREFIJO = "/api/v1"
 COOKIE = "estudia_sesion"
@@ -86,18 +87,47 @@ def registrar_errores(app: FastAPI) -> None:
         app.add_exception_handler(tipo, _make())
 
 
+def _origen_valido(request: Request) -> bool:
+    sec_fetch = request.headers.get("sec-fetch-site")
+    if sec_fetch and sec_fetch.strip().lower() == "cross-site":
+        return False
+    origin = request.headers.get("origin")
+    if not origin:
+        return True
+    op = urlparse(origin.strip())
+    if not op.scheme or not op.netloc:
+        return False
+    cp = urlparse(settings.BASE_URL)
+    rp = urlparse(str(request.base_url))
+    origin_norm = f"{op.scheme.lower()}://{op.netloc.lower()}"
+    cfg_norm = f"{cp.scheme.lower()}://{cp.netloc.lower()}" if cp.scheme and cp.netloc else ""
+    return origin_norm == cfg_norm or op.netloc.lower() == rp.netloc.lower()
+
+
 def solo_json(request: Request) -> None:
-    """Las peticiones que modifican solo aceptan cuerpo JSON (junto con SameSite=Lax evita envíos desde otros sitios)."""
+    """Las peticiones que modifican validan origen y aceptan cuerpo JSON (junto con SameSite=Lax evita CSRF)."""
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        tiene_cuerpo = request.headers.get("content-length", "0") not in ("", "0") or "transfer-encoding" in request.headers
-        if tiene_cuerpo and not request.headers.get("content-type", "").lower().startswith("application/json"):
-            raise ApiError(422, "solo_json", "Esta operación solo acepta cuerpo JSON.")
+        if not _origen_valido(request):
+            raise ApiError(403, "origen_invalido", "Origen de la petición no permitido.")
+        ct = request.headers.get("content-type", "").lower()
+        if request.method in ("POST", "PUT", "PATCH"):
+            if not ct.startswith("application/json"):
+                raise ApiError(422, "solo_json", "Esta operación solo acepta cuerpo JSON.")
+        else:
+            tiene_cuerpo = request.headers.get("content-length", "0") not in ("", "0") or "transfer-encoding" in request.headers
+            if tiene_cuerpo and not ct.startswith("application/json"):
+                raise ApiError(422, "solo_json", "Esta operación solo acepta cuerpo JSON.")
 
 
 def usuario_sin_negocio(request: Request, conn=Depends(get_conn)) -> dict:
     """Sesión válida, con o sin negocio elegido (para ver la sesión, elegir negocio y salir)."""
     token = request.cookies.get(COOKIE)
-    u = usuarios.usuario_de_sesion(conn, token)
+    sondeo = (
+        request.method == "GET"
+        and request.url.path == f"{PREFIJO}/sesion"
+        and request.headers.get("x-sondeo") == "1"
+    )
+    u = usuarios.usuario_de_sesion(conn, token, extender=not sondeo)
     if u is None:
         raise ApiError(401, "no_autenticado", "Inicia sesión para continuar.")
     request.state.token = token

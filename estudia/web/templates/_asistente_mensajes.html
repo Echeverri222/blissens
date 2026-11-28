@@ -10,17 +10,16 @@
         {% if pr.metodo == 'get' %}
           <div class="acciones">
             <a role="button" href="{{ pr.accion }}">{{ pr.boton }}</a>
-            <button type="button" class="outline secondary solo-js" onclick="this.closest('.propuesta').remove()">Descartar</button>
+            <button type="button" class="outline secondary solo-js" data-descartar>Descartar</button>
           </div>
         {% else %}
           <form method="post" action="{{ pr.accion }}" class="{{ 'solo-js' if pr.alternativa else '' }}"
                 hx-post="{{ pr.accion }}" {% if pr.alternativa %}hx-target="closest .propuesta" hx-swap="none"
-                data-alternativa="{{ pr.alternativa }}"
-                hx-on::before-swap="event.preventDefault(); location.href = this.dataset.alternativa"{% else %}hx-target="closest .propuesta" hx-swap="outerHTML"{% endif %}>
+                data-alternativa="{{ pr.alternativa }}"{% else %}hx-target="closest .propuesta" hx-swap="outerHTML"{% endif %}>
             {% for nombre, valor in pr.campos %}<input type="hidden" name="{{ nombre }}" value="{{ valor }}">{% endfor %}
             <div class="acciones">
               <button type="submit">{{ pr.boton }}</button>
-              <button type="button" class="outline secondary solo-js" onclick="this.closest('.propuesta').remove()">Descartar</button>
+              <button type="button" class="outline secondary solo-js" data-descartar>Descartar</button>
             </div>
           </form>
           {% if pr.alternativa %}<p class="nota propuesta__alt"><a href="{{ pr.alternativa }}">Elegir en la agenda</a></p>{% endif %}

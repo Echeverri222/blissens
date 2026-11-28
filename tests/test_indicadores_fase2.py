@@ -53,14 +53,14 @@ def test_panel_actions_record_who_and_when(mundo, conn):
     mid = conn.execute("insert into mensaje(paciente_id, direccion, texto, gestionado, momento) "
                        "values (%s,'entrante','hola',false,%s) returning id", (mundo.p1, at(0, "08:00"))).fetchone()["id"]
     conn.commit()
-    assert mundo.aux.post(f"{API}/citas/{c}/confirmar").status_code == 200
+    assert mundo.aux.post(f"{API}/citas/{c}/confirmar", json={}).status_code == 200
     clock.freeze(at(1, "10:00"))
     assert mundo.aux.post(f"{API}/citas/{c}/desenlace", json={"desenlace": "no_asistio"}).status_code == 200
     quien = conn.execute("select estado_nuevo, usuario_id from historial_estado where cita_id=%s and estado_anterior is not null "
                          "order by id", (c,)).fetchall()
     assert [(h["estado_nuevo"], h["usuario_id"]) for h in quien] == [("confirmada", uid), ("no_asistio", uid)]
 
-    assert mundo.aux.post(f"{API}/mensajes/{mid}/gestionar").status_code == 200
+    assert mundo.aux.post(f"{API}/mensajes/{mid}/gestionar", json={}).status_code == 200
     m = conn.execute("select gestionado_en, gestionado_por from mensaje where id=%s", (mid,)).fetchone()
     assert m["gestionado_por"] == uid and m["gestionado_en"] == clock.now(conn)
 

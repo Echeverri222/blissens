@@ -28,6 +28,7 @@ DEFAULTS = {
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
     "sesion_horas": 12,
+    "sesion_max_horas": 24,
     "retencion_mensajes_dias": None,    # None = no se borra nada (por defecto)
     "retencion_auditoria_dias": None,
     "retencion_sesiones_dias": None,

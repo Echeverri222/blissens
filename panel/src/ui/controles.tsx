@@ -18,12 +18,12 @@ export const Boton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButt
   function Boton({ variante = "primario", pequeno, className, type = "button", ...p }, ref) {
     return (
       <button ref={ref} type={type} {...p}
-        className={cn("inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-          pequeno ? "px-3 py-1.5 text-sm" : "px-4 py-2.5 text-sm", VARIANTES[variante], className)} />
+        className={cn("inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          pequeno ? "min-h-9 px-3 py-1.5 text-sm" : "min-h-10 px-4 py-2.5 text-sm", VARIANTES[variante], className)} />
     );
   });
 
-const BASE_CAMPO = "w-full rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-3 py-2 text-sm text-tinta placeholder:text-zinc-500 disabled:bg-zinc-100";
+const BASE_CAMPO = "w-full rounded-[var(--radius-control)] border border-zinc-300 bg-papel px-3 py-2 text-sm text-tinta placeholder:text-zinc-500 transition-colors focus:border-marca disabled:bg-zinc-100";
 
 function Rotulo({ id, texto }: { id: string; texto: string }) {
   return <label htmlFor={id} className="mb-1 block text-sm font-medium">{texto}</label>;
@@ -122,7 +122,7 @@ export function Confirmar({ etiqueta, pregunta, alConfirmar, variante = "secunda
       <Dialog.Trigger asChild><Boton variante={variante} disabled={deshabilitado} pequeno={pequeno}>{icono}{etiqueta}</Boton></Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-papel p-5 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[71] max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-papel p-5 shadow-2xl">
           <Dialog.Title className="text-base font-semibold">{titulo ?? etiqueta}</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-tinta-suave">{pregunta}</Dialog.Description>
           <div className="mt-4 flex justify-end gap-2">

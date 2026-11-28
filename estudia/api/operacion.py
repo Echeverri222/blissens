@@ -4,6 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from .. import agenda, clock, config, horario, permisos, usuarios
+from ..web.limite import LimiteVentana
 from . import schemas as sc
 from .comun import (
     COOKIE,
@@ -21,6 +22,15 @@ from .comun import (
 
 router = APIRouter(dependencies=[Depends(solo_json)])
 MAX_DIAS = 42
+# Solo cuentan los intentos fallidos: un ingreso correcto no gasta cupo (una recepción detrás de una sola IP no se
+# bloquea a sí misma). El bloqueo por usuario lo hace `usuarios.iniciar_sesion`.
+limite_login = LimiteVentana(maximo=20, segundos=600)
+limite_cambio_clave = LimiteVentana(maximo=10, segundos=600)  # por usuario
+
+
+def _ip_cliente(request: Request) -> str:
+    """La IP del socket (no X-Forwarded-For directo)."""
+    return request.client.host if request.client else "?"
 
 
 # ----------------------------------------------------------------- sesión
@@ -56,7 +66,14 @@ def marca(conn=Depends(get_conn)):
                          "Con acceso a varios negocios la sesión nace sin negocio activo: se elige con `POST /sesion/negocio`.")
 def iniciar(datos: sc.Credenciales, response: Response, request: Request, conn=Depends(get_conn)):
     from .. import settings
-    token, u = usuarios.iniciar_sesion(conn, datos.usuario, datos.clave)
+    ip = _ip_cliente(request)
+    if not limite_login.disponible(ip):
+        raise ApiError(429, "demasiados_intentos", "Demasiados intentos de ingreso. Intenta de nuevo en unos minutos.")
+    try:
+        token, u = usuarios.iniciar_sesion(conn, datos.usuario, datos.clave)
+    except (usuarios.CredencialesInvalidas, usuarios.InicioBloqueado):
+        limite_login.registrar(ip)
+        raise
     response.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=settings.BASE_URL.startswith("https"),
                         max_age=config.plataforma("sesion_horas") * 3600, path="/")
     return _sesion(conn, u)
@@ -84,7 +101,14 @@ def cerrar(request: Request, response: Response, conn=Depends(get_conn), u=Depen
 @router.post("/sesion/clave", tags=["Sesión"], summary="Cambiar la contraseña propia", response_model=sc.Ok,
              description="Cierra las demás sesiones del usuario; la actual se conserva.")
 def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn), u=Depends(usuario_sin_negocio)):
-    usuarios.cambiar_clave(conn, u["id"], datos.actual, datos.nueva, request.state.token)
+    clave = f"usuario:{u['id']}"
+    if not limite_cambio_clave.disponible(clave):
+        raise ApiError(429, "demasiados_intentos", "Demasiados intentos de cambio de clave. Intenta de nuevo en unos minutos.")
+    try:
+        usuarios.cambiar_clave(conn, u["id"], datos.actual, datos.nueva, request.state.token)
+    except usuarios.CredencialesInvalidas:
+        limite_cambio_clave.registrar(clave)
+        raise
     return sc.Ok()
 
 

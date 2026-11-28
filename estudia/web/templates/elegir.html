@@ -5,7 +5,8 @@
 {% if cancelada %}
   <p class="aviso">{% if para_nombre %}La cita de {{ para_nombre }}{% else %}Tu cita{% endif %} quedó cancelada. ¿Quieres elegir otro espacio ahora mismo?</p>
 {% endif %}
-<div class="tarjeta">
+<div class="tarjeta tarjeta--elevada">
+  <p class="foco__paso">{% if modo == 'cambiar' %}Reprogramar cita{% else %}Paso 2 de 3 · Día y hora{% endif %}</p>
   <h1>{% if modo == 'cambiar' %}Cambiar fecha{% else %}Elige tu espacio{% endif %}</h1>
   {% if para_nombre %}<p class="nota" style="margin-top:0">Cita de <strong>{{ para_nombre }}</strong></p>{% endif %}
   <form id="filtros" class="filtros" hx-get="/p/{{ token }}/espacios" hx-target="#espacios" hx-trigger="change">
