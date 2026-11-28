@@ -87,6 +87,11 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
         return api.pacientes.marcarNoContactar(numero(p, "paciente_id"), { motivo: m, nota: typeof p.nota === "string" && p.nota ? p.nota : null });
       }
       case "quitar_no_contactar": return api.pacientes.quitarNoContactar(numero(p, "paciente_id"));
+      case "plan_entregado":
+        return api.pacientes.planEntregado(numero(p, "paciente_id"), numero(p, "tratamiento_id"), {
+          fecha: typeof p.fecha === "string" ? p.fecha : null, valor_plan: typeof p.valor_plan === "number" ? p.valor_plan : null });
+      case "registrar_abono":
+        return api.pacientes.registrarAbono(numero(p, "paciente_id"), numero(p, "tratamiento_id"), { fecha: typeof p.fecha === "string" ? p.fecha : null });
       // Lleva datos que no pasan por el modelo: lo crea el formulario de su tarjeta, no un botón de confirmar.
       case "crear_paciente": return Promise.reject(new Error("se crea desde el formulario"));
       default: return Promise.reject(new Error("tipo desconocido"));

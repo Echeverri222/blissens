@@ -4,7 +4,7 @@ import type { CitaEnConflicto } from "./tipos";
 import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, MotivoAdmin, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
-  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, NoContactar, NoContactarOut, CelularPorRevisar, ColorSemaforo, NuevoCelular, CelularOut, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
+  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, NoContactar, NoContactarOut, CelularPorRevisar, PlanSinPaso, PlanOut, PlanEntregado, Abono, PlanesIndicador, ColorSemaforo, NuevoCelular, CelularOut, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
@@ -106,6 +106,8 @@ export const api = {
     quitarNoContactar: (id: number) => pedir<NoContactarOut>("DELETE", `/pacientes/${id}/no-contactar`),
     cambiarCelular: (id: number, d: NuevoCelular) => pedir<CelularOut>("PUT", `/pacientes/${id}/celular`, { cuerpo: d }),
     celularEnChat: (id: number) => post<CelularOut>(`/pacientes/${id}/celular/en-chat`, {}),
+    planEntregado: (id: number, tratamientoId: number, d: PlanEntregado) => pedir<PlanOut>("PUT", `/pacientes/${id}/tratamientos/${tratamientoId}/plan-entregado`, { cuerpo: d }),
+    registrarAbono: (id: number, tratamientoId: number, d: Abono) => pedir<PlanOut>("PUT", `/pacientes/${id}/tratamientos/${tratamientoId}/abono`, { cuerpo: d }),
     segmentos: (id: number, s: Segmentos) => pedir<SegmentosOut>("PUT", `/pacientes/${id}/segmentos`, { cuerpo: s }),
   },
   bandejas: {
@@ -120,6 +122,7 @@ export const api = {
     contactos: () => get<Contacto[]>("/bandejas/contactos"),
     dadosDeBaja: () => get<Baja[]>("/bandejas/dados-de-baja"),
     celularesPorRevisar: () => get<CelularPorRevisar[]>("/bandejas/celulares-por-revisar"),
+    planes: () => get<PlanSinPaso[]>("/bandejas/planes"),
     gestionSeguimiento: (id: number, resultado: ResultadoGestion, detalle?: string) =>
       post<{ ok: boolean }>(`/seguimientos/${id}/gestion`, { resultado, detalle: detalle ?? "" }),
     gestionarMensaje: (id: number) => post<{ ok: boolean }>(`/mensajes/${id}/gestionar`),
@@ -137,6 +140,7 @@ export const api = {
     tiempoEntreCitas: (f: FiltrosIndicadores) => get<TiempoEntreCitas>("/indicadores/tiempo-entre-citas", f),
     faltasRepetidas: (f: FiltrosIndicadores) => get<FaltaRepetida[]>("/indicadores/faltas-repetidas", f),
     citasPerdidas: (f: FiltrosIndicadores) => get<CitaPerdida[]>("/indicadores/citas-perdidas", f),
+    planes: (f: FiltrosIndicadores) => get<PlanesIndicador>("/indicadores/planes", f),
     recordatorios: (f: FiltrosIndicadores) => get<Recordatorios>("/indicadores/recordatorios", f),
     pendientes: (f: FiltrosIndicadores) => get<Pendientes>("/indicadores/pendientes", f),
     reagendamiento: (f: FiltrosIndicadores) => get<Reagendamiento>("/indicadores/reagendamiento", f),

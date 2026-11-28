@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { BellOff, Ban } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
-import type { FichaCompleta, Identificacion, MotivoNoContactar, Segmentos } from "@/api/tipos";
+import type { FichaCompleta, Identificacion, MotivoNoContactar, Segmentos, TratamientoFicha } from "@/api/tipos";
+import { pesos } from "@/lib/dinero";
 import { ESTADOS, MOTIVOS_NO_CONTACTAR } from "@/lib/estados";
 import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
@@ -134,6 +135,7 @@ export function Ficha() {
             )}
           </Tarjeta>
           {f.paciente.etapa === "prospecto" && <PasarAPaciente f={f} />}
+          {f.paciente.etapa === "paciente" && f.tratamientos.length > 0 && <Planes f={f} />}
           <div role="tablist" aria-label="Apartados de la ficha" className="flex gap-1 overflow-x-auto">
             {APARTADOS.map((a) => (
               <button key={a} role="tab" aria-selected={a === apartado} onClick={() => setApartado(a)}
@@ -154,6 +156,50 @@ export function Ficha() {
         </div>
       )}
     </Consulta>
+  );
+}
+
+/** Plan de tratamiento (R14): fecha de entrega, valor (solo se ve aquí) y abonos. Registrar el plan abre el acompañamiento por WhatsApp. */
+function Planes({ f }: { f: FichaCompleta }) {
+  return (
+    <Tarjeta className="space-y-3 p-4">
+      <h2 className="text-sm font-semibold">Planes de tratamiento</h2>
+      {f.tratamientos.map((t) => <PlanTratamiento key={t.id} pacienteId={f.paciente.id} t={t} />)}
+    </Tarjeta>
+  );
+}
+
+function PlanTratamiento({ pacienteId, t }: { pacienteId: number; t: TratamientoFicha }) {
+  const hoy = fechaDe(new Date().toISOString());
+  const [fechaPlan, setFechaPlan] = useState(hoy);
+  const [valor, setValor] = useState("");
+  const [fechaAbono, setFechaAbono] = useState(hoy);
+  const plan = useAccion(() => api.pacientes.planEntregado(pacienteId, t.id, { fecha: fechaPlan || null, valor_plan: valor.trim() ? Number(valor) : null }),
+    { ok: "Plan entregado registrado", alExito: () => setValor("") });
+  const abono = useAccion(() => api.pacientes.registrarAbono(pacienteId, t.id, { fecha: fechaAbono || null }), { ok: "Abono registrado" });
+  return (
+    <div className="space-y-2 rounded-lg border border-linea p-3 text-sm">
+      <p className="font-medium">Tratamiento con {t.profesional} <span className="font-normal text-tinta-suave">· {t.estado}</span></p>
+      <p className="text-tinta-suave">
+        {t.plan_entregado_en ? `Plan entregado el ${fechaLarga(fechaDe(t.plan_entregado_en))}` : "Plan sin entregar"}
+        {t.valor_plan != null ? ` · Valor ${pesos(t.valor_plan)}` : ""}
+        {t.ultimo_abono_en ? ` · Último abono ${fechaLarga(fechaDe(t.ultimo_abono_en))}` : ""}
+        {t.plan_entregado_en ? ` · Siguiente paso: ${t.proxima_cita ? fechaHora(t.proxima_cita) : "ninguno"}` : ""}
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <Entrada etiqueta="Fecha de entrega" type="date" value={fechaPlan} onChange={(e) => setFechaPlan(e.target.value)} />
+        <Entrada etiqueta="Valor del plan (opcional)" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, ""))} />
+        <Confirmar etiqueta="Plan entregado" pequeno titulo="¿Registrar el plan entregado?" si="Sí, registrar" deshabilitado={plan.isPending || !fechaPlan}
+          pregunta="La clínica le escribirá a los 3 y 7 días para acompañarle en su siguiente paso. Los mensajes nunca mencionan valores."
+          alConfirmar={() => plan.mutate(undefined)} />
+      </div>
+      {t.plan_entregado_en && (
+        <div className="flex flex-wrap items-end gap-3">
+          <Entrada etiqueta="Fecha del abono" type="date" value={fechaAbono} onChange={(e) => setFechaAbono(e.target.value)} />
+          <Boton pequeno variante="secundario" disabled={abono.isPending || !fechaAbono} onClick={() => abono.mutate(undefined)}>Registrar abono</Boton>
+        </div>
+      )}
+    </div>
   );
 }
 
