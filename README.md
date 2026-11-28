@@ -46,7 +46,8 @@ Un clon recién hecho funciona con `make setup && make dev`.
 | http://localhost:8000/api/v1/... | API JSON con inicio de sesión y roles (PRD #2) |
 
 Usuarios de demostración (solo existen con datos ficticios; `make seed` los imprime): `auxiliar`,
-`especialista1` y `especialista2`, todos con la contraseña `demo-blissens`. El panel muestra a cada rol solo lo suyo:
+`especialista1` a `especialista4` (rehabilitación oral, cirugía e implantes, periodoncia y ortodoncia), todos con la
+contraseña `demo-blissens`. El panel muestra a cada rol solo lo suyo:
 el especialista, *Mi agenda* y *Mi horario*; la auxiliar, *Agenda*, *Pendientes*, *Pacientes*, *Indicadores* y *Sistema*.
 
 ### Probar la API con `curl`

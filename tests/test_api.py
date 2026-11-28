@@ -256,8 +256,8 @@ def test_user_rules(conn):
 def test_demo_users_are_created_with_fake_data(conn):
     from estudia import data
     n = data.seed(conn, patients=12)
-    assert {u["usuario"] for u in n["usuarios"]} == {"auxiliar", "especialista1", "especialista2"}
-    assert conn.execute("select count(*) n from acceso where rol='especialista' and profesional_id is not null").fetchone()["n"] == 2
+    assert {u["usuario"] for u in n["usuarios"]} == {"auxiliar", "especialista1", "especialista2", "especialista3", "especialista4"}
+    assert conn.execute("select count(*) n from acceso where rol='especialista' and profesional_id is not null").fetchone()["n"] == 4
 
 
 # ------------------------------------------------------------------ 5. Bloqueos
