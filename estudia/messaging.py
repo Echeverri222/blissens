@@ -150,6 +150,9 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
             else:
                 continue
             break
+    # Quien responde por WhatsApp tiene un celular que sirve (R8), sea cual fuera su estado.
+    conn.execute("update paciente set celular_estado='valido' where id = any(%s) and celular_estado <> 'valido' "
+                 "and celular is not null", (familia.hogar(conn, patient_id)[1],))
     mid = conn.execute(
         "insert into mensaje(paciente_id, direccion, canal, texto, respuesta, momento, gestionado, id_externo) "
         "values (%s,'entrante',%s,%s,%s,%s,%s,%s) returning id",

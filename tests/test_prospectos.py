@@ -52,7 +52,7 @@ def enlace_del_acuse(conn, para="jane@example.com"):
 def test_una_solicitud_desde_el_exterior_crea_un_prospecto_sin_documento(client, conn):
     enviar(client)
     (p,) = prospectos(conn)
-    assert (p["nombres"], p["documento"], p["correo"], p["celular"]) == ("Jane Doe", None, "jane@example.com", "+1 305 555 0100")
+    assert (p["nombres"], p["documento"], p["correo"], p["celular"]) == ("Jane Doe", None, "jane@example.com", "+13055550100")
     assert p["internacional"] and p["segmento_origen"] == "sitio_web" and p["segmento_marcado_en"] is not None
     assert p["consentimiento_en"] is not None and not p["acepta_mensajes"] and not p["acepta_correo"]
     s = conn.execute("select paciente_id, origen from solicitud_contacto").fetchone()
@@ -63,7 +63,7 @@ def test_solo_con_correo_o_solo_con_whatsapp_tambien_crea_el_prospecto(client, c
     enviar(client, celular="")
     enviar(client, nombre="Luis", correo="", celular="+44 20 7946 0000")
     a, b = prospectos(conn)
-    assert (a["celular"], a["correo"]) == (None, "jane@example.com") and (b["celular"], b["correo"]) == ("+44 20 7946 0000", None)
+    assert (a["celular"], a["correo"]) == (None, "jane@example.com") and (b["celular"], b["correo"]) == ("+442079460000", None)
 
 
 def test_el_mismo_correo_en_otra_grafia_reutiliza_al_prospecto(client, conn):
@@ -108,7 +108,7 @@ def test_el_enlace_con_celular_tambien_sirve_y_cambiar_el_correo_no_lo_rompe(cli
     enviar(client)
     token = enlace_del_acuse(conn)
     (p,) = prospectos(conn)
-    assert links.huella_del_token(token) == links.huella_celular("+1 305 555 0100")
+    assert links.huella_del_token(token) == links.huella_celular("+13055550100")
     conn.execute("update paciente set correo='nuevo@example.com' where id=%s", (p["id"],))
     conn.commit()
     assert client.get(f"/p/{token}").status_code == 200

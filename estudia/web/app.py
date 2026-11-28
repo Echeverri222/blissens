@@ -302,9 +302,9 @@ def _uid(panel: str) -> str:
 def _celular_de_sitio(raw: str) -> str:
     """Un celular colombiano se normaliza; uno del exterior se conserva (solo dígitos, + y separadores). Vacío si no
     parece un teléfono (7 a 15 dígitos, como E.164)."""
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     raw = raw.strip()
-    limpio = normalize_phone(raw) or re.sub(r"[^\d+()\- ]", "", raw)[:30].strip()
+    limpio = normalizar_celular(raw) or re.sub(r"[^\d+()\- ]", "", raw)[:30].strip()
     return limpio if 7 <= len(re.sub(r"\D", "", limpio)) <= 15 else ""
 
 
@@ -405,7 +405,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
                 correo: str = Form(""), acepta_correo: str = Form(""), idioma: str = Form("es"),
                 servicio: str = Form(""), profesional: str = Form(""), desde: str = Form(""), panel: str = Form(""),
                 conn=Depends(conn_publica)):
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     lang = idioma if idioma in copia.COPIA else "es"
     i = copia.COPIA[lang]["ident"]
     hx = bool(request.headers.get("HX-Request"))  # la landing pide solo el formulario y recibe solo el formulario
@@ -426,7 +426,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
         return RedirectResponse(url, status_code=303)
 
     documento = re.sub(r"\D", "", documento)
-    phone = normalize_phone(celular)
+    phone = normalizar_celular(celular)
     values = {"documento": documento, "celular": celular}
     if not documento or not phone:
         return pagina(error=i["err_datos"],
@@ -931,7 +931,7 @@ MAX_CUERPO_WEBHOOK = 256 * 1024
 async def webhook_canal(tipo: str, request: Request):
     """Entrada de mensajes de un proveedor: se resuelve el negocio por el canal, se verifica la firma con el secreto
     de ESE canal, se fija el contexto y se procesa como cualquier mensaje entrante (sin repetir reenvíos)."""
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     a = canales.adaptador(tipo)
     if a is None:
         raise HTTPException(404, "Canal desconocido")
@@ -964,7 +964,7 @@ async def webhook_canal(tipo: str, request: Request):
             raise HTTPException(422, "Mensaje no entendido")
         if conn.execute("select 1 from mensaje where canal=%s and id_externo=%s", (tipo, ent.id_mensaje)).fetchone():
             return {"estado": "repetido"}
-        celular = normalize_phone(ent.celular)
+        celular = normalizar_celular(ent.celular)
         # Un celular compartido por un solo hogar es del responsable: a él van los avisos agrupados (docs/prd-familia.md
         # R9). Compartido por pacientes sin relación, sigue ambiguo (queda para el PRD de WhatsApp).
         hogares = conn.execute("select distinct coalesce(responsable_id, id) as raiz from paciente where celular=%s",

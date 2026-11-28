@@ -148,15 +148,19 @@ export function FormularioPaciente({ alCrear, alCancelar, inicial, boton = "Crea
   const m = useAccion(api.pacientes.crear, { ok: "Paciente creado", alExito: (r, d) => alCrear({ id: r.paciente_id, nombre: `${d.nombres} ${d.apellidos}`.trim() }) });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const enviar = (e: FormEvent) => { e.preventDefault(); m.mutate(v); };
+  const celularMalo = m.error instanceof ApiError && m.error.mensaje === "Celular no válido";
   return (
     <form onSubmit={enviar} className="space-y-3 rounded-xl border border-linea bg-zinc-50 p-3" aria-label="Paciente nuevo">
       <h3 className="text-sm font-semibold">Paciente nuevo</h3>
-      {m.error instanceof ApiError && <Aviso>{m.error.mensaje}</Aviso>}
+      {m.error instanceof ApiError && !celularMalo && <Aviso>{m.error.mensaje}</Aviso>}
       <div className="grid gap-3 sm:grid-cols-2">
         <Entrada etiqueta="Nombres" value={v.nombres} onChange={set("nombres")} required />
         <Entrada etiqueta="Apellidos" value={v.apellidos} onChange={set("apellidos")} />
         <Entrada etiqueta="Documento" inputMode="numeric" value={v.documento} onChange={set("documento")} required />
-        <Entrada etiqueta="Celular" inputMode="tel" value={v.celular} onChange={set("celular")} required />
+        <div>
+          <Entrada etiqueta="Celular" inputMode="tel" value={v.celular} onChange={set("celular")} required aria-invalid={celularMalo} />
+          {celularMalo && <p role="alert" className="mt-1 text-sm text-rose-800">Celular no válido</p>}
+        </div>
       </div>
       <Casilla etiqueta="El paciente autoriza el tratamiento de sus datos y recibir mensajes de la clínica" checked={v.consentimiento} onChange={set("consentimiento")} />
       <div className="flex gap-2"><Boton type="submit" disabled={m.isPending}>{boton}</Boton><Boton variante="secundario" onClick={alCancelar}>{cancelar}</Boton></div>

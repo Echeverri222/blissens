@@ -109,6 +109,25 @@ def contactos_pendientes(conn):
         "from solicitud_contacto s left join paciente p on p.id=s.paciente_id where not s.gestionada order by s.momento").fetchall()
 
 
+def celulares_por_revisar(conn):
+    """Pacientes con cita próxima viva o caso abierto cuyo celular no sirve (falta, no tiene forma válida o no es WhatsApp).
+    Si tienen un responsable con celular utilizable, viene para contactarlo a él (R8). No salen los «No contactar»."""
+    return conn.execute(
+        "select p.id as paciente_id, p.nombres || ' ' || p.apellidos as paciente, p.celular, p.celular_estado, "
+        "case when p.celular is null then 'sin_celular' else p.celular_estado end as motivo, "
+        "(select min(lower(c.rango)) from cita c where c.paciente_id=p.id and c.estado = any(%(alive)s) "
+        " and c.rango is not null and lower(c.rango) > %(now)s) as proxima_cita, "
+        "(select cs.id from caso_seguimiento cs where cs.paciente_id=p.id and cs.estado='abierto' order by cs.id limit 1) as caso_id, "
+        "r.id as responsable_id, r.nombres || ' ' || r.apellidos as responsable, p.parentesco, r.celular as responsable_celular "
+        "from paciente p left join paciente r on r.id = p.responsable_id and r.celular is not null "
+        "and r.celular_estado in ('sin_verificar','valido') "
+        "where p.etapa = 'paciente' and p.no_contactar is null and (p.celular is null or p.celular_estado in ('invalido','sin_whatsapp')) "
+        "and (exists (select 1 from cita c where c.paciente_id=p.id and c.estado = any(%(alive)s) and c.rango is not null "
+        "            and lower(c.rango) > %(now)s) "
+        "     or exists (select 1 from caso_seguimiento cs where cs.paciente_id=p.id and cs.estado='abierto')) "
+        "order by proxima_cita nulls last, p.id", {"alive": list(ALIVE), "now": clock.now(conn)}).fetchall()
+
+
 def dados_de_baja(conn):
     return conn.execute(
         "select c.id, lower(c.rango) as inicio, p.id as paciente_id, p.nombres || ' ' || p.apellidos as paciente, p.celular "

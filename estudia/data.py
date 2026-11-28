@@ -10,6 +10,7 @@ from faker import Faker
 
 from . import agenda, catalog, clock, config, db, followup, indicators, lifecycle, settings, usuarios
 from .agenda import rng
+from .pacientes import normalizar_celular
 
 TABLES = ["acceso", "hecho_diario_profesional", "hecho_diario", "solicitud_adjunto", "solicitud_contacto", "tarea_programada", "mensaje",
           "oferta_adelanto", "cupo_liberado", "intento", "caso_seguimiento", "cancelacion", "historial_estado",
@@ -408,16 +409,8 @@ KEYWORDS = [  # (palabras clave, nombre de servicio)
 
 
 def normalize_phone(raw) -> str | None:
-    if raw is None:
-        return None
-    digits = "".join(ch for ch in str(raw) if ch.isdigit())
-    if digits.endswith("0") and "." in str(raw):  # '3001234567.0'
-        digits = "".join(ch for ch in str(raw).split(".")[0] if ch.isdigit())
-    if len(digits) == 10 and digits.startswith("3"):
-        return "+57" + digits
-    if len(digits) == 12 and digits.startswith("57") and digits[2] == "3":
-        return "+" + digits
-    return None
+    """Alias de `pacientes.normalizar_celular` (el normalizador único) para quien aún lo importe de aquí."""
+    return normalizar_celular(raw)
 
 
 def infer_service(comment, services_by_name) -> str:
@@ -494,7 +487,7 @@ def importar(conn, folder=None) -> dict:
             "on conflict (negocio_id, nombre) do update set nombre='Otro' returning id").fetchone()["id"]
 
     pros: dict[str, int] = {}
-    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0, "segmentados": 0}
+    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0, "segmentados": 0, "celulares_invalidos": 0}
     seen_patients = set()
     for _, r in est.iterrows():
         cid_ext = _id(r[c_cita_e])
@@ -524,17 +517,22 @@ def importar(conn, folder=None) -> dict:
                     birth = d if d.year > 1920 else None
                 except Exception:
                     birth = None
-            phone = normalize_phone(a[col(ag, "Celular")]) if a is not None else None
+            crudo = _s(a[col(ag, "Celular")]) if a is not None else None
+            phone = normalizar_celular(crudo)
+            invalido = bool(crudo) and phone is None  # el número no se guarda: solo queda marcado y contado
             cur = conn.execute(
                 "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, "
-                "consentimiento_en) values (%s,%s,%s,%s,%s,%s,%s,null) on conflict (negocio_id, external_id) do nothing returning id",
+                "consentimiento_en, celular_estado) values (%s,%s,%s,%s,%s,%s,%s,null,%s) "
+                "on conflict (negocio_id, external_id) do nothing returning id",
                 (pext, _s(r[col(est, "Nombre Paciente")]) or "", _s(r[col(est, "Apellidos Paciente")]) or "",
-                 doc, phone, _s(a[col(ag, "E-Mail")]) if a is not None else None, birth))
+                 doc, phone, _s(a[col(ag, "E-Mail")]) if a is not None else None, birth,
+                 "invalido" if invalido else "sin_verificar"))
             if cur.fetchone():
                 stats["pacientes"] += 1
+                stats["celulares_invalidos"] += invalido
             seen_patients.add(pext)
         elif a is not None:  # completa datos que faltaban en citas anteriores del mismo paciente
-            phone = normalize_phone(a[col(ag, "Celular")])
+            phone = normalizar_celular(a[col(ag, "Celular")])
             if phone:
                 conn.execute("update paciente set celular=%s where external_id=%s and celular is null", (phone, pext))
         pat = conn.execute("select id from paciente where external_id=%s", (pext,)).fetchone()["id"]

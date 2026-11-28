@@ -2527,6 +2527,201 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/celular": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Corregir el celular del paciente",
+        "description": "Se valida y normaliza (celular colombiano o número internacional con `+`); 422 «Celular no válido» si no sirve. El celular queda sin verificar y lo hereda su hogar si lo compartía.",
+        "operationId": "cambiar_celular_api_v1_pacientes__paciente_id__celular_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NuevoCelular"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CelularOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pacientes/{paciente_id}/celular/en-chat": {
+      "post": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Marcar el celular como válido: ya está en un chat de WhatsApp",
+        "operationId": "celular_en_chat_api_v1_pacientes__paciente_id__celular_en_chat_post",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CelularOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}/segmentos": {
       "put": {
         "tags": [
@@ -3725,6 +3920,92 @@
                   },
                   "type": "array",
                   "title": "Response Dados De Baja Api V1 Bandejas Dados De Baja Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bandejas/celulares-por-revisar": {
+      "get": {
+        "tags": [
+          "Bandejas"
+        ],
+        "summary": "Pacientes con cita o seguimiento cuyo celular no sirve",
+        "description": "Sin celular, con uno no válido o que no es WhatsApp. Si tienen un responsable con celular utilizable, trae sus datos para contactarlo a él.",
+        "operationId": "celulares_por_revisar_api_v1_bandejas_celulares_por_revisar_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CelularPorRevisarOut"
+                  },
+                  "type": "array",
+                  "title": "Response Celulares Por Revisar Api V1 Bandejas Celulares Por Revisar Get"
                 }
               }
             }
@@ -9972,6 +10253,170 @@
         ],
         "title": "CeldaDiaHora"
       },
+      "CelularOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "celular",
+          "celular_estado"
+        ],
+        "title": "CelularOut"
+      },
+      "CelularPorRevisarOut": {
+        "properties": {
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          },
+          "paciente": {
+            "type": "string",
+            "title": "Paciente"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado"
+          },
+          "motivo": {
+            "type": "string",
+            "enum": [
+              "sin_celular",
+              "invalido",
+              "sin_whatsapp",
+              "sin_verificar",
+              "valido"
+            ],
+            "title": "Motivo",
+            "description": "Por qué no se le puede escribir: no tiene celular, no es válido o no es usuario de WhatsApp."
+          },
+          "proxima_cita": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proxima Cita"
+          },
+          "caso_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caso Id",
+            "description": "Su seguimiento abierto, si lo hay."
+          },
+          "responsable_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable Id",
+            "description": "Su responsable, solo si tiene un celular utilizable: se le contacta a él."
+          },
+          "responsable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable"
+          },
+          "parentesco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parentesco"
+          },
+          "responsable_celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsable Celular"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paciente_id",
+          "paciente",
+          "celular",
+          "celular_estado",
+          "motivo",
+          "proxima_cita",
+          "caso_id",
+          "responsable_id",
+          "responsable",
+          "parentesco",
+          "responsable_celular"
+        ],
+        "title": "CelularPorRevisarOut"
+      },
       "CierreOut": {
         "properties": {
           "dias": {
@@ -10669,6 +11114,10 @@
           "dados_de_baja": {
             "type": "integer",
             "title": "Dados De Baja"
+          },
+          "celulares_por_revisar": {
+            "type": "integer",
+            "title": "Celulares Por Revisar"
           }
         },
         "type": "object",
@@ -10680,7 +11129,8 @@
           "sin_desenlace",
           "sin_interpretar",
           "contactos",
-          "dados_de_baja"
+          "dados_de_baja",
+          "celulares_por_revisar"
         ],
         "title": "ConteoBandejas"
       },
@@ -11337,6 +11787,18 @@
               }
             ],
             "title": "No Contactar Nota"
+          },
+          "celular_estado": {
+            "type": "string",
+            "enum": [
+              "sin_verificar",
+              "valido",
+              "invalido",
+              "sin_whatsapp"
+            ],
+            "title": "Celular Estado",
+            "description": "`invalido` y `sin_whatsapp` no reciben mensajes automáticos.",
+            "default": "sin_verificar"
           }
         },
         "type": "object",
@@ -12063,6 +12525,21 @@
           "fin"
         ],
         "title": "NuevoBloqueo"
+      },
+      "NuevoCelular": {
+        "properties": {
+          "celular": {
+            "type": "string",
+            "title": "Celular",
+            "description": "Celular colombiano de 10 dígitos o número internacional con `+`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "celular"
+        ],
+        "title": "NuevoCelular"
       },
       "NuevoPaciente": {
         "properties": {

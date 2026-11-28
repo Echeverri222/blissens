@@ -3,12 +3,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
-import type { Contacto, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
+import type { CelularPorRevisar, Contacto, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Confirmar, Hoja, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Confirmar, Entrada, Hoja, Tarjeta } from "@/ui/controles";
 import { BuscarPaciente } from "./Agendar";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
@@ -20,6 +20,7 @@ const BANDEJAS: { clave: keyof ConteoBandejas; slug: string; texto: string; grup
   { clave: "sin_interpretar", slug: "sin-interpretar", texto: "Mensajes por responder", grupo: "Llamar", ayuda: "Mensajes que el paciente escribió y el sistema no supo interpretar. Respóndele por tu cuenta y márcalo como resuelto.", vacio: "No hay mensajes pendientes." },
   { clave: "contactos", slug: "contactos", texto: "Contactos y solicitudes", grupo: "Llamar", ayuda: "Solicitudes de contacto: personas del sitio web que piden información y quienes intentaron agendar con un documento ya registrado pero otro celular (esas se validan por teléfono).", vacio: "No hay solicitudes de contacto." },
   { clave: "dados_de_baja", slug: "dados-de-baja", texto: "Dados de baja", grupo: "Llamar", ayuda: "Citas próximas de pacientes que pidieron no recibir mensajes automáticos: confírmalas por teléfono.", vacio: "No hay citas próximas de pacientes dados de baja." },
+  { clave: "celulares_por_revisar", slug: "celulares-por-revisar", texto: "Celulares por revisar", grupo: "Llamar", ayuda: "Pacientes con cita próxima o seguimiento abierto cuyo celular falta, no es válido o no tiene WhatsApp: el sistema no les puede escribir. Corrige el número o contacta a su responsable.", vacio: "Todos los celulares están en orden." },
   { clave: "sin_desenlace", slug: "sin-desenlace", texto: "Citas por cerrar", grupo: "Revisar", ayuda: "Citas pasadas que quedaron sin desenlace. Ciérralas para no dejar huecos en los datos.", vacio: "No hay citas pasadas sin cerrar." },
   { clave: "cupos_libres", slug: "cupos-libres", texto: "Cupos libres", grupo: "Revisar", ayuda: "Espacios liberados por cancelaciones que aún no se han ocupado, y a quién se ofrecieron.", vacio: "No hay cupos liberados pendientes." },
   { clave: "en_riesgo", slug: "en-riesgo", texto: "Pacientes en riesgo", grupo: "Revisar", ayuda: "Tratamientos activos sin cita futura y con más días que el umbral desde la última cita. Primero los pacientes de alto valor (internacionales y deportistas), después los de más días sin cita.", vacio: "Ningún paciente con tratamiento a medias está en riesgo." },
@@ -76,7 +77,7 @@ type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: str
 function pendientes(d: {
   seguimientos?: Awaited<ReturnType<typeof api.bandejas.seguimientos>>; contactos?: Awaited<ReturnType<typeof api.bandejas.contactos>>;
   mensajes?: Awaited<ReturnType<typeof api.bandejas.sinInterpretar>>; noConfirmadas?: Awaited<ReturnType<typeof api.bandejas.noConfirmadas>>;
-  dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>;
+  dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>; celulares?: Awaited<ReturnType<typeof api.bandejas.celularesPorRevisar>>;
 }): Pendiente[] {
   const f: Pendiente[] = [];
   for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
@@ -94,7 +95,40 @@ function pendientes(d: {
   for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Confirma por teléfono a <b>{r.paciente}</b> su cita del {fechaHora(r.inicio)}: pidió no recibir mensajes.</> });
+  for (const r of d.celulares ?? []) f.push({ id: `cel-${r.paciente_id}`, urgencia: 3, orden: r.proxima_cita ?? "9", etiqueta: "Celular por revisar", slug: "celulares-por-revisar", pacienteId: r.paciente_id, celular: r.responsable_celular,
+    acciones: <AccionesCelular r={r} />,
+    texto: <><b>{r.paciente}</b>: {TEXTO_CELULAR[r.motivo] ?? "celular por revisar"}. <Responsable r={r} /></> });
   return f.sort((a, b) => a.urgencia - b.urgencia || Number(!!b.altoValor) - Number(!!a.altoValor) || a.orden.localeCompare(b.orden));
+}
+
+const TEXTO_CELULAR: Record<string, string> = { sin_celular: "no tiene celular", invalido: "Celular no válido", sin_whatsapp: "su celular no tiene WhatsApp" };
+
+/** Si el paciente depende de un responsable con celular usable, la recepción llama a quien sí recibe los mensajes. */
+function Responsable({ r }: { r: CelularPorRevisar }) {
+  if (!r.responsable_id) return <>Corrige el número o llámale por otro medio.</>;
+  return <>Contactar a <Link className={ENLACE} to={`/pacientes/${r.responsable_id}`}>{r.responsable}</Link>{r.parentesco ? ` (${r.parentesco})` : ""}.</>;
+}
+
+function AccionesCelular({ r }: { r: CelularPorRevisar }) {
+  const [abierta, setAbierta] = useState(false);
+  const [celular, setCelular] = useState("");
+  const editar = useAccion((c: string) => api.pacientes.cambiarCelular(r.paciente_id, { celular: c }), { ok: "Celular actualizado", alExito: () => { setAbierta(false); setCelular(""); } });
+  const enChat = useAccion(() => api.pacientes.celularEnChat(r.paciente_id), { ok: "Celular marcado como válido" });
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Boton variante="secundario" pequeno onClick={() => setAbierta(true)}>Editar celular</Boton>
+      <Confirmar etiqueta="Ya está en un chat de WhatsApp" pequeno deshabilitado={enChat.isPending} si="Sí, ya está en un chat"
+        pregunta={<>¿<b className="text-tinta">{r.paciente}</b> ya está en un chat de WhatsApp con la clínica? El celular se marca como válido y se le vuelve a escribir.</>}
+        alConfirmar={() => enChat.mutate(undefined)} />
+      <Hoja abierta={abierta} alCerrar={() => setAbierta(false)} titulo="Editar celular" descripcion={`Nuevo celular de ${r.paciente}. Si comparte el número con su familia, se corrige para todos.`}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); editar.mutate(celular); }}>
+          {editar.error instanceof ApiError && <Aviso>{editar.error.mensaje}</Aviso>}
+          <Entrada etiqueta="Celular" inputMode="tel" value={celular} onChange={(e) => setCelular(e.target.value)} required />
+          <Boton type="submit" disabled={editar.isPending}>Guardar</Boton>
+        </form>
+      </Hoja>
+    </div>
+  );
 }
 
 const ESTADO_NC = { no_confirmada: "Sin confirmar", programada: "Sin respuesta aún" } as const;
@@ -161,12 +195,13 @@ function QueHacerHoy() {
     { queryKey: ["bandeja", "sin-interpretar"], queryFn: api.bandejas.sinInterpretar, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "no-confirmadas"], queryFn: api.bandejas.noConfirmadas, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "dados-de-baja"], queryFn: api.bandejas.dadosDeBaja, refetchInterval: CADA_MINUTO },
+    { queryKey: ["bandeja", "celulares-por-revisar"], queryFn: api.bandejas.celularesPorRevisar, refetchInterval: CADA_MINUTO },
   ] });
-  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja] = consultas;
+  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja, celulares] = consultas;
   const fallo = consultas.find((c) => c.error);
   if (fallo) return <Aviso>No pudimos cargar todo. <button className="underline" onClick={() => consultas.forEach((c) => void c.refetch())}>Reintentar</button></Aviso>;
   if (consultas.some((c) => c.isPending)) return <Cargando />;
-  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data });
+  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data, celulares: celulares.data });
   const porCerrar = conteo.data?.sin_desenlace ?? 0;
   return (
     <div className="space-y-4">
@@ -291,6 +326,13 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
         <Fila key={r.id}>
           {esSolicitudWeb(r) ? <DetalleWeb r={r} /> : <><span className="w-32 font-medium">{r.documento}</span><span className="w-32">{r.celular}</span><span className="flex-1 text-tinta-suave">{r.nota}</span></>}
           <span className="text-tinta-suave">{fechaHora(r.momento)}</span><BotonGestionada id={r.id} /></Fila>)} />;
+    case "celulares-por-revisar":
+      return <Lista clave={slug} fn={api.bandejas.celularesPorRevisar} vacio={vacio} fila={(r) => (
+        <Fila key={r.paciente_id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+          <span className="min-w-40"><b className="rounded bg-amber-100 px-1.5 text-xs text-amber-950">{TEXTO_CELULAR[r.motivo] ?? r.motivo}</b>
+            {r.proxima_cita && <p className="text-tinta-suave">Cita: {fechaHora(r.proxima_cita)}</p>}</span>
+          <span className="flex-1"><Responsable r={r} />{r.responsable_celular && <> <EnlacesContacto celular={r.responsable_celular} /></>}</span>
+          <div className="ml-auto"><AccionesCelular r={r} /></div></Fila>)} />;
     default:
       return <Lista clave={slug} fn={api.bandejas.dadosDeBaja} vacio={vacio} fila={(r) => (
         <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />

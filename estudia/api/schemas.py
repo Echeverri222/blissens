@@ -354,6 +354,8 @@ class FichaPaciente(Salida):
     no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
     no_contactar_en: Momento | None = None
     no_contactar_nota: str | None = None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"] = Field(
+        "sin_verificar", description="`invalido` y `sin_whatsapp` no reciben mensajes automáticos.")
 
 
 class CitaFicha(Salida):
@@ -436,6 +438,32 @@ class ConteoBandejas(Salida):
     sin_interpretar: int
     contactos: int
     dados_de_baja: int
+    celulares_por_revisar: int
+
+
+class CelularPorRevisarOut(Salida):
+    paciente_id: int
+    paciente: str
+    celular: str | None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"]
+    motivo: Literal["sin_celular", "invalido", "sin_whatsapp", "sin_verificar", "valido"] = Field(
+        description="Por qué no se le puede escribir: no tiene celular, no es válido o no es usuario de WhatsApp.")
+    proxima_cita: Momento | None
+    caso_id: int | None = Field(description="Su seguimiento abierto, si lo hay.")
+    responsable_id: int | None = Field(description="Su responsable, solo si tiene un celular utilizable: se le contacta a él.")
+    responsable: str | None
+    parentesco: str | None
+    responsable_celular: str | None
+
+
+class NuevoCelular(Entrada):
+    celular: str = Field(description="Celular colombiano de 10 dígitos o número internacional con `+`.")
+
+
+class CelularOut(Salida):
+    id: int
+    celular: str | None
+    celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"]
 
 
 class ResumenDiaOut(Salida):

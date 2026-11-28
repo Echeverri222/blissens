@@ -3,6 +3,33 @@ import re
 
 from . import clock
 
+CELULAR_INVALIDO = "Celular no válido"
+
+
+def normalizar_celular(raw, pais: str = "CO") -> str | None:
+    """El único normalizador de celulares (R8). Un celular colombiano de 10 dígitos que empieza por 3 (con o sin 57) pasa a
+    `+573XXXXXXXXX`; un número con `+` es E.164 (8 a 15 dígitos, sin 0 inicial); lo demás no es válido (None).
+    Los dígitos del resultado son los mismos con los que se de-duplican los prospectos
+    (`regexp_replace(celular, '\\D', '', 'g')`)."""
+    if raw is None:
+        return None
+    texto = str(raw).strip()
+    if re.fullmatch(r"\d+\.0", texto):  # '3001234567.0' (Excel)
+        texto = texto[:-2]
+    digitos = "".join(ch for ch in texto if ch.isdigit())
+    if not digitos:
+        return None
+    if texto.startswith("+"):
+        if digitos.startswith("57"):
+            return "+" + digitos if len(digitos) == 12 and digitos[2] == "3" else None
+        return "+" + digitos if 8 <= len(digitos) <= 15 and digitos[0] != "0" else None
+    if pais == "CO":
+        if len(digitos) == 10 and digitos[0] == "3":
+            return "+57" + digitos
+        if len(digitos) == 12 and digitos.startswith("573"):
+            return "+" + digitos
+    return None
+
 
 class DocumentoExistente(Exception):
     pass
@@ -13,14 +40,12 @@ class DatosInvalidos(Exception):
 
 
 def create(conn, nombres: str, apellidos: str, documento: str, celular: str, consentimiento: bool) -> int:
-    from .data import normalize_phone
-
     nombres, apellidos, documento = nombres.strip(), apellidos.strip(), "".join(ch for ch in documento if ch.isdigit())
-    phone = normalize_phone(celular)
+    phone = normalizar_celular(celular)
     if not nombres or not documento:
         raise DatosInvalidos("Faltan los nombres o el documento")
     if not phone:
-        raise DatosInvalidos("El celular debe tener 10 dígitos y empezar por 3")
+        raise DatosInvalidos(CELULAR_INVALIDO)
     if not consentimiento:
         raise DatosInvalidos("Se necesita la autorización del paciente para tratar sus datos")
     if conn.execute("select 1 from paciente where documento=%s", (documento,)).fetchone():
@@ -46,6 +71,14 @@ def es_prospecto(p: dict) -> bool:
     return p.get("etapa") == "prospecto"
 
 
+def _digitos_candidatos(celular: str | None) -> list[str]:
+    """Los dígitos con que puede estar guardado ese celular: tal cual lo escribieron, normalizado y, si es colombiano,
+    sin el 57 (los prospectos guardan lo que escribieron)."""
+    crudo = "".join(ch for ch in (celular or "") if ch.isdigit())
+    norm = "".join(ch for ch in (normalizar_celular(celular) or "") if ch.isdigit())
+    return sorted({d for d in (crudo, norm, norm[2:] if norm.startswith("57") else "") if d})
+
+
 def buscar_por_contacto(conn, correo: str | None, celular: str | None) -> tuple[dict | None, bool]:
     """La persona que ya tiene ese correo (sin importar mayúsculas) o, si no, ese WhatsApp (por sus dígitos). Devuelve
     (paciente, por_correo). Entre los que comparten celular (un hogar) se prefiere al responsable, no al familiar."""
@@ -54,10 +87,10 @@ def buscar_por_contacto(conn, correo: str | None, celular: str | None) -> tuple[
                          "limit 1", (correo,)).fetchone()
         if p:
             return p, True
-    digitos = "".join(ch for ch in (celular or "") if ch.isdigit())
-    if digitos:
-        p = conn.execute("select * from paciente where regexp_replace(celular, '\\D', '', 'g')=%s "
-                         "order by (responsable_id is null) desc, id limit 1", (digitos,)).fetchone()
+    candidatos = _digitos_candidatos(celular)
+    if candidatos:
+        p = conn.execute("select * from paciente where regexp_replace(celular, '\\D', '', 'g') = any(%s) "
+                         "order by (responsable_id is null) desc, id limit 1", (candidatos,)).fetchone()
         if p:
             return p, False
     return None, False
@@ -75,9 +108,10 @@ def atender_solicitud(conn, *, nombre: str, correo: str | None, celular: str | N
     now = clock.now(conn)
     pid = conn.execute(
         "insert into paciente(nombres, apellidos, correo, celular, etapa, consentimiento_en, consentimiento_version, creado_en, "
-        "internacional, segmento_origen, segmento_marcado_en, acepta_mensajes) "
-        "values (%s,'',%s,%s,'prospecto',%s,%s,%s,true,'sitio_web',%s,false) "
-        "returning id", (nombre, correo or None, celular or None, now, config.get(conn, "consentimiento_version"), now, now)
+        "internacional, segmento_origen, segmento_marcado_en, acepta_mensajes, celular_estado) "
+        "values (%s,'',%s,%s,'prospecto',%s,%s,%s,true,'sitio_web',%s,false,%s) "
+        "returning id", (nombre, correo or None, celular or None, now, config.get(conn, "consentimiento_version"), now, now,
+                         "invalido" if celular and not normalizar_celular(celular) else "sin_verificar")
     ).fetchone()["id"]
     return pid, bool(correo)
 
@@ -85,7 +119,6 @@ def atender_solicitud(conn, *, nombre: str, correo: str | None, celular: str | N
 def completar_documento(conn, paciente_id: int, documento: str, celular: str | None = None) -> dict | None:
     """La recepción le pone el documento (y, si hace falta, el celular) a un prospecto: pasa a paciente. None si no existe;
     DocumentoExistente si otro paciente del negocio ya tiene ese documento."""
-    from .data import normalize_phone
     p = conn.execute("select * from paciente where id=%s", (paciente_id,)).fetchone()
     if p is None:
         return None
@@ -94,18 +127,19 @@ def completar_documento(conn, paciente_id: int, documento: str, celular: str | N
     documento = "".join(ch for ch in documento if ch.isdigit())
     if not documento:
         raise DatosInvalidos("Escribe el documento")
-    phone = p["celular"]
+    phone, estado = p["celular"], None
     if celular and celular.strip():
-        phone = normalize_phone(celular) or re.sub(r"[^\d+()\- ]", "", celular)[:30].strip()
-        if len("".join(ch for ch in phone if ch.isdigit())) < 7:
-            raise DatosInvalidos("El celular no parece válido")
+        phone = normalizar_celular(celular)
+        if phone is None:
+            raise DatosInvalidos(CELULAR_INVALIDO)
+        estado = "sin_verificar"
     if conn.execute("select 1 from paciente where documento=%s and id<>%s", (documento, paciente_id)).fetchone():
         raise DocumentoExistente("Ya existe un paciente con ese documento")
     if not phone:
         raise DatosInvalidos("Para atenderlo en la clínica hace falta su celular")
     return conn.execute(
-        "update paciente set documento=%s, celular=%s, etapa='paciente' where id=%s "
-        "returning id, etapa, documento, celular", (documento, phone, paciente_id)).fetchone()
+        "update paciente set documento=%s, celular=%s, etapa='paciente', celular_estado=coalesce(%s, celular_estado) "
+        "where id=%s returning id, etapa, documento, celular", (documento, phone, estado, paciente_id)).fetchone()
 
 
 # ----------------------------------------------------------------- no contactar (docs/prd-respuestas-clinica.md, R6)
@@ -153,3 +187,38 @@ def quitar_no_contactar(conn, paciente_id: int) -> dict | None:
     return conn.execute(
         "update paciente set no_contactar=null, no_contactar_en=null, no_contactar_por=null, no_contactar_nota=null "
         "where id=%s returning id, no_contactar, no_contactar_en, no_contactar_nota", (paciente_id,)).fetchone()
+
+
+# ----------------------------------------------------------------- celular utilizable (docs/prd-respuestas-clinica.md, R8)
+
+def hogar_del_celular(conn, paciente_id: int) -> list[int]:
+    from . import familia
+    return familia.hogar(conn, paciente_id)[1]
+
+
+def cambiar_celular(conn, paciente_id: int, celular: str) -> dict | None:
+    """La recepción corrige el celular. Se normaliza (DatosInvalidos si no sirve); queda `sin_verificar` y lo hereda el hogar que
+    compartía el número anterior. None si el paciente no existe."""
+    nuevo = normalizar_celular(celular)
+    if nuevo is None:
+        raise DatosInvalidos(CELULAR_INVALIDO)
+    p = conn.execute("select celular from paciente where id=%s", (paciente_id,)).fetchone()
+    if p is None:
+        return None
+    ids = hogar_del_celular(conn, paciente_id)
+    conn.execute("update paciente set celular=%s, celular_estado='sin_verificar' where id=%s or "
+                 "(id = any(%s) and celular is not distinct from %s)", (nuevo, paciente_id, ids, p["celular"]))
+    return conn.execute("select id, celular, celular_estado from paciente where id=%s", (paciente_id,)).fetchone()
+
+
+def marcar_celular(conn, paciente_id: int, estado: str) -> dict | None:
+    """Fija el estado del celular para el hogar que lo comparte: `valido` (responde por WhatsApp o ya está en un chat),
+    `sin_whatsapp` (el canal dice que no es usuario) o `invalido`."""
+    assert estado in ("valido", "invalido", "sin_whatsapp", "sin_verificar")
+    p = conn.execute("select celular from paciente where id=%s", (paciente_id,)).fetchone()
+    if p is None:
+        return None
+    ids = hogar_del_celular(conn, paciente_id)
+    conn.execute("update paciente set celular_estado=%s where id=%s or (id = any(%s) and celular is not distinct from %s)",
+                 (estado, paciente_id, ids, p["celular"]))
+    return conn.execute("select id, celular, celular_estado from paciente where id=%s", (paciente_id,)).fetchone()

@@ -71,6 +71,28 @@ def correo_paciente(paciente_id: int, datos: sc.ConsentimientoCorreo, conn=Depen
     return sc.ConsentimientoCorreo(correo=p["correo"], acepta=p["acepta_correo"])
 
 
+@router.put("/pacientes/{paciente_id}/celular", tags=["Pacientes"], response_model=sc.CelularOut,
+            summary="Corregir el celular del paciente",
+            description="Se valida y normaliza (celular colombiano o número internacional con `+`); 422 «Celular no válido» si no "
+                        "sirve. El celular queda sin verificar y lo hereda su hogar si lo compartía.",
+            dependencies=[auditar("editar_celular")])
+def cambiar_celular(paciente_id: int, datos: sc.NuevoCelular, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.cambiar_celular(conn, paciente_id, datos.celular)
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
+@router.post("/pacientes/{paciente_id}/celular/en-chat", tags=["Pacientes"], response_model=sc.CelularOut,
+             summary="Marcar el celular como válido: ya está en un chat de WhatsApp",
+             dependencies=[auditar("celular_en_chat")])
+def celular_en_chat(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.marcar_celular(conn, paciente_id, "valido")
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
 @router.put("/pacientes/{paciente_id}/segmentos", tags=["Pacientes"], response_model=sc.SegmentosOut,
             summary="Marcar o desmarcar al paciente como internacional o deportista de alto nivel",
             description="Los pacientes de alto valor salen primero en las bandejas de seguimientos y de pacientes en riesgo. "
@@ -132,7 +154,8 @@ def conteo(conn=Depends(get_conn), u=Depends(auxiliar)):
         no_confirmadas=len(bandejas.no_confirmadas(conn)), seguimientos=len(bandejas.seguimientos(conn)),
         en_riesgo=len(bandejas.en_riesgo(conn)), cupos_libres=len(bandejas.cupos_libres(conn)),
         sin_desenlace=len(bandejas.sin_desenlace(conn)), sin_interpretar=len(bandejas.sin_interpretar(conn)),
-        contactos=len(bandejas.contactos_pendientes(conn)), dados_de_baja=len(bandejas.dados_de_baja(conn)))
+        contactos=len(bandejas.contactos_pendientes(conn)), dados_de_baja=len(bandejas.dados_de_baja(conn)),
+        celulares_por_revisar=len(bandejas.celulares_por_revisar(conn)))
 
 
 @router.get("/resumen-dia", tags=["Bandejas"], summary="Contadores de la franja superior de la agenda",
@@ -190,6 +213,14 @@ def contactos(conn=Depends(get_conn), u=Depends(auxiliar)):
             response_model=list[sc.BajaOut])
 def dados_de_baja(conn=Depends(get_conn), u=Depends(auxiliar)):
     return [{**r, "cita_id": r["id"]} for r in bandejas.dados_de_baja(conn)]
+
+
+@router.get("/bandejas/celulares-por-revisar", tags=["Bandejas"],
+            summary="Pacientes con cita o seguimiento cuyo celular no sirve",
+            description="Sin celular, con uno no válido o que no es WhatsApp. Si tienen un responsable con celular utilizable, "
+                        "trae sus datos para contactarlo a él.", response_model=list[sc.CelularPorRevisarOut])
+def celulares_por_revisar(conn=Depends(get_conn), u=Depends(auxiliar)):
+    return bandejas.celulares_por_revisar(conn)
 
 
 # ----------------------------------------------------------------- acciones de bandeja

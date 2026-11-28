@@ -119,6 +119,9 @@ export function Ficha() {
               <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}
                 <Prospecto etapa={f.paciente.etapa} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
+              {f.paciente.celular_estado !== "valido" && f.paciente.celular_estado !== "sin_verificar" && (
+                <p className="mt-1 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950">{f.paciente.celular_estado === "sin_whatsapp" ? "Celular sin WhatsApp" : "Celular no válido"}</p>
+              )}
               <Familia f={f} />
               <MarcasAltoValor f={f} />
               <NoContactar f={f} />
