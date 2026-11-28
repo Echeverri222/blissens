@@ -20,7 +20,7 @@ async function abrirYPreguntar(pregunta = "Hola") {
 }
 
 const pr = (tipo: Propuesta["tipo"], parametros: Propuesta["parametros"], resumen = "Resumen de prueba"): Propuesta => ({ tipo, parametros, resumen });
-const llamadas = () => enviadas.filter((e) => e.metodo === "POST" && !e.ruta.includes("/asistente/"));
+const llamadas = () => enviadas.filter((e) => e.metodo !== "GET" && !e.ruta.includes("/asistente/"));
 
 describe("disponibilidad", () => {
   it("sin la ruta (404) no hay botón", async () => {
@@ -124,13 +124,25 @@ describe("propuestas", () => {
     ["desenlace", pr("desenlace", { cita_id: 10, desenlace: "no_asistio" }), "POST", "/citas/10/desenlace", { desenlace: "no_asistio" }],
     ["bloqueo", pr("bloqueo", { profesional_id: 1, inicio: "2026-11-20T14:00:00-05:00", fin: "2026-11-20T18:00:00-05:00", motivo: "Reunión" }), "POST", "/bloqueos",
       { profesional_id: 1, inicio: "2026-11-20T14:00:00-05:00", fin: "2026-11-20T18:00:00-05:00", motivo: "Reunión" }],
+    ["eliminar_bloqueo", pr("eliminar_bloqueo", { bloqueo_id: 4 }), "DELETE", "/bloqueos/4", undefined],
+    ["segmentos", pr("segmentos", { paciente_id: 7, internacional: true, deportista: false }), "PUT", "/pacientes/7/segmentos", { internacional: true, deportista: false }],
+    ["gestion_seguimiento", pr("gestion_seguimiento", { caso_id: 8, resultado: "sin_respuesta", detalle: "Buzón" }), "POST", "/seguimientos/8/gestion",
+      { resultado: "sin_respuesta", detalle: "Buzón" }],
+    ["gestionar_mensaje", pr("gestionar_mensaje", { mensaje_id: 9 }), "POST", "/mensajes/9/gestionar", undefined],
+    ["gestionar_contacto", pr("gestionar_contacto", { solicitud_id: 6 }), "POST", "/contactos/6/gestionar", undefined],
+    ["vincular_contacto", pr("vincular_contacto", { solicitud_id: 6, paciente_id: 7 }), "POST", "/contactos/6/paciente", { paciente_id: 7 }],
+    ["revertir", pr("revertir", { historial_id: 12 }), "POST", "/historial/12/revertir", undefined],
   ];
 
   it.each(casos)("«%s» llama al endpoint existente solo después de confirmar", async (_n, propuesta, metodo, ruta, cuerpo) => {
     servidor.use(estado(), responder("Preparé esto.", [propuesta]),
       http.post(`${API}/citas`, ok({ cita_id: 99 })), http.post(`${API}/citas/:id/cambiar-fecha`, ok({ cita_id: 99 })),
       http.post(`${API}/citas/:id/cancelar`, ok()), http.post(`${API}/citas/:id/confirmar`, ok()),
-      http.post(`${API}/citas/:id/desenlace`, ok()), http.post(`${API}/bloqueos`, ok()));
+      http.post(`${API}/citas/:id/desenlace`, ok()), http.post(`${API}/bloqueos`, ok()),
+      http.delete(`${API}/bloqueos/:id`, ok()), http.put(`${API}/pacientes/:id/segmentos`, ok({ internacional: true, deportista: false })),
+      http.post(`${API}/seguimientos/:id/gestion`, ok()), http.post(`${API}/mensajes/:id/gestionar`, ok()),
+      http.post(`${API}/contactos/:id/gestionar`, ok()), http.post(`${API}/contactos/:id/paciente`, ok()),
+      http.post(`${API}/historial/:id/revertir`, ok({ historial_id: 13 })));
     montar("/agenda", AUX);
     await abrirYPreguntar();
     const tarjeta = await screen.findByTestId("propuesta");
@@ -141,8 +153,28 @@ describe("propuestas", () => {
     expect(llamadas()).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: "Sí, confirmar" }));
     await waitFor(() => expect(llamadas()).toHaveLength(1));
-    expect(llamadas()[0]).toMatchObject({ metodo, ruta: `/api/v1${ruta}`, cuerpo });
+    expect(llamadas()[0]).toMatchObject({ metodo, ruta: `/api/v1${ruta}`, ...(cuerpo === undefined ? {} : { cuerpo }) });
     expect(await within(tarjeta).findByText("Hecho")).toBeInTheDocument();
+  });
+
+  it("«crear_paciente» pide documento, celular y autorización en la tarjeta y los manda solo a la API", async () => {
+    servidor.use(estado(), responder("Llena sus datos en la tarjeta.", [pr("crear_paciente", { nombres: "Marta", apellidos: "Ruiz" }, "Crear el paciente Marta Ruiz.")]),
+      http.post(`${API}/pacientes`, ok({ paciente_id: 77 })));
+    montar("/agenda", AUX);
+    await abrirYPreguntar("Crea a Marta Ruiz");
+    const tarjeta = await screen.findByTestId("propuesta");
+    expect(within(tarjeta).getByLabelText("Nombres")).toHaveValue("Marta");
+    expect(within(tarjeta).getByLabelText("Apellidos")).toHaveValue("Ruiz");
+    await userEvent.type(within(tarjeta).getByLabelText("Documento"), "10203040");
+    await userEvent.type(within(tarjeta).getByLabelText("Celular"), "3001234567");
+    await userEvent.click(within(tarjeta).getByRole("checkbox"));
+    await userEvent.click(within(tarjeta).getByRole("button", { name: "Crear paciente" }));
+    await waitFor(() => expect(llamadas()).toHaveLength(1));
+    expect(llamadas()[0]).toMatchObject({ metodo: "POST", ruta: "/api/v1/pacientes",
+      cuerpo: { nombres: "Marta", apellidos: "Ruiz", documento: "10203040", celular: "3001234567", consentimiento: true } });
+    expect(await within(await screen.findByTestId("propuesta")).findByText("Hecho")).toBeInTheDocument();
+    // Lo que se escribió en la tarjeta no vuelve al asistente.
+    expect(enviadas.filter((e) => e.ruta.includes("/asistente/mensajes")).map((e) => JSON.stringify(e.cuerpo)).join()).not.toContain("10203040");
   });
 
   it("una propuesta confirmada no se puede confirmar otra vez", async () => {

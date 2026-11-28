@@ -107,7 +107,9 @@ def test_estructura(ruta):
         assert llamada["llamada"] in usables, f"La llamada canónica {llamada['llamada']} no está entre las esperadas"
     r = caso.get("respuesta") or {}
     assert set(r) <= {"incluye", "incluye_alguno", "excluye", "propuestas"}, r
-    tipos = {"agendar", "cambiar_fecha", "cancelar", "confirmar", "confirmar_telefono", "desenlace", "bloqueo", "contacto"}
+    tipos = {"agendar", "cambiar_fecha", "cancelar", "confirmar", "confirmar_telefono", "desenlace", "bloqueo", "contacto",
+             "eliminar_bloqueo", "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
+             "vincular_contacto", "revertir"}
     assert set(r.get("propuestas") or []) <= tipos, r.get("propuestas")
 
 

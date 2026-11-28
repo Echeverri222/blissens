@@ -54,6 +54,27 @@ def test_la_recepcion_marca_desde_el_panel_y_queda_registrado(mundo, conn):  # n
     assert mundo.aux.put(f"{API}/pacientes/{mundo.p1}/segmentos", json={"internacional": "x"}).status_code == 422
 
 
+def test_la_recepcion_filtra_pacientes_por_segmento(mundo, conn):  # noqa: F811
+    deportista, extranjera = make_patient(conn, "Rigo", "Urán"), make_patient(conn, "Jane", "Doe")
+    marcar(conn, deportista, deportista=True)
+    marcar(conn, extranjera, internacional=True)
+    conn.commit()
+
+    def ids(**params):
+        r = mundo.aux.get(f"{API}/pacientes", params=params)
+        assert r.status_code == 200, r.text
+        return [p["id"] for p in r.json()]
+
+    assert ids(segmento="deportista") == [deportista]  # sin texto lista a todos los del segmento
+    assert ids(segmento="internacional") == [extranjera]
+    assert sorted(ids(segmento=["internacional", "deportista"])) == sorted([deportista, extranjera])
+    assert ids(q="jane", segmento="deportista") == [] and ids(q="jane", segmento="internacional") == [extranjera]
+    fila = mundo.aux.get(f"{API}/pacientes", params={"q": "uran"}).json()[0]
+    assert fila["deportista"] is True and fila["internacional"] is False
+    assert mundo.aux.get(f"{API}/pacientes").json()["codigo"] == "falta_filtro"
+    assert mundo.aux.get(f"{API}/pacientes", params={"segmento": "vip"}).status_code == 422
+
+
 @pytest.mark.parametrize("textos, esperado", [
     (("Internacional",), {"internacional": True, "deportista": False}),
     (("Paciente del exterior",), {"internacional": True, "deportista": False}),

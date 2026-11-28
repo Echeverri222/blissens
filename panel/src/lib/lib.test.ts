@@ -4,7 +4,7 @@ import { columnaDia, posicion, rangoVisible, unir } from "./calendario";
 import { comportamientoDe } from "./errores";
 import { nombreCorto, profesionalCorto } from "./nombres";
 import { totalLlamadas } from "./pendientes";
-import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "./solicitudes";
+import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "./solicitudes";
 import { ahoraSistema, aIso, fechaDe, fechaHora, horaDe, lunesDe, sumarDias } from "./tiempo";
 import { agenda, cita } from "@/pruebas/servidor";
 
@@ -81,17 +81,23 @@ describe("tabla de errores", () => {
 });
 
 describe("solicitudes del sitio web", () => {
-  const nota = "Sitio web · Experiencia · Premium (hotel) · idioma en | Nombre: Visitante | Correo: v@example.com | País: Perú | Mensaje: Hola | gracias";
-  it("reconoce las solicitudes web y no las validaciones de identidad", () => {
-    expect(esSolicitudWeb({ documento: "—", nota: "" })).toBe(true);
-    expect(esSolicitudWeb({ documento: "123", nota: "Sitio web · Contacto · idioma es" })).toBe(true);
-    expect(esSolicitudWeb({ documento: "123", nota: "Documento ya registrado con otro celular" })).toBe(false);
+  it("reconoce las solicitudes web por su origen", () => {
+    expect(esSolicitudWeb({ origen: "sitio" })).toBe(true);
+    expect(esSolicitudWeb({ origen: "paciente" })).toBe(false);
   });
-  it("separa tipo, paquete, contacto y mensaje", () => {
-    expect(leerSolicitudWeb(nota)).toEqual({ tipo: "Experiencia", paquete: "Premium (hotel)", idioma: "en", nombre: "Visitante", correo: "v@example.com", pais: "Perú", mensaje: "Hola | gracias" });
-    expect(leerSolicitudWeb("Sitio web · Contacto · idioma es | Nombre: Ana")).toMatchObject({ tipo: "Contacto", paquete: undefined, nombre: "Ana", mensaje: undefined });
+  it("nombra el tipo con el paquete", () => {
+    expect(tipoDeSolicitud({ interes: "experiencia", paquete: "premium" })).toBe("Experiencia · Premium (hotel)");
+    expect(tipoDeSolicitud({ interes: "evaluacion_virtual", paquete: null })).toBe("Evaluación virtual");
+    expect(tipoDeSolicitud({ interes: null, paquete: null })).toBe("Contacto");
+  });
+  it("prepara contacto, tamaños y nombre para la ficha", () => {
     expect(digitosWhatsApp("+1 305 555 0100")).toBe("13055550100");
     expect(digitosWhatsApp("")).toBeNull();
+    expect(tamanoLegible(1536 * 1024)).toBe("1,5 MB");
+    expect(tamanoLegible(300)).toBe("1 KB");
+    expect(separarNombre("Ana")).toEqual({ nombres: "Ana", apellidos: "" });
+    expect(separarNombre("Ana López")).toEqual({ nombres: "Ana", apellidos: "López" });
+    expect(separarNombre("Ana María López Buitrago")).toEqual({ nombres: "Ana María", apellidos: "López Buitrago" });
   });
 });
 

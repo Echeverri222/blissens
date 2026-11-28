@@ -262,12 +262,17 @@ class NuevoBloqueo(Entrada):
 
 # ----------------------------------------------------------------- pacientes
 
+Segmento = Literal["internacional", "deportista"]
+
+
 class PacienteResumen(Salida):
     id: int
     nombres: str
     apellidos: str
     documento: str | None
     celular: str | None
+    internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
+    deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
 
 class NuevoPaciente(Entrada):
@@ -353,6 +358,7 @@ class MensajeOut(Salida):
     texto: str
     botones: list[Any]
     momento: Momento
+    gestionado: bool = Field(description="Solo cuenta en los entrantes: falso mientras nadie lo haya respondido o descartado.")
 
 
 class ResponsableOut(Salida):
@@ -473,12 +479,34 @@ class SinInterpretarOut(Salida):
     paciente: str
 
 
+class AdjuntoOut(Salida):
+    id: int
+    nombre: str
+    tipo: str
+    tamano: int = Field(description="Bytes")
+
+
 class ContactoOut(Salida):
     id: int
     documento: str
     celular: str
     nota: str
     momento: Momento
+    origen: Literal["paciente", "sitio"] = Field(description="`sitio`: llegó por un formulario del sitio web")
+    interes: Literal["evaluacion_virtual", "experiencia", "contacto"] | None = None
+    idioma: Literal["es", "en"] | None = None
+    nombre: str | None = None
+    correo: str | None = None
+    pais: str | None = None
+    paquete: str | None = None
+    mensaje: str | None = None
+    paciente_id: int | None = Field(None, description="Paciente al que la recepción vinculó la solicitud")
+    paciente: str | None = None
+    adjuntos: list[AdjuntoOut] = []
+
+
+class VincularSolicitud(Entrada):
+    paciente_id: int
 
 
 class BajaOut(Salida):
@@ -761,7 +789,9 @@ class AsistenteMensajeIn(Entrada):
 
 
 class PropuestaOut(Salida):
-    tipo: Literal["agendar", "cambiar_fecha", "cancelar", "confirmar_telefono", "desenlace", "bloqueo"]
+    tipo: Literal["agendar", "cambiar_fecha", "cancelar", "confirmar_telefono", "desenlace", "bloqueo", "eliminar_bloqueo",
+                  "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
+                  "vincular_contacto", "revertir"]
     parametros: dict[str, Any] = Field(description="Lo que lleva el endpoint existente que la ejecuta, ya con sus ids")
     resumen: str = Field(description="Una línea para la tarjeta de confirmación")
 

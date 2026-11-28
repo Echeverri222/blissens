@@ -101,6 +101,14 @@ Success = the access matrix in §5 is enforced by tests, a patient cannot obtain
 | `proponer_desenlace` | · | P (own) | P | `POST /citas/{id}/desenlace` | `asistente:propuesta` |
 | `proponer_bloqueo` | · | P (own) | P | `POST /bloqueos` | `asistente:propuesta` |
 | `pedir_contacto` | P | · | · | new `POST /p/{token}/contacto` (§7) | `asistente:propuesta` |
+| `proponer_eliminar_bloqueo` | · | · | P | `DELETE /bloqueos/{id}` | `asistente:propuesta` |
+| `proponer_crear_paciente` | · | · | P | `POST /pacientes`: the propuesta carries only the name; the card asks for document, phone and consent, which never reach the model (P5) | `asistente:propuesta` |
+| `proponer_segmentos` | · | · | P | `PUT /pacientes/{id}/segmentos` | `asistente:propuesta` |
+| `proponer_gestion_seguimiento` | · | · | P | `POST /seguimientos/{id}/gestion` | `asistente:propuesta` |
+| `proponer_gestionar_mensaje` | · | · | P | `POST /mensajes/{id}/gestionar` | `asistente:propuesta` |
+| `proponer_gestionar_contacto` | · | · | P | `POST /contactos/{id}/gestionar` | `asistente:propuesta` |
+| `proponer_vincular_contacto` | · | · | P | `POST /contactos/{id}/paciente` | `asistente:propuesta` |
+| `proponer_revertir` | · | · | P | `POST /historial/{id}/revertir`; the id comes from `ficha_paciente.historial` (last 10 moves, with `reversible`) | `asistente:propuesta` |
 
 Rules that the table does not show:
 
@@ -113,7 +121,7 @@ Rules that the table does not show:
 - **`espacios_libres`**: at most 12 slots per call. For a paciente it returns free times only, never who holds the taken ones.
 - **`servicios`**: name and duration. **Never `servicio.valor`** for the paciente perfil: it is an internal average, not a price.
 - **`buscar_pacientes`**: at most 10 rows: id, full name, and the last 4 digits of the document.
-- **`ficha_paciente`**: name, last 4 digits of the document, consent flags, the last 20 appointments, open follow-up cases, and the last 10 messages. No phone, email or birth date.
+- **`ficha_paciente`**: name, last 4 digits of the document, consent flags, the last 20 appointments, open follow-up cases, the last 10 state moves (with `reversible`), and the last 10 messages. No phone, email or birth date.
 - **`bandeja`** and **`indicadores`**: at most 50 rows per call. `indicadores` takes `reporte`, `desde`, `hasta`, and optional `profesional_id` and `servicio_id`.
 - **`detalle_cita`** and every tool that takes an id: an id outside the actor's scope returns `no_existe`, the same as an id that does not exist (the `permisos.NoExiste` convention).
 - **Every tool**: output is capped at 8 000 characters. Past that, the tool returns the first rows and `"truncado": true`.

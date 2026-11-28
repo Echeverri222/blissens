@@ -1,0 +1,22 @@
+id: crea-a-carolina-paciente-nueva
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: Llegó una paciente nueva, Carolina Ochoa Vélez. Créamela porfa
+intencion: Revisar que no exista y preparar la creación con su nombre; documento, celular y autorización van en la tarjeta.
+herramientas:
+  esperadas: [proponer_crear_paciente]
+  aceptables: [buscar_pacientes]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Ochoa"}
+    excluye: ["Carolina"]
+  - llamada: proponer_crear_paciente
+    args: {nombres: "Carolina", apellidos: "Ochoa Vélez"}
+    incluye: ["crear_paciente", "Carolina Ochoa Vélez"]
+respuesta:
+  incluye: ["tarjeta"]
+  excluye: ["ya quedo creada", "dime su cedula", "dame su cedula", "cual es su celular"]
+  propuestas: [crear_paciente]
+notas: >-
+  El documento y el celular nunca pasan por el chat (P5): el modelo no debe pedirlos; la persona los escribe en la tarjeta.

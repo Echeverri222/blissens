@@ -1,0 +1,19 @@
+id: la-del-blanqueamiento-era-lucia
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: La solicitud de la página del blanqueamiento era de Lucía Fernández, asóciasela
+intencion: Preparar el vínculo de la solicitud web sobre blanqueamiento con Lucía Fernández Mora.
+herramientas:
+  esperadas: [bandeja, buscar_pacientes, proponer_vincular_contacto]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Lucía Fernández"}
+    incluye: ["Lucía Fernández Mora"]
+  - llamada: proponer_vincular_contacto
+    args: {solicitud_id: "{solicitud.blanqueamiento}", paciente_id: "{paciente.lucia}"}
+    incluye: ["vincular_contacto", "Lucía Fernández Mora"]
+respuesta:
+  incluye: ["Lucía"]
+  excluye: ["ya quedo vinculada"]
+  propuestas: [vincular_contacto]

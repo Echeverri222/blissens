@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from fastapi import APIRouter, Depends, FastAPI, Form, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -26,6 +26,7 @@ from .. import (
     messaging,
     privacidad,
     settings,
+    solicitudes,
     tasks,
     usuarios,
 )
@@ -292,9 +293,9 @@ def _celular_de_sitio(raw: str) -> str:
 def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Form("es"), nombre: str = Form(""),
                     correo: str = Form(""), celular: str = Form(""), pais: str = Form(""), paquete: str = Form(""),
                     mensaje: str = Form(""), consentimiento: str = Form(""), web: str = Form(""),
-                    conn=Depends(conn_publica)):
-    """Formularios de la landing (evaluación virtual, experiencias, contacto): crean una solicitud de contacto que la
-    auxiliar ve en Bandejas. No hay migración: el interés, el paquete y los datos van en la nota."""
+                    fotos: list[UploadFile | str] = File(default=[]), conn=Depends(conn_publica)):
+    """Formularios de la landing (evaluación virtual, experiencias, contacto): crean una solicitud que la auxiliar ve en
+    Bandejas, con fotos o PDF opcionales, y programan el aviso por correo a la clínica y el acuse a quien la envió."""
     if interes not in copia.INTERESES:
         raise HTTPException(422, "Interés desconocido")
     lang = idioma if idioma in copia.COPIA else "es"
@@ -309,7 +310,8 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
                       lang=lang, interes=interes, values=values, error=f["err_limite"], hecho=False,
                       status_code=429)
     if web:  # campo trampa para robots: se responde como si hubiera salido bien, sin guardar nada
-        return render(request, "_solicitud.html", lang=lang, interes=interes, values={}, error=None, hecho=True)
+        return render(request, "_solicitud.html", lang=lang, interes=interes, values={}, error=None, hecho=True,
+                      horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=False)
     tel = _celular_de_sitio(celular)
     if not nombre:
         error = f["err_nombre"]
@@ -319,21 +321,26 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
         error = f["err_paquete"]
     elif not consentimiento:
         error = f["err_consent"]
+    archivos: list[tuple[str, str, bytes]] = []
+    if error is None:
+        # Se lee un byte de más para saber si se pasa del máximo sin cargar en memoria un archivo enorme.
+        # Un campo de archivo vacío llega como texto vacío (o como archivo sin nombre): no cuenta.
+        con_nombre = [u for u in fotos if not isinstance(u, str) and u.filename]
+        try:
+            if len(con_nombre) > solicitudes.MAX_ADJUNTOS:
+                raise solicitudes.AdjuntoInvalido("cantidad")
+            subidos = [solicitudes.Adjunto(u.filename or "", u.file.read(solicitudes.MAX_BYTES + 1)) for u in con_nombre]
+            archivos = solicitudes.validar_adjuntos([a for a in subidos if a.datos])
+        except solicitudes.AdjuntoInvalido as e:
+            error = f[f"err_adjunto_{e}"]
     hecho = error is None
     if hecho:
         limite_solicitudes.registrar(_ip_cliente(request))
-        partes = [f"Sitio web · {copia.INTERESES[interes]}"
-                  + (f" · {copia.PAQUETES[paquete]}" if interes == "experiencia" else "") + f" · idioma {lang}",
-                  f"Nombre: {nombre[:120]}"]
-        if correo:
-            partes.append(f"Correo: {correo[:120]}")
-        if pais:
-            partes.append(f"País: {pais[:80]}")
-        if mensaje:
-            partes.append(f"Mensaje: {mensaje[:600]}")
-        conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
-                     ("—", tel, " | ".join(partes), clock.now(conn)))
-    ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho)
+        solicitudes.crear(conn, interes=interes, idioma=lang, nombre=nombre[:120], correo=correo[:120].lower() or None,
+                          celular=tel, pais=pais[:80] or None, paquete=paquete if interes == "experiencia" else None,
+                          mensaje=mensaje[:2000] or None, adjuntos=archivos)
+    ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho,
+               horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo))
     if request.headers.get("HX-Request"):
         return render(request, "_solicitud.html", **ctx)
     return render(request, "solicitud.html", **ctx)

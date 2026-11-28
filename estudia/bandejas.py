@@ -100,7 +100,13 @@ def sin_interpretar(conn):
 
 
 def contactos_pendientes(conn):
-    return conn.execute("select * from solicitud_contacto where not gestionada order by momento").fetchall()
+    """Con los adjuntos (sin su contenido) y el paciente al que la recepción la vinculó."""
+    return conn.execute(
+        "select s.id, s.documento, s.celular, s.nota, s.momento, s.origen, s.interes, s.idioma, s.nombre, s.correo, s.pais, "
+        "s.paquete, s.mensaje, s.paciente_id, nullif(trim(p.nombres || ' ' || p.apellidos), '') as paciente, "
+        "coalesce((select json_agg(json_build_object('id', a.id, 'nombre', a.nombre, 'tipo', a.tipo, 'tamano', a.tamano) "
+        "order by a.id) from solicitud_adjunto a where a.solicitud_id=s.id), '[]') as adjuntos "
+        "from solicitud_contacto s left join paciente p on p.id=s.paciente_id where not s.gestionada order by s.momento").fetchall()
 
 
 def dados_de_baja(conn):
@@ -134,17 +140,25 @@ def _sin_tildes(texto: str) -> str:
     return texto.lower().translate(str.maketrans(CON_TILDE, SIN_TILDE))
 
 
-def find_patients(conn, q: str):
+SEGMENTOS = ("internacional", "deportista")
+TOPE_BUSQUEDA = 50
+
+
+def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
     """Pacientes cuyo nombre, apellido, documento o celular contienen CADA palabra de `q`, sin importar tildes ni mayúsculas:
-    «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes)."""
+    «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes). Con `segmentos` se queda con los
+    que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos."""
     palabras = _sin_tildes(q).split()[:6]
-    if not palabras:
+    segmentos = tuple(s for s in SEGMENTOS if s in segmentos)
+    if not palabras and not segmentos:
         return []
     nombre = f"translate(lower(nombres || ' ' || apellidos), '{CON_TILDE}', '{SIN_TILDE}')"
-    condicion = " and ".join(f"({nombre} like %s or documento like %s or celular like %s)" for _ in palabras)
+    condiciones = [f"({nombre} like %s or documento like %s or celular like %s)" for _ in palabras]
+    if segmentos:
+        condiciones.append("(" + " or ".join(segmentos) + ")")
     args = [x for w in palabras for x in (f"%{w}%",) * 3]
-    return conn.execute(f"select id, nombres, apellidos, documento, celular from paciente where {condicion} "
-                        "order by apellidos, nombres limit 30", args).fetchall()
+    return conn.execute(f"select id, nombres, apellidos, documento, celular, internacional, deportista from paciente "
+                        f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA}", args).fetchall()
 
 
 def patient_record(conn, patient_id: int) -> dict:

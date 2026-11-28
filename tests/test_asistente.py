@@ -51,6 +51,14 @@ MATRIZ = {
     "proponer_desenlace": ("", "P", "P", "asistente:propuesta"),
     "proponer_bloqueo": ("", "P", "P", "asistente:propuesta"),
     "pedir_contacto": ("P", "", "", "asistente:propuesta"),
+    "proponer_eliminar_bloqueo": ("", "", "P", "asistente:propuesta"),
+    "proponer_crear_paciente": ("", "", "P", "asistente:propuesta"),
+    "proponer_segmentos": ("", "", "P", "asistente:propuesta"),
+    "proponer_gestion_seguimiento": ("", "", "P", "asistente:propuesta"),
+    "proponer_gestionar_mensaje": ("", "", "P", "asistente:propuesta"),
+    "proponer_gestionar_contacto": ("", "", "P", "asistente:propuesta"),
+    "proponer_vincular_contacto": ("", "", "P", "asistente:propuesta"),
+    "proponer_revertir": ("", "", "P", "asistente:propuesta"),
 }
 SOLO_OPERADOR = {"esquema", "consulta_sql"}
 PERFILES = ("paciente", "especialista", "auxiliar")
@@ -372,6 +380,76 @@ def test_propuestas_de_la_auxiliar_tienen_la_forma_y_los_parametros_de_los_endpo
     assert p["tipo"] == "bloqueo" and p["parametros"] == {"profesional_id": mundo.pro2, "inicio": ini, "fin": fin, "motivo": "Curso"}
 
 
+def _pendientes_de_recepcion(mundo, conn):
+    """Un bloqueo futuro, un seguimiento abierto, un mensaje entrante y una solicitud de contacto, todos de Luis o del Dr. Dos."""
+    b = conn.execute("insert into bloqueo(profesional_id, rango, motivo) values (%s, tstzrange(%s, %s), 'Curso') returning id",
+                     (mundo.pro2, at(6, "14:00"), at(6, "16:00"))).fetchone()["id"]
+    caso = conn.execute("insert into caso_seguimiento(paciente_id, tipo, estado, abierto_en) values (%s, 'cancelacion', 'abierto', %s) "
+                        "returning id", (mundo.luis, NOW)).fetchone()["id"]
+    m = conn.execute("insert into mensaje(paciente_id, direccion, texto, momento, gestionado) values (%s, 'entrante', 'Hola', %s, false) returning id",
+                     (mundo.luis, NOW)).fetchone()["id"]
+    s = conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values ('999', '+573001112233', 'Llamar', %s) "
+                     "returning id", (NOW,)).fetchone()["id"]
+    conn.commit()
+    return SimpleNamespace(bloqueo=b, caso=caso, mensaje=m, solicitud=s)
+
+
+def test_propuestas_de_recepcion_para_pacientes_bandejas_y_bloqueos(mundo, conn):
+    x = _pendientes_de_recepcion(mundo, conn)
+    p = ok(ej(mundo.a_aux, "proponer_crear_paciente", nombres="Marta", apellidos="Ruiz"))["propuesta"]
+    assert p == {"tipo": "crear_paciente", "parametros": {"nombres": "Marta", "apellidos": "Ruiz"}, "resumen": "Crear el paciente Marta Ruiz."}
+    # El documento y el celular nunca pasan por el modelo: la entrada los rechaza.
+    assert codigo(ej(mundo.a_aux, "proponer_crear_paciente", nombres="Marta", documento="123")) == "datos_invalidos"
+    p = ok(ej(mundo.a_aux, "proponer_segmentos", paciente_id=mundo.luis, internacional=True, deportista=False))["propuesta"]
+    assert p["tipo"] == "segmentos" and p["parametros"] == {"paciente_id": mundo.luis, "internacional": True, "deportista": False}
+    assert "internacional" in p["resumen"]
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="sin_respuesta"))["propuesta"]
+    assert p["tipo"] == "gestion_seguimiento" and p["parametros"] == {"caso_id": x.caso, "resultado": "sin_respuesta", "detalle": ""}
+    p = ok(ej(mundo.a_aux, "proponer_gestionar_mensaje", mensaje_id=x.mensaje))["propuesta"]
+    assert p["tipo"] == "gestionar_mensaje" and p["parametros"] == {"mensaje_id": x.mensaje}
+    p = ok(ej(mundo.a_aux, "proponer_gestionar_contacto", solicitud_id=x.solicitud))["propuesta"]
+    assert p["tipo"] == "gestionar_contacto" and p["parametros"] == {"solicitud_id": x.solicitud}
+    p = ok(ej(mundo.a_aux, "proponer_vincular_contacto", solicitud_id=x.solicitud, paciente_id=mundo.luis))["propuesta"]
+    assert p["tipo"] == "vincular_contacto" and p["parametros"] == {"solicitud_id": x.solicitud, "paciente_id": mundo.luis}
+    p = ok(ej(mundo.a_aux, "proponer_eliminar_bloqueo", bloqueo_id=x.bloqueo))["propuesta"]
+    assert p["tipo"] == "eliminar_bloqueo" and p["parametros"] == {"bloqueo_id": x.bloqueo} and "Dr. Dos" in p["resumen"]
+    for nombre, args in (("proponer_segmentos", dict(paciente_id=999999, internacional=True, deportista=True)),
+                         ("proponer_gestion_seguimiento", dict(caso_id=999999, resultado="acepto")),
+                         ("proponer_gestionar_mensaje", dict(mensaje_id=999999)),
+                         ("proponer_gestionar_contacto", dict(solicitud_id=999999)),
+                         ("proponer_vincular_contacto", dict(solicitud_id=x.solicitud, paciente_id=999999)),
+                         ("proponer_eliminar_bloqueo", dict(bloqueo_id=999999)),
+                         ("proponer_revertir", dict(historial_id=999999))):
+        assert codigo(ej(mundo.a_aux, nombre, **args)) == "no_existe", nombre
+
+
+def test_propuestas_de_recepcion_no_se_hacen_sobre_lo_ya_cerrado(mundo, conn):
+    x = _pendientes_de_recepcion(mundo, conn)
+    conn.execute("update caso_seguimiento set estado='rechazado' where id=%s", (x.caso,))
+    conn.execute("update mensaje set gestionado=true where id=%s", (x.mensaje,))
+    conn.execute("update solicitud_contacto set gestionada=true where id=%s", (x.solicitud,))
+    conn.execute("update bloqueo set rango=tstzrange(%s, %s) where id=%s", (at(-2, "09:00"), at(-2, "10:00"), x.bloqueo))
+    conn.commit()
+    assert codigo(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="acepto")) == "accion_no_permitida"
+    assert codigo(ej(mundo.a_aux, "proponer_gestionar_mensaje", mensaje_id=x.mensaje)) == "accion_no_permitida"
+    assert codigo(ej(mundo.a_aux, "proponer_gestionar_contacto", solicitud_id=x.solicitud)) == "accion_no_permitida"
+    assert codigo(ej(mundo.a_aux, "proponer_eliminar_bloqueo", bloqueo_id=x.bloqueo)) == "accion_no_permitida"
+
+
+def test_propuestas_revertir_solo_el_ultimo_movimiento_que_la_ficha_marca_reversible(mundo, conn):
+    from estudia import agenda
+    agenda.cancel(conn, mundo.c_luis, "auxiliar", "panel", mundo.motivo)
+    conn.commit()
+    hist = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["historial"]
+    ultimo = hist[0]
+    assert ultimo["a"] == "cancelada" and ultimo["reversible"] is True
+    p = ok(ej(mundo.a_aux, "proponer_revertir", historial_id=ultimo["id"]))["propuesta"]
+    assert p["tipo"] == "revertir" and p["parametros"] == {"historial_id": ultimo["id"]} and "Luis" in p["resumen"]
+    agenda.revert(conn, ultimo["id"])
+    conn.commit()
+    assert codigo(ej(mundo.a_aux, "proponer_revertir", historial_id=ultimo["id"])) == "accion_no_permitida"  # ya se deshizo
+
+
 def test_propuestas_de_desenlace_solo_desde_la_hora_de_inicio_y_el_especialista_solo_de_las_suyas(mundo):
     r = ej(mundo.a_esp1, "proponer_desenlace", cita_id=mundo.c_ana, desenlace="atendida")
     assert codigo(r) == "accion_no_permitida"  # la cita aún no empieza
@@ -439,16 +517,35 @@ def test_p2_ninguna_propuesta_escribe_en_la_base(mundo, conn):
         (mundo.a_aux, "proponer_confirmar_telefono", dict(cita_id=mundo.c_luis)),
         (mundo.a_aux, "proponer_bloqueo", dict(profesional_id=mundo.pro1, inicio=ini, fin=fin)),
         (mundo.a_esp1, "proponer_bloqueo", dict(inicio=ini, fin=fin)),
+        (mundo.a_aux, "proponer_crear_paciente", dict(nombres="Marta")),
+        (mundo.a_aux, "proponer_segmentos", dict(paciente_id=mundo.luis, internacional=True, deportista=True)),
+    ]
+    x = _pendientes_de_recepcion(mundo, conn)
+    llamadas += [
+        (mundo.a_aux, "proponer_eliminar_bloqueo", dict(bloqueo_id=x.bloqueo)),
+        (mundo.a_aux, "proponer_gestion_seguimiento", dict(caso_id=x.caso, resultado="acepto")),
+        (mundo.a_aux, "proponer_gestionar_mensaje", dict(mensaje_id=x.mensaje)),
+        (mundo.a_aux, "proponer_gestionar_contacto", dict(solicitud_id=x.solicitud)),
+        (mundo.a_aux, "proponer_vincular_contacto", dict(solicitud_id=x.solicitud, paciente_id=mundo.luis)),
     ]
     antes = conteos(conn)
+    otras = _estado_de_recepcion(conn)
     for actor, nombre, args in llamadas:
         assert "propuesta" in ok(ej(actor, nombre, **args)), nombre
-        assert conteos(conn) == antes, nombre
+        assert conteos(conn) == antes and _estado_de_recepcion(conn) == otras, nombre
     clock.freeze(at(2, "10:30"))
     for actor in (mundo.a_esp1, mundo.a_aux):
         assert "propuesta" in ok(ej(actor, "proponer_desenlace", cita_id=mundo.c_ana, desenlace="atendida"))
     assert conteos(conn) == antes
     assert {t.nombre for t in CATALOGO.values() if t.tipo == "propuesta"} == {n for n in MATRIZ if "P" in MATRIZ[n][:3]}
+
+
+def _estado_de_recepcion(conn):
+    conn.rollback()
+    return [conn.execute(q).fetchall() for q in (
+        "select count(*) n from paciente", "select id, internacional, deportista from paciente order by id",
+        "select id, estado from caso_seguimiento order by id", "select count(*) n from intento",
+        "select id, gestionado from mensaje order by id", "select id, gestionada, paciente_id from solicitud_contacto order by id")]
 
 
 def test_p2_un_manejador_que_intentara_escribir_falla_porque_corre_en_solo_lectura(mundo, conn):

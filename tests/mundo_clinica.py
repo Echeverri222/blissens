@@ -96,6 +96,10 @@ class Mundo:
     servicio: dict[str, int] = field(default_factory=dict)
     motivo: dict[str, int] = field(default_factory=dict)
     bloqueo: dict[str, int] = field(default_factory=dict)
+    caso: dict[str, int] = field(default_factory=dict)
+    mensaje: dict[str, int] = field(default_factory=dict)
+    solicitud: dict[str, int] = field(default_factory=dict)
+    historial: dict[str, int] = field(default_factory=dict)
     actores: dict[str, Actor] = field(default_factory=dict)
 
     def resolver(self, x):
@@ -189,10 +193,17 @@ def construir(conn) -> Mundo:
     w.bloqueo["rios_jueves"] = horario.create_block(conn, w.pro["rios"], _a_las(2, "13:00"), _a_las(2, "17:30"),
                                                     "Congreso de odontología")
     for pac, texto in MENSAJES.items():
-        conn.execute("insert into mensaje(paciente_id, direccion, canal, texto, momento, gestionado) "
-                     "values (%s,'entrante','whatsapp',%s,%s,false)", (w.paciente[pac], texto, AHORA - timedelta(hours=2)))
-    conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
-                 ("1098765432", "+573104440099", "Quiero información sobre blanqueamiento", AHORA - timedelta(hours=5)))
+        w.mensaje[pac] = conn.execute(
+            "insert into mensaje(paciente_id, direccion, canal, texto, momento, gestionado) "
+            "values (%s,'entrante','whatsapp',%s,%s,false) returning id", (w.paciente[pac], texto, AHORA - timedelta(hours=2))).fetchone()["id"]
+    w.solicitud["blanqueamiento"] = conn.execute(
+        "insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s) returning id",
+        ("1098765432", "+573104440099", "Quiero información sobre blanqueamiento", AHORA - timedelta(hours=5))).fetchone()["id"]
+    for nombre in ("diego_ayer", "lucia_jueves"):
+        w.caso[nombre] = conn.execute("select id from caso_seguimiento where cita_id=%s and estado='abierto'",
+                                      (w.cita[nombre],)).fetchone()["id"]
+    w.historial["lucia_jueves_cancelada"] = conn.execute(
+        "select id from historial_estado where cita_id=%s and estado_nuevo='cancelada'", (w.cita["lucia_jueves"],)).fetchone()["id"]
 
     marta = usuarios.crear(conn, "marta", "Marta Recepción", CLAVE, "auxiliar")
     e_rios = usuarios.crear(conn, "vrios", PROFESIONALES["rios"], CLAVE, "especialista", w.pro["rios"])
