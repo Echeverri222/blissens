@@ -34,10 +34,11 @@ router = APIRouter(dependencies=[Depends(solo_json)])
             response_model=list[sc.PacienteResumen], dependencies=[auditar("buscar_paciente")])
 def buscar(q: str | None = Query(None, min_length=1), segmento: list[sc.Segmento] = Query([]),
            fallecidos: bool = Query(False, description="Incluye a los marcados como fallecidos (por defecto no salen)."),
+           semaforo: sc.ColorSemaforo | None = Query(None, description="Solo los de ese color (R5)."),
            conn=Depends(get_conn), u=Depends(auxiliar)):
     if not q and not segmento:
         raise ApiError(422, "falta_filtro", "Escribe un nombre, documento o celular, o elige un segmento")
-    return bandejas.find_patients(conn, q or "", tuple(segmento), fallecidos)
+    return bandejas.find_patients(conn, q or "", tuple(segmento), fallecidos, semaforo)
 
 
 @router.post("/pacientes", tags=["Pacientes"], summary="Crear un paciente (con consentimiento)",
@@ -136,13 +137,19 @@ def ficha(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     r = bandejas.patient_record(conn, paciente_id)
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return sc.FichaCompleta(
-        paciente=r["paciente"], familia=familia.resumen(conn, paciente_id),
+        paciente={**r["paciente"], "semaforo": pacientes.semaforo(conn, [paciente_id])[paciente_id]}, familia=familia.resumen(conn, paciente_id),
         citas=[{**c, "inicio": inicio(c)} for c in r["citas"]],
         historial=[{**h, "reversible": permisos.puede_revertir(u, h, estados[h["cita_id"]])} for h in r["historial"]],
         casos=[{**c, "intentos": c["intentos"] or []} for c in r["casos"]], mensajes=r["mensajes"])
 
 
 # ----------------------------------------------------------------- bandejas
+
+def _con_color(conn, filas: list[dict]) -> list[dict]:
+    """A cada fila de una lista de llamadas, el semáforo de su paciente (R5)."""
+    colores = pacientes.semaforo(conn, [f["paciente_id"] for f in filas])
+    return [{**f, "semaforo": colores.get(f["paciente_id"])} for f in filas]
+
 
 def _nombre(r: dict) -> dict:
     return {**r, "paciente": f"{r['nombres']} {r['apellidos']}".strip()}
@@ -169,13 +176,13 @@ def resumen_dia(conn=Depends(get_conn), u=Depends(auxiliar)):
                         "Los pacientes dados de baja se listan en `dados-de-baja`.",
             response_model=list[sc.NoConfirmadaOut])
 def no_confirmadas(conn=Depends(get_conn), u=Depends(auxiliar)):
-    return [{**r, "cita_id": r["id"]} for r in bandejas.no_confirmadas(conn)]
+    return _con_color(conn, [{**r, "cita_id": r["id"]} for r in bandejas.no_confirmadas(conn)])
 
 
 @router.get("/bandejas/seguimientos", tags=["Bandejas"], summary="Casos de seguimiento abiertos y escalados",
             response_model=list[sc.SeguimientoOut])
 def seguimientos(conn=Depends(get_conn), u=Depends(auxiliar)):
-    return bandejas.seguimientos(conn)
+    return _con_color(conn, bandejas.seguimientos(conn))
 
 
 @router.get("/bandejas/en-riesgo", tags=["Bandejas"], summary="Pacientes con tratamiento a medias",
@@ -212,7 +219,7 @@ def contactos(conn=Depends(get_conn), u=Depends(auxiliar)):
 @router.get("/bandejas/dados-de-baja", tags=["Bandejas"], summary="Citas próximas de pacientes dados de baja",
             response_model=list[sc.BajaOut])
 def dados_de_baja(conn=Depends(get_conn), u=Depends(auxiliar)):
-    return [{**r, "cita_id": r["id"]} for r in bandejas.dados_de_baja(conn)]
+    return _con_color(conn, [{**r, "cita_id": r["id"]} for r in bandejas.dados_de_baja(conn)])
 
 
 @router.get("/bandejas/celulares-por-revisar", tags=["Bandejas"],

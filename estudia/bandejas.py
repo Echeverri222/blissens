@@ -1,7 +1,7 @@
 """Bandejas de la auxiliar: listas de trabajo derivadas con consultas (no hay tabla de alertas)."""
 from datetime import date, datetime, time, timedelta
 
-from . import clock, recovery
+from . import clock, pacientes, recovery
 from .lifecycle import ALIVE
 
 
@@ -163,11 +163,12 @@ SEGMENTOS = ("internacional", "deportista")
 TOPE_BUSQUEDA = 50
 
 
-def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = (), con_fallecidos: bool = False):
+def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = (), con_fallecidos: bool = False, semaforo: str | None = None):
     """Pacientes cuyo nombre, apellido, documento o celular contienen CADA palabra de `q`, sin importar tildes ni mayúsculas:
     «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes). Con `segmentos` se queda con los
     que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos. Los fallecidos no salen
-    (ni para agendar ni para el asistente) salvo con `con_fallecidos`: la ficha se consulta desde Pacientes."""
+    (ni para agendar ni para el asistente) salvo con `con_fallecidos`: la ficha se consulta desde Pacientes. Cada fila trae su
+    `semaforo` (R5); con `semaforo` se queda con los de ese color."""
     palabras = _sin_tildes(q).split()[:6]
     segmentos = tuple(s for s in SEGMENTOS if s in segmentos)
     if not palabras and not segmentos:
@@ -179,8 +180,14 @@ def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = (), con_fallec
     if not con_fallecidos:
         condiciones.append("no_contactar is distinct from 'fallecido'")
     args = [x for w in palabras for x in (f"%{w}%",) * 4]
-    return conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista, no_contactar from paciente "
-                        f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA}", args).fetchall()
+    filas = conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista, no_contactar from paciente "
+                         f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA if not semaforo else 2000}",
+                         args).fetchall()
+    colores = pacientes.semaforo(conn, [f["id"] for f in filas])
+    filas = [{**f, "semaforo": colores[f["id"]]} for f in filas]
+    if semaforo:
+        filas = [f for f in filas if f["semaforo"] == semaforo][:TOPE_BUSQUEDA]
+    return filas
 
 
 def patient_record(conn, patient_id: int) -> dict:

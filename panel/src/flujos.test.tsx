@@ -245,6 +245,20 @@ describe("agendar", () => {
     expect(pedidas).toEqual(["?segmento=deportista"]);
   });
 
+  it("muestra el semáforo con su texto y filtra por estado", async () => {
+    const pedidas: string[] = [];
+    servidor.use(http.get(`${API}/pacientes`, ({ request }) => {
+      pedidas.push(new URL(request.url).search);
+      return HttpResponse.json([{ id: 9, nombres: "Vera", apellidos: "Díaz", documento: "123", celular: null, etapa: "paciente", internacional: false, deportista: false, semaforo: "rojo" }]);
+    }));
+    montar("/pacientes", AUX);
+    await userEvent.selectOptions(await screen.findByLabelText("Estado"), "rojo");
+    await userEvent.type(screen.getByLabelText(/Buscar por nombre/), "vera");
+    await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    expect(await screen.findByRole("button", { name: /Vera Díaz/ })).toHaveTextContent("Sin reagendar");
+    expect(pedidas.at(-1)).toContain("semaforo=rojo");
+  });
+
   it("no pone el texto de búsqueda en la dirección", async () => {
     servidor.use(http.get(`${API}/pacientes`, () => HttpResponse.json([])));
     montar("/pacientes", AUX);

@@ -12,6 +12,8 @@ DEFAULTS = {
     "max_ofertas_por_cupo": 5,
     "max_ofertas_paciente_semana": 2,
     "dias_riesgo": 30,
+    "dias_perdido": 60,                 # semáforo (R5): sin cita viva y sin venir en tantos días = «perdido»
+    "umbral_cambios_fecha": 3,          # semáforo (R5): tantos cambios de fecha en 12 meses = amarillo
     "horizonte_dias": 60,
     "antelacion_minima_agendar_horas": 2,
     "paso_min": 30,

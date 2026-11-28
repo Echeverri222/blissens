@@ -3,12 +3,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
-import type { CelularPorRevisar, Contacto, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
+import type { CelularPorRevisar, Contacto, Semaforo as TipoSemaforo, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Confirmar, Entrada, Hoja, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Confirmar, Entrada, Hoja, Semaforo, Tarjeta } from "@/ui/controles";
 import { BuscarPaciente } from "./Agendar";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
@@ -70,7 +70,7 @@ export function Bandejas() {
   );
 }
 
-type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; texto: ReactNode; acciones: ReactNode };
+type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; semaforo?: TipoSemaforo | null; texto: ReactNode; acciones: ReactNode };
 
 /** Las llamadas de hoy, de lo más urgente a lo menos: necesita llamada, mensajes, contactos, sin confirmar, seguimientos y, al final, los dados de baja.
  *  Con la misma urgencia, primero los pacientes de alto valor (internacionales y deportistas). */
@@ -80,7 +80,7 @@ function pendientes(d: {
   dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>; celulares?: Awaited<ReturnType<typeof api.bandejas.celularesPorRevisar>>;
 }): Pendiente[] {
   const f: Pendiente[] = [];
-  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesSeguimiento id={r.id} paciente={r.paciente} />,
     texto: <><b>{r.paciente}</b> <AltoValor internacional={r.internacional} deportista={r.deportista} />: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
   for (const r of d.mensajes ?? []) f.push({ id: `msj-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: "Mensaje", slug: "sin-interpretar", pacienteId: r.paciente_id,
@@ -89,10 +89,10 @@ function pendientes(d: {
   for (const r of d.contactos ?? []) f.push({ id: `con-${r.id}`, urgencia: 2, orden: r.momento, etiqueta: esSolicitudWeb(r) ? "Solicitud web" : "Validar", slug: "contactos", celular: r.celular,
     acciones: <BotonGestionada id={r.id} />,
     texto: esSolicitudWeb(r) ? resumenWeb(r) : <>El documento <b>{r.documento}</b> intentó agendar desde otro celular ({r.celular}). Llama para validar.</> });
-  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Llama a <b>{r.paciente}</b>: su cita del {fechaHora(r.inicio)} {r.estado === "programada" ? "aún no responde al recordatorio" : "sigue sin confirmar"}.</> });
-  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Confirma por teléfono a <b>{r.paciente}</b> su cita del {fechaHora(r.inicio)}: pidió no recibir mensajes.</> });
   for (const r of d.celulares ?? []) f.push({ id: `cel-${r.paciente_id}`, urgencia: 3, orden: r.proxima_cita ?? "9", etiqueta: "Celular por revisar", slug: "celulares-por-revisar", pacienteId: r.paciente_id, celular: r.responsable_celular,
@@ -213,6 +213,7 @@ function QueHacerHoy() {
               <Fila key={f.id}>
                 <span className={cn("w-32 shrink-0 rounded-full px-2 py-0.5 text-center text-xs font-medium", f.urgencia === 0 ? "bg-rose-100 text-rose-900" : f.urgencia <= 3 ? "bg-amber-100 text-amber-950" : "bg-zinc-200 text-zinc-900")}>{f.etiqueta}</span>
                 <span className="min-w-48 flex-1">{f.texto}</span>
+                <Semaforo semaforo={f.semaforo} />
                 <EnlacesContacto celular={f.celular} />
                 {f.pacienteId !== undefined && <Link className={ENLACE} to={`/pacientes/${f.pacienteId}`}>Ver paciente</Link>}
                 <div className="ml-auto flex flex-wrap items-center gap-1.5">{f.acciones}</div>
@@ -273,8 +274,8 @@ function Lista<T extends object>({ clave, fn, vacio, fila }: { clave: string; fn
 }
 
 const Fila = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-sm">{children}</div>;
-const Paciente = ({ id, nombre, celular }: { id: number; nombre: string; celular?: string | null }) => (
-  <div className="min-w-40 flex-1"><Link className={ENLACE} to={`/pacientes/${id}`}>{nombre}</Link>{celular && <p><EnlacesContacto celular={celular} /></p>}</div>
+const Paciente = ({ id, nombre, celular, semaforo }: { id: number; nombre: string; celular?: string | null; semaforo?: TipoSemaforo | null }) => (
+  <div className="min-w-40 flex-1"><Link className={ENLACE} to={`/pacientes/${id}`}>{nombre}</Link> <Semaforo semaforo={semaforo} />{celular && <p><EnlacesContacto celular={celular} /></p>}</div>
 );
 const limpio = (s: string) => s.replace(/_/g, " ");
 const CAUSAS: Record<string, string> = { cancelacion: "cancelación", cambio_fecha: "cambio de fecha" };
@@ -287,14 +288,14 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
   switch (slug) {
     case "no-confirmadas":
       return <Lista clave={slug} fn={api.bandejas.noConfirmadas} vacio={vacio} fila={(r) => (
-        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <div className="min-w-36"><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", r.estado === "no_confirmada" ? "bg-amber-100 text-amber-950" : "bg-sky-100 text-sky-950")}>{ESTADO_NC[r.estado]}</span>
             {r.recordatorio_enviado && <p className="text-tinta-suave">{r.recordatorio_en ? `Recordatorio enviado ${fechaHora(r.recordatorio_en)}` : "Recordatorio enviado"}</p>}</div>
           <span className="text-tinta-suave">{r.profesional}</span>
           <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
     case "seguimientos":
       return <>{aviso}<Lista clave={slug} fn={api.bandejas.seguimientos} vacio={vacio} fila={(r) => (
-        <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <AltoValor internacional={r.internacional} deportista={r.deportista} />
           <span>{limpio(r.tipo)}{r.escalado && <> <b className="rounded bg-rose-100 px-1.5 text-xs text-rose-900">Necesita llamada</b></>}</span>
           <span className="text-tinta-suave">{r.intentos} intentos · último: {limpio(r.ultimo ?? "pendiente")}</span>
@@ -335,7 +336,7 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
           <div className="ml-auto"><AccionesCelular r={r} /></div></Fila>)} />;
     default:
       return <Lista clave={slug} fn={api.bandejas.dadosDeBaja} vacio={vacio} fila={(r) => (
-        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
   }
 }

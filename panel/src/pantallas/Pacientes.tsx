@@ -5,11 +5,11 @@ import { BellOff, Ban } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
 import type { FichaCompleta, Identificacion, MotivoNoContactar, Segmentos } from "@/api/tipos";
-import { ESTADOS } from "@/lib/estados";
+import { ESTADOS, MOTIVOS_NO_CONTACTAR } from "@/lib/estados";
 import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
-import { AltoValor, Boton, Casilla, Confirmar, Entrada, EtiquetaEstado, Prospecto, Seleccion, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Confirmar, Entrada, EtiquetaEstado, Prospecto, Seleccion, Semaforo, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { BuscarPaciente } from "./Agendar";
 import { useNavigate } from "react-router-dom";
@@ -117,7 +117,7 @@ export function Ficha() {
           <Tarjeta className="flex flex-wrap items-start justify-between gap-3 p-4">
             <div>
               <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}
-                <Prospecto etapa={f.paciente.etapa} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
+                <Prospecto etapa={f.paciente.etapa} /><Semaforo semaforo={f.paciente.etapa === "prospecto" ? null : f.paciente.semaforo} noContactar={f.paciente.no_contactar} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
               {f.paciente.celular_estado !== "valido" && f.paciente.celular_estado !== "sin_verificar" && (
                 <p className="mt-1 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950">{f.paciente.celular_estado === "sin_whatsapp" ? "Celular sin WhatsApp" : "Celular no válido"}</p>
@@ -176,10 +176,6 @@ function PasarAPaciente({ f }: { f: FichaCompleta }) {
     </form>
   );
 }
-
-export const MOTIVOS_NO_CONTACTAR: Record<MotivoNoContactar, string> = {
-  queja: "Queja activa", cobro: "Cobro jurídico", fallecido: "Fallecido", otro: "Otro motivo",
-};
 
 /** «No contactar» (R6): la clínica deja de escribirle y de llamarle. Se marca y se quita con confirmación y queda en el registro. */
 function NoContactar({ f }: { f: FichaCompleta }) {

@@ -2153,6 +2153,30 @@
               "title": "Fallecidos"
             },
             "description": "Incluye a los marcados como fallecidos (por defecto no salen)."
+          },
+          {
+            "name": "semaforo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "verde",
+                    "amarillo",
+                    "rojo",
+                    "perdido"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo los de ese color (R5).",
+              "title": "Semaforo"
+            },
+            "description": "Solo los de ese color (R5)."
           }
         ],
         "responses": {
@@ -9446,6 +9470,25 @@
               }
             ],
             "title": "Celular"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -11799,6 +11842,25 @@
             "title": "Celular Estado",
             "description": "`invalido` y `sin_whatsapp` no reciben mensajes automáticos.",
             "default": "sin_verificar"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -12358,6 +12420,25 @@
             ],
             "title": "Recordatorio En",
             "description": "Cuándo salió el último recordatorio, si se registró la hora"
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -12796,6 +12877,25 @@
             ],
             "title": "No Contactar",
             "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",
@@ -13790,6 +13890,25 @@
             "type": "boolean",
             "title": "Deportista",
             "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "semaforo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo",
+                  "perdido",
+                  "prospecto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semaforo",
+            "description": "Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y más de 60 días sin venir) o `prospecto`. Se calcula al vuelo."
           }
         },
         "type": "object",

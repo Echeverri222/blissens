@@ -1,7 +1,7 @@
 """Pacientes: alta desde el panel o la API (PRD #2 §6.2)."""
 import re
 
-from . import clock
+from . import clock, config
 
 CELULAR_INVALIDO = "Celular no válido"
 
@@ -222,3 +222,65 @@ def marcar_celular(conn, paciente_id: int, estado: str) -> dict | None:
     conn.execute("update paciente set celular_estado=%s where id=%s or (id = any(%s) and celular is not distinct from %s)",
                  (estado, paciente_id, ids, p["celular"]))
     return conn.execute("select id, celular, celular_estado from paciente where id=%s", (paciente_id,)).fetchone()
+
+
+COLORES = ("verde", "amarillo", "rojo", "perdido")
+ETIQUETA_SEMAFORO = {"verde": "Al día", "amarillo": "Atención", "rojo": "Sin reagendar", "perdido": "Perdido", "prospecto": "Prospecto"}
+
+_VIVA = ("c.estado in ('programada','confirmada','no_confirmada') and "
+         "(case when c.rango is null then c.dia >= (%(ahora)s::timestamptz at time zone %(tz)s)::date "
+         "else upper(c.rango) > %(ahora)s::timestamptz end)")
+
+_SEMAFORO_SQL = f"""
+with p as (select id, etapa from paciente where id = any(%(ids)s)),
+viva as (select distinct c.paciente_id from cita c where c.paciente_id = any(%(ids)s) and {_VIVA}),
+ultima as (  -- la última cita real: la reprogramada la reemplaza otra, y la viva futura no cuenta como pasada
+  select distinct on (c.paciente_id) c.paciente_id, c.estado,
+         (c.estado in ('programada','confirmada','no_confirmada')) as sin_cerrar,
+         exists(select 1 from cancelacion x where x.cita_id = c.id and x.canal = 'clinica') as por_la_clinica
+  from cita c
+  where c.paciente_id = any(%(ids)s) and c.estado <> 'reprogramada' and not ({_VIVA})
+  order by c.paciente_id, c.dia desc, lower(c.rango) desc nulls last, c.id desc
+),
+atendida as (select paciente_id, max(dia) as dia from cita where paciente_id = any(%(ids)s) and estado = 'atendida' group by 1),
+perdida as (select paciente_id, max(dia) as dia from cita
+            where paciente_id = any(%(ids)s) and estado in ('cancelada','no_asistio') group by 1),
+cambios as (select paciente_id, count(*) as n from cita
+            where paciente_id = any(%(ids)s) and estado = 'reprogramada'
+              and dia >= (%(ahora)s::timestamptz at time zone %(tz)s)::date - 365 group by 1),
+por_confirmar as (select distinct paciente_id from cita
+                  where paciente_id = any(%(ids)s) and estado = 'no_confirmada' and rango is not null
+                    and lower(rango) > %(ahora)s::timestamptz and lower(rango) <= %(ahora)s::timestamptz + interval '48 hours')
+select p.id,
+  case
+    when p.etapa = 'prospecto' then 'prospecto'
+    when not exists(select 1 from viva v where v.paciente_id = p.id) and (
+         (a.dia is not null and a.dia < (%(ahora)s::timestamptz at time zone %(tz)s)::date - %(perdido)s)
+         or (a.dia is null and pe.dia is not null
+             and pe.dia < (%(ahora)s::timestamptz at time zone %(tz)s)::date - %(perdido)s)) then 'perdido'
+    when not exists(select 1 from viva v where v.paciente_id = p.id) and u.paciente_id is not null and (
+         u.estado = 'no_asistio' or (u.estado = 'cancelada' and not u.por_la_clinica) or u.sin_cerrar) then 'rojo'
+    when coalesce(cb.n, 0) >= %(umbral)s or pc.paciente_id is not null then 'amarillo'
+    else 'verde'
+  end as semaforo
+from p
+left join ultima u on u.paciente_id = p.id
+left join atendida a on a.paciente_id = p.id
+left join perdida pe on pe.paciente_id = p.id
+left join cambios cb on cb.paciente_id = p.id
+left join por_confirmar pc on pc.paciente_id = p.id
+"""
+
+
+def semaforo(conn, ids) -> dict[int, str]:
+    """El color de cada paciente (R5), calculado al vuelo y nunca guardado. Primera regla que cumple: `perdido` (sin cita
+    viva y más de `dias_perdido` sin venir), `rojo` (su última cita fue una cancelación del paciente, una inasistencia o
+    una cita pasada sin cerrar, y no tiene cita viva), `amarillo` (`umbral_cambios_fecha` cambios de fecha en 12 meses o
+    una cita viva sin confirmar a menos de 48 h) y `verde`. Un prospecto es «prospecto»: no tiene citas."""
+    ids = sorted({int(i) for i in ids})
+    if not ids:
+        return {}
+    filas = conn.execute(_SEMAFORO_SQL, {
+        "ids": ids, "ahora": clock.now(conn), "tz": str(clock.TZ), "perdido": config.get(conn, "dias_perdido"),
+        "umbral": config.get(conn, "umbral_cambios_fecha")}).fetchall()
+    return {f["id"]: f["semaforo"] for f in filas}

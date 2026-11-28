@@ -3,10 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
-import type { PacienteResumen, Segmento } from "@/api/tipos";
+import type { ColorSemaforo, PacienteResumen, Segmento } from "@/api/tipos";
+import { COLORES_SEMAFORO, SEMAFOROS } from "@/lib/estados";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Entrada, Prospecto, Seleccion, Semaforo, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 
@@ -100,8 +101,9 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
   const [segmento, setSegmento] = useState<Segmento | null>(null);
   const [nuevo, setNuevo] = useState(false);
   const [fallecidos, setFallecidos] = useState(false);
+  const [color, setColor] = useState<ColorSemaforo | null>(null);
   const activo = buscado.length > 0 || segmento !== null;
-  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento, fallecidos], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined, fallecidos), enabled: activo });
+  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento, fallecidos, color], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined, fallecidos, color ?? undefined), enabled: activo });
   const nombre = (p: PacienteResumen) => `${p.nombres} ${p.apellidos}`.trim();
   return (
     <div className="space-y-3">
@@ -115,6 +117,10 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             <button key={f.texto} type="button" aria-pressed={segmento === f.valor} onClick={() => setSegmento(f.valor)}
               className={cn("rounded-full border px-3 py-1 text-sm font-medium", segmento === f.valor ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>{f.texto}</button>
           ))}
+          <Seleccion etiqueta="Estado" value={color ?? ""} onChange={(e) => setColor((e.target.value || null) as ColorSemaforo | null)}>
+            <option value="">Todos los estados</option>
+            {COLORES_SEMAFORO.map((c) => <option key={c} value={c}>{SEMAFOROS[c].texto}</option>)}
+          </Seleccion>
           <Casilla etiqueta="Incluir fallecidos" checked={fallecidos} onChange={(e) => setFallecidos(e.target.checked)} />
         </div>
       )}
@@ -125,7 +131,7 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             : <>
               <ul className="divide-y divide-linea rounded-xl border border-linea">{lista.map((p) => (
                 <li key={p.id}><button className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-zinc-50" onClick={() => alElegir({ id: p.id, nombre: nombre(p) })}>
-                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<Prospecto etapa={p.etapa} /><AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
+                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<Prospecto etapa={p.etapa} /><Semaforo semaforo={p.etapa === "prospecto" ? null : p.semaforo} noContactar={p.no_contactar} /><AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
                   <span className="text-tinta-suave">{p.documento ?? "sin documento"} · {p.celular ?? "sin celular"}</span></button></li>
               ))}</ul>
               {lista.length >= TOPE_BUSQUEDA && <p className="text-sm text-tinta-suave">Se muestran los primeros {TOPE_BUSQUEDA}. Escribe un nombre para afinar.</p>}

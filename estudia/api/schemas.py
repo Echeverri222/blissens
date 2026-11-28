@@ -267,6 +267,11 @@ Etapa = Literal["prospecto", "paciente"]
 ETAPA = Field(description="`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene.")
 
 
+ColorSemaforo = Literal["verde", "amarillo", "rojo", "perdido"]
+Semaforo = Literal["verde", "amarillo", "rojo", "perdido", "prospecto"]
+SEMAFORO = Field(None, description="Estado del paciente (R5): `verde`, `amarillo` (3+ cambios de fecha o cita próxima sin "
+                 "confirmar), `rojo` (su última cita fue cancelación o inasistencia y no tiene otra), `perdido` (sin cita viva y "
+                 "más de 60 días sin venir) o `prospecto`. Se calcula al vuelo.")
 MotivoNoContactar = Literal["queja", "cobro", "fallecido", "otro"]
 MOTIVO_NO_CONTACTAR = Field(description="Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`.")
 
@@ -281,6 +286,7 @@ class PacienteResumen(Salida):
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
     no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class NoContactar(Entrada):
@@ -356,6 +362,7 @@ class FichaPaciente(Salida):
     no_contactar_nota: str | None = None
     celular_estado: Literal["sin_verificar", "valido", "invalido", "sin_whatsapp"] = Field(
         "sin_verificar", description="`invalido` y `sin_whatsapp` no reciben mensajes automáticos.")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class CitaFicha(Salida):
@@ -484,6 +491,7 @@ class NoConfirmadaOut(Salida):
     celular: str | None
     recordatorio_enviado: bool
     recordatorio_en: Momento | None = Field(None, description="Cuándo salió el último recordatorio, si se registró la hora")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class SeguimientoOut(Salida):
@@ -499,6 +507,7 @@ class SeguimientoOut(Salida):
     ultimo: str | None
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class EnRiesgoOut(Salida):
@@ -578,6 +587,7 @@ class BajaOut(Salida):
     paciente_id: int
     paciente: str
     celular: str | None
+    semaforo: Semaforo | None = SEMAFORO
 
 
 class Gestion(Entrada):
