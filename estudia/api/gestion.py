@@ -1,9 +1,24 @@
 """Rutas de la auxiliar: pacientes, bandejas, indicadores y sistema. Todas exigen el rol auxiliar."""
 from datetime import date, timedelta
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
-from .. import alertas, bandejas, clock, config, correo, familia, followup, indicators, lifecycle, pacientes, permisos
+from .. import (
+    alertas,
+    bandejas,
+    clock,
+    config,
+    correo,
+    familia,
+    followup,
+    indicators,
+    lifecycle,
+    pacientes,
+    permisos,
+    solicitudes,
+)
 from . import schemas as sc
 from .comun import ApiError, auditar, auxiliar, get_conn, inicio, solo_json
 
@@ -13,9 +28,15 @@ router = APIRouter(dependencies=[Depends(solo_json)])
 # ----------------------------------------------------------------- pacientes
 
 @router.get("/pacientes", tags=["Pacientes"], summary="Buscar pacientes por nombre, documento o celular",
+            description="Con `segmento` se queda con los internacionales o los deportistas de alto nivel (si se repite, con "
+                        "los que tengan cualquiera de las marcas); sin `q`, los lista a todos. Devuelve como mucho "
+                        f"{bandejas.TOPE_BUSQUEDA}, en orden de apellidos.",
             response_model=list[sc.PacienteResumen], dependencies=[auditar("buscar_paciente")])
-def buscar(q: str = Query(min_length=1), conn=Depends(get_conn), u=Depends(auxiliar)):
-    return bandejas.find_patients(conn, q)
+def buscar(q: str | None = Query(None, min_length=1), segmento: list[sc.Segmento] = Query([]),
+           conn=Depends(get_conn), u=Depends(auxiliar)):
+    if not q and not segmento:
+        raise ApiError(422, "falta_filtro", "Escribe un nombre, documento o celular, o elige un segmento")
+    return bandejas.find_patients(conn, q or "", tuple(segmento))
 
 
 @router.post("/pacientes", tags=["Pacientes"], summary="Crear un paciente (con consentimiento)",
@@ -161,6 +182,32 @@ def gestionar_mensaje(mensaje_id: int, conn=Depends(get_conn), u=Depends(auxilia
 def gestionar_contacto(solicitud_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
     if not bandejas.mark_contact_managed(conn, solicitud_id):
         raise permisos.NoExiste("No existe esa solicitud")
+    return sc.Ok()
+
+
+@router.get("/contactos/{solicitud_id}/adjuntos/{adjunto_id}", tags=["Acciones de bandeja"],
+            summary="Descargar una foto o PDF adjunto a una solicitud del sitio web",
+            response_class=Response, dependencies=[auditar("ver_adjunto_solicitud")],
+            responses={200: {"description": "El archivo, siempre como descarga", "content": {
+                t: {"schema": {"type": "string", "format": "binary"}}
+                for t in ("image/jpeg", "image/png", "image/webp", "application/pdf")}}})
+def adjunto_contacto(solicitud_id: int, adjunto_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
+    a = solicitudes.adjunto(conn, solicitud_id, adjunto_id)
+    if a is None:
+        raise permisos.NoExiste("No existe ese archivo")
+    # Siempre como adjunto y sin adivinar el tipo: el archivo lo subió alguien de fuera.
+    return Response(bytes(a["datos"]), media_type=a["tipo"], headers={
+        "Content-Disposition": f"attachment; filename=\"{a['nombre']}\"; filename*=UTF-8''{quote(a['nombre'])}",
+        "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"})
+
+
+@router.post("/contactos/{solicitud_id}/paciente", tags=["Acciones de bandeja"], response_model=sc.Ok,
+             summary="Vincular una solicitud del sitio web a un paciente",
+             description="Si el paciente no tiene correo toma el de la solicitud (sin autorizar envíos). Una evaluación "
+                         "virtual lo marca como internacional. Al anonimizar al paciente, la solicitud se borra con él.")
+def vincular_contacto(solicitud_id: int, datos: sc.VincularSolicitud, conn=Depends(get_conn), u=Depends(auxiliar)):
+    if not solicitudes.vincular(conn, solicitud_id, datos.paciente_id, u["id"]):
+        raise permisos.NoExiste("No existe esa solicitud o ese paciente")
     return sc.Ok()
 
 

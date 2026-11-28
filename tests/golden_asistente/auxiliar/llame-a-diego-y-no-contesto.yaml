@@ -1,0 +1,21 @@
+id: llame-a-diego-y-no-contesto
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: Llamé a Diego Herrera por lo de la falta de ayer y no contestó
+intencion: Preparar el registro de la llamada sin respuesta en el seguimiento por inasistencia de Diego.
+herramientas:
+  esperadas: [proponer_gestion_seguimiento]
+  una_de: [[bandeja, ficha_paciente]]
+  aceptables: [buscar_pacientes]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: seguimientos}
+    incluye: ["Diego Herrera Nieto", "{caso.diego_ayer}"]
+  - llamada: proponer_gestion_seguimiento
+    args: {caso_id: "{caso.diego_ayer}", resultado: sin_respuesta}
+    incluye: ["gestion_seguimiento", "Diego Herrera Nieto", "no contestó"]
+respuesta:
+  incluye: ["Diego"]
+  excluye: ["ya quedo registrada"]
+  propuestas: [gestion_seguimiento]

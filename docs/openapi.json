@@ -2105,16 +2105,41 @@
           "Pacientes"
         ],
         "summary": "Buscar pacientes por nombre, documento o celular",
+        "description": "Con `segmento` se queda con los internacionales o los deportistas de alto nivel (si se repite, con los que tengan cualquiera de las marcas); sin `q`, los lista a todos. Devuelve como mucho 50, en orden de apellidos.",
         "operationId": "buscar_api_v1_pacientes_get",
         "parameters": [
           {
             "name": "q",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "minLength": 1,
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Q"
+            }
+          },
+          {
+            "name": "segmento",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "internacional",
+                  "deportista"
+                ],
+                "type": "string"
+              },
+              "default": [],
+              "title": "Segmento"
             }
           }
         ],
@@ -3671,6 +3696,229 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contactos/{solicitud_id}/adjuntos/{adjunto_id}": {
+      "get": {
+        "tags": [
+          "Acciones de bandeja"
+        ],
+        "summary": "Descargar una foto o PDF adjunto a una solicitud del sitio web",
+        "operationId": "adjunto_contacto_api_v1_contactos__solicitud_id__adjuntos__adjunto_id__get",
+        "parameters": [
+          {
+            "name": "solicitud_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Solicitud Id"
+            }
+          },
+          {
+            "name": "adjunto_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Adjunto Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El archivo, siempre como descarga",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contactos/{solicitud_id}/paciente": {
+      "post": {
+        "tags": [
+          "Acciones de bandeja"
+        ],
+        "summary": "Vincular una solicitud del sitio web a un paciente",
+        "description": "Si el paciente no tiene correo toma el de la solicitud (sin autorizar envíos). Una evaluación virtual lo marca como internacional. Al anonimizar al paciente, la solicitud se borra con él.",
+        "operationId": "vincular_contacto_api_v1_contactos__solicitud_id__paciente_post",
+        "parameters": [
+          {
+            "name": "solicitud_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Solicitud Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VincularSolicitud"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8257,6 +8505,35 @@
   },
   "components": {
     "schemas": {
+      "AdjuntoOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tamano": {
+            "type": "integer",
+            "title": "Tamano",
+            "description": "Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "tipo",
+          "tamano"
+        ],
+        "title": "AdjuntoOut"
+      },
       "AgendaOut": {
         "properties": {
           "desde": {
@@ -9781,6 +10058,132 @@
           "momento": {
             "type": "string",
             "title": "Momento"
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "paciente",
+              "sitio"
+            ],
+            "title": "Origen",
+            "description": "`sitio`: llegó por un formulario del sitio web"
+          },
+          "interes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "evaluacion_virtual",
+                  "experiencia",
+                  "contacto"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interes"
+          },
+          "idioma": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es",
+                  "en"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idioma"
+          },
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "correo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correo"
+          },
+          "pais": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pais"
+          },
+          "paquete": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paquete"
+          },
+          "mensaje": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mensaje"
+          },
+          "paciente_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paciente Id",
+            "description": "Paciente al que la recepción vinculó la solicitud"
+          },
+          "paciente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paciente"
+          },
+          "adjuntos": {
+            "items": {
+              "$ref": "#/components/schemas/AdjuntoOut"
+            },
+            "type": "array",
+            "title": "Adjuntos",
+            "default": []
           }
         },
         "type": "object",
@@ -9789,7 +10192,8 @@
           "documento",
           "celular",
           "nota",
-          "momento"
+          "momento",
+          "origen"
         ],
         "title": "ContactoOut"
       },
@@ -10734,6 +11138,11 @@
           "momento": {
             "type": "string",
             "title": "Momento"
+          },
+          "gestionado": {
+            "type": "boolean",
+            "title": "Gestionado",
+            "description": "Solo cuenta en los entrantes: falso mientras nadie lo haya respondido o descartado."
           }
         },
         "type": "object",
@@ -10742,7 +11151,8 @@
           "direccion",
           "texto",
           "botones",
-          "momento"
+          "momento",
+          "gestionado"
         ],
         "title": "MensajeOut"
       },
@@ -11222,6 +11632,16 @@
               }
             ],
             "title": "Celular"
+          },
+          "internacional": {
+            "type": "boolean",
+            "title": "Internacional",
+            "description": "Paciente internacional (segmento de alto valor)."
+          },
+          "deportista": {
+            "type": "boolean",
+            "title": "Deportista",
+            "description": "Deportista de alto nivel (segmento de alto valor)."
           }
         },
         "type": "object",
@@ -11230,7 +11650,9 @@
           "nombres",
           "apellidos",
           "documento",
-          "celular"
+          "celular",
+          "internacional",
+          "deportista"
         ],
         "title": "PacienteResumen"
       },
@@ -11352,7 +11774,15 @@
               "cancelar",
               "confirmar_telefono",
               "desenlace",
-              "bloqueo"
+              "bloqueo",
+              "eliminar_bloqueo",
+              "crear_paciente",
+              "segmentos",
+              "gestion_seguimiento",
+              "gestionar_mensaje",
+              "gestionar_contacto",
+              "vincular_contacto",
+              "revertir"
             ],
             "title": "Tipo"
           },
@@ -12817,6 +13247,20 @@
           "valor"
         ],
         "title": "ValorServicio"
+      },
+      "VincularSolicitud": {
+        "properties": {
+          "paciente_id": {
+            "type": "integer",
+            "title": "Paciente Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "paciente_id"
+        ],
+        "title": "VincularSolicitud"
       }
     }
   }

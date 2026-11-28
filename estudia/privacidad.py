@@ -28,6 +28,12 @@ def exportar_paciente(conn, paciente_id: int) -> dict:
         "accesos": conn.execute("select momento, accion, usuario_id, peticion from auditoria_acceso where paciente_id=%s "
                                 "order by id", (paciente_id,)).fetchall(),
         "asistente": _conversaciones_del_asistente(conn, paciente_id),
+        # Solicitudes del sitio web vinculadas a la persona; de los adjuntos, solo cuáles son (el archivo se entrega aparte).
+        "solicitudes_web": conn.execute(
+            "select s.id, s.momento, s.interes, s.idioma, s.nombre, s.correo, s.celular, s.pais, s.paquete, s.mensaje, "
+            "coalesce((select json_agg(json_build_object('nombre', a.nombre, 'tipo', a.tipo, 'tamano', a.tamano) order by a.id) "
+            "from solicitud_adjunto a where a.solicitud_id=s.id), '[]') as adjuntos "
+            "from solicitud_contacto s where s.paciente_id=%s order by s.id", (paciente_id,)).fetchall(),
     }
     return json.loads(json.dumps({**r, **extra}, default=str))
 
@@ -45,10 +51,15 @@ def _conversaciones_del_asistente(conn, paciente_id: int) -> list[dict]:
 
 def anonimizar_paciente(conn, paciente_id: int) -> None:
     """Borra lo que identifica a la persona y conserva los hechos de sus citas para los indicadores."""
-    previo = conn.execute("select documento, celular, responsable_id from paciente where id=%s", (paciente_id,)).fetchone()
+    previo = conn.execute("select documento, celular, correo, responsable_id from paciente where id=%s", (paciente_id,)).fetchone()
     if not previo:
         raise permisos.NoExiste("No existe ese paciente")
-    documento, celular = previo["documento"], previo["celular"]
+    documento, celular, correo = previo["documento"], previo["celular"], previo["correo"]
+    # Solicitudes del sitio web: las vinculadas a la persona (con sus fotos, por cascada) y las que dejó solo con su correo.
+    conn.execute("delete from solicitud_contacto where paciente_id=%s", (paciente_id,))
+    if correo and not conn.execute("select 1 from paciente where lower(correo)=lower(%s) and id<>%s limit 1",
+                                   (correo, paciente_id)).fetchone():
+        conn.execute("delete from solicitud_contacto where lower(correo)=lower(%s)", (correo,))
     # Solicitudes de contacto: por su documento; por su celular solo si ningún otro paciente (p. ej. su hogar) lo comparte.
     if documento:
         conn.execute("delete from solicitud_contacto where documento=%s", (documento,))

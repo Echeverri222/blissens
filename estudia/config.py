@@ -44,6 +44,10 @@ DEFAULTS = {
     "asistente_mensajes_dia_paciente": 20,     # mensajes por hogar y día
     "asistente_tokens_dia": 2_000_000,         # tokens de entrada + salida por negocio y día
     "retencion_asistente_dias": 30,            # las conversaciones más viejas las borra la depuración diaria
+    # Solicitudes del sitio web: a quién avisar por correo de cada una (None = a nadie; solo se ven en Bandejas) y en
+    # cuántas horas se le promete respuesta a quien la envía.
+    "correo_avisos_solicitudes": None,
+    "plazo_respuesta_solicitud_horas": 24,
 }
 
 

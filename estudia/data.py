@@ -11,7 +11,7 @@ from faker import Faker
 from . import agenda, catalog, clock, config, db, followup, indicators, lifecycle, settings, usuarios
 from .agenda import rng
 
-TABLES = ["acceso", "hecho_diario_profesional", "hecho_diario", "solicitud_contacto", "tarea_programada", "mensaje",
+TABLES = ["acceso", "hecho_diario_profesional", "hecho_diario", "solicitud_adjunto", "solicitud_contacto", "tarea_programada", "mensaje",
           "oferta_adelanto", "cupo_liberado", "intento", "caso_seguimiento", "cancelacion", "historial_estado",
           "cita", "tratamiento", "bloqueo", "horario_atencion", "paciente", "profesional", "servicio",
           "motivo_cancelacion", "plantilla", "configuracion"]
@@ -367,6 +367,12 @@ def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
                      (pid, texto, now - timedelta(hours=rnd.randint(1, 20))))
     conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
                  ("00000000", "+573000000000", "Documento ya registrado con otro celular", now - timedelta(hours=3)))
+    # Una evaluación virtual desde el sitio en inglés (datos ficticios; los correos ya figuran enviados).
+    conn.execute(
+        "insert into solicitud_contacto(documento, celular, nota, momento, origen, interes, idioma, nombre, correo, pais, "
+        "mensaje, aviso_enviado_en, acuse_enviado_en) values ('—','+13055550100','Sitio web · Evaluación virtual',%s,"
+        "'sitio','evaluacion_virtual','en','Visitante de Ejemplo','visitante@example.com','Estados Unidos',"
+        "'I would like a quote for veneers. I can travel in March.',%s,%s)", (now - timedelta(hours=5),) * 3)
 
     # Dos pacientes dados de baja con cita próxima: sus citas se gestionan a mano.
     conn.execute("update paciente set acepta_mensajes=false where id in (select paciente_id from cita "

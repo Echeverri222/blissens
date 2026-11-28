@@ -33,6 +33,7 @@ export type NoConfirmada = S["NoConfirmadaOut"];
 export type Seguimiento = S["SeguimientoOut"];
 export type EnRiesgo = S["EnRiesgoOut"];
 export type Segmentos = S["Segmentos"];
+export type Segmento = keyof Segmentos;
 export type SegmentosOut = S["SegmentosOut"];
 export type CupoLibre = S["CupoLibreOut"];
 export type SinDesenlace = S["SinDesenlaceOut"];

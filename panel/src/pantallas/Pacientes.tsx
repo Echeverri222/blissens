@@ -19,7 +19,7 @@ export function Pacientes() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-xl font-semibold">Pacientes</h1>
-      <Tarjeta className="p-4"><BuscarPaciente alElegir={(p) => nav(`/pacientes/${p.id}`)} /></Tarjeta>
+      <Tarjeta className="p-4"><BuscarPaciente conFiltros alElegir={(p) => nav(`/pacientes/${p.id}`)} /></Tarjeta>
       <CitasProximas />
       <ListaPacientes titulo="En riesgo de abandonar el tratamiento" ayuda="Tienen un tratamiento a medias y llevan tiempo sin cita. Agéndalos para que no lo dejen." clave="en-riesgo" fn={api.bandejas.enRiesgo} vacio="Nadie está en riesgo ahora."
         fila={(r) => ({ id: r.tratamiento_id, pacienteId: r.paciente_id, nombre: r.paciente, detalle: `${r.dias_sin_cita} días sin cita`, agendar: true })} />
@@ -108,6 +108,7 @@ export function Ficha() {
   const id = Number(useParams().id);
   const q = useQuery({ queryKey: ["ficha", id], queryFn: () => api.pacientes.ficha(id), enabled: Number.isFinite(id) });
   const [apartado, setApartado] = useState<(typeof APARTADOS)[number]>("Citas e historial");
+  const porResponder = q.data ? mensajesPorResponder(q.data).length : 0;
   return (
     <Consulta q={q}>
       {(f) => (
@@ -129,7 +130,12 @@ export function Ficha() {
           <div role="tablist" aria-label="Apartados de la ficha" className="flex gap-1 overflow-x-auto">
             {APARTADOS.map((a) => (
               <button key={a} role="tab" aria-selected={a === apartado} onClick={() => setApartado(a)}
-                className={cn("shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium", a === apartado ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>{a}</button>
+                className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium", a === apartado ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>
+                {a}
+                {a === "Mensajes" && porResponder > 0 && (
+                  <span aria-label={`${porResponder} por responder`} className="rounded-full bg-red-600 px-1.5 text-xs font-semibold tabular-nums text-white">{porResponder}</span>
+                )}
+              </button>
             ))}
           </div>
           <div role="tabpanel" aria-label={apartado}>
@@ -213,9 +219,20 @@ function Seguimientos({ f }: { f: FichaCompleta }) {
   );
 }
 
+/** Mensajes del paciente que nadie ha respondido ni descartado: los mismos que cuenta la bandeja «Mensajes». */
+function mensajesPorResponder(f: FichaCompleta) {
+  return f.mensajes.filter((m) => m.direccion === "entrante" && !m.gestionado);
+}
+
 function Mensajes({ f }: { f: FichaCompleta }) {
+  const gestionar = useAccion((id: number) => api.bandejas.gestionarMensaje(id), { ok: "Mensaje marcado como respondido" });
   if (f.mensajes.length === 0) return <Tarjeta><Vacio titulo="Sin mensajes">Aún no hay conversación con este paciente.</Vacio></Tarjeta>;
+  const pendientes = mensajesPorResponder(f).length;
   return (
+    <div className="space-y-3">
+    {pendientes > 0 && (
+      <Aviso tipo="aviso">{pendientes === 1 ? "Hay 1 mensaje del paciente por responder." : `Hay ${pendientes} mensajes del paciente por responder.`} Respóndele por WhatsApp o por teléfono y márcalo como respondido.</Aviso>
+    )}
     <Tarjeta className="space-y-2 bg-zinc-50 p-4">
       {f.mensajes.map((m) => (
         <div key={m.id} className={cn("flex", m.direccion === "saliente" ? "justify-start" : "justify-end")}>
@@ -223,9 +240,17 @@ function Mensajes({ f }: { f: FichaCompleta }) {
             <p className="mb-0.5 text-xs opacity-70">{m.direccion === "saliente" ? "Clínica" : "Paciente"} · {fechaHora(m.momento)}</p>
             <p className="whitespace-pre-wrap">{m.texto}</p>
             {m.botones.length > 0 && <p className="mt-1 text-xs opacity-70">Botones: {m.botones.map((b) => (b as { title?: string }).title).filter(Boolean).join(", ")}</p>}
+            {m.direccion === "entrante" && !m.gestionado && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/20 pt-2">
+                <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold">Por responder</span>
+                <Confirmar etiqueta="Marcar como respondido" pequeno pregunta="¿Ya le respondiste? El mensaje sale de los pendientes."
+                  alConfirmar={() => gestionar.mutate(m.id)} deshabilitado={gestionar.isPending} />
+              </div>
+            )}
           </div>
         </div>))}
     </Tarjeta>
+    </div>
   );
 }
 

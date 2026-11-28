@@ -1,0 +1,20 @@
+id: quitale-el-bloqueo-a-rios-el-jueves
+perfil: auxiliar
+actor: marta
+categoria: horario
+pregunta: Se cayó el congreso de la dra Rios, quitale el bloqueo del jueves
+intencion: Preparar la eliminación del bloqueo «Congreso de odontología» de la Dra. Ríos el jueves 13:00–17:30.
+herramientas:
+  esperadas: [agenda, proponer_eliminar_bloqueo]
+contexto:
+  - llamada: agenda
+    args: {desde: "{fecha.jueves}", profesional_id: "{pro.rios}"}
+    incluye: ["Congreso de odontología", "{bloqueo.rios_jueves}"]
+  - llamada: proponer_eliminar_bloqueo
+    args: {bloqueo_id: "{bloqueo.rios_jueves}"}
+    incluye: ["eliminar_bloqueo", "Dra. Valentina Ríos"]
+respuesta:
+  incluye: ["bloqueo"]
+  excluye: ["ya lo quite", "ya quedo eliminado"]
+  propuestas: [eliminar_bloqueo]
+notas: La agenda precargada es de hoy; el id del bloqueo sale de la agenda del jueves.

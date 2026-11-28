@@ -38,7 +38,15 @@ def exportar(admin, negocio_id: int, salida: str) -> None:
     datos = {t: admin.execute(f'select * from "{t}" where negocio_id=%s order by 1', (negocio_id,)).fetchall() for t in tablas}
     datos["negocio"] = admin.execute("select * from negocio where id=%s", (negocio_id,)).fetchall()
     with open(salida, "w", encoding="utf-8") as f:
-        json.dump(datos, f, default=str, ensure_ascii=False)
+        json.dump(datos, f, default=_a_json, ensure_ascii=False)
+
+
+def _a_json(v):
+    """Los archivos (adjuntos de solicitudes) van en base64; lo demás (fechas, rangos, decimales), como texto."""
+    if isinstance(v, (bytes, memoryview)):
+        import base64
+        return base64.b64encode(bytes(v)).decode()
+    return str(v)
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -1,0 +1,21 @@
+id: lucia-no-cancelo-deshazlo
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: Me equivoqué, Lucía Fernández no canceló lo del jueves. Deshazlo
+intencion: Preparar la reversión de la cancelación de la valoración de Lucía del jueves 9:00 con la Dra. Ríos.
+herramientas:
+  esperadas: [ficha_paciente, proponer_revertir]
+  aceptables: [buscar_pacientes, agenda, detalle_cita]
+contexto:
+  - llamada: ficha_paciente
+    args: {paciente_id: "{paciente.lucia}"}
+    incluye: ["{historial.lucia_jueves_cancelada}", "reversible"]
+  - llamada: proponer_revertir
+    args: {historial_id: "{historial.lucia_jueves_cancelada}"}
+    incluye: ["revertir", "Lucía Fernández Mora", "cancelada"]
+respuesta:
+  incluye: ["Lucía"]
+  excluye: ["ya quedo", "ya la recupere"]
+  propuestas: [revertir]
+notas: El id del movimiento sale del historial de la ficha (solo el último de la cita es reversible).

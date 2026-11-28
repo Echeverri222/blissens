@@ -1,0 +1,19 @@
+id: ya-llame-al-del-blanqueamiento
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: Ya llamé al que escribió por la página preguntando por blanqueamiento, ciérralo
+intencion: Preparar marcar como gestionada la solicitud de contacto web sobre blanqueamiento.
+herramientas:
+  esperadas: [bandeja, proponer_gestionar_contacto]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: contactos}
+    incluye: ["blanqueamiento", "{solicitud.blanqueamiento}"]
+  - llamada: proponer_gestionar_contacto
+    args: {solicitud_id: "{solicitud.blanqueamiento}"}
+    incluye: ["gestionar_contacto"]
+respuesta:
+  incluye: ["solicitud"]
+  excluye: ["ya quedo cerrada", "1098765432"]
+  propuestas: [gestionar_contacto]

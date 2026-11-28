@@ -55,7 +55,8 @@ def test_experience_form_creates_contact_request(client, conn):
                           "celular": "+1 305 555 0100", "mensaje": "Hola", "consentimiento": "1", "idioma": "en"})
     assert r.status_code == 200 and "excited to be part" in r.text
     fila = conn.execute("select * from solicitud_contacto order by id desc limit 1").fetchone()
-    assert "Experiencia" in fila["nota"] and "Premium" in fila["nota"] and "Visitante" in fila["nota"] and not fila["gestionada"]
+    assert (fila["interes"], fila["paquete"], fila["nombre"], fila["idioma"]) == ("experiencia", "premium", "Visitante", "en")
+    assert "Experiencia · Premium" in fila["nota"] and not fila["gestionada"]
     assert fila["celular"].startswith("+1")
 
 

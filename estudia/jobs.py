@@ -1,7 +1,7 @@
 """Tareas del ciclo: handlers de tareas programadas, vencimientos y procesos diarios."""
 from datetime import datetime, timedelta
 
-from . import canales, config, confirmations, correo, followup, indicators, privacidad, recovery, slots, tasks
+from . import canales, config, confirmations, correo, followup, indicators, privacidad, recovery, slots, solicitudes, tasks
 
 
 @tasks.handler("recordatorio")
@@ -40,6 +40,11 @@ def _entregar(conn, d, now):
 @tasks.handler("entregar_correo")
 def _entregar_correo(conn, d, now):
     correo.entregar_diferido(conn, d["mensaje_id"], d["intento"])
+
+
+@tasks.handler("correo_solicitud")
+def _correo_solicitud(conn, d, now):
+    solicitudes.entregar_correo(conn, d["solicitud_id"], d["tipo"])
 
 
 def expire_offers(conn, now: datetime) -> int:

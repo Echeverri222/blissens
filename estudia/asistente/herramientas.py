@@ -23,6 +23,7 @@ MAX_FILAS = 50
 MAX_FILAS_BANDEJA = 15  # ya vienen en orden de prioridad; con el total, el modelo sabe cuántas quedan
 MAX_ESPACIOS = 12
 MAX_CITAS_PACIENTE = 20
+MAX_HISTORIAL = 10
 
 
 # ----------------------------------------------------------------- utilidades
@@ -410,6 +411,7 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
         raise permisos.NoExiste("No existe ese paciente")
     r = bandejas.patient_record(conn, a.paciente_id)
     p = r["paciente"]
+    estados = {c["id"]: c["estado"] for c in r["citas"]}
     return {
         "paciente": {"id": p["id"], "nombre": _nombre(p), "documento_ultimos4": _ultimos4(p["documento"]),
                      "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"]},
@@ -417,6 +419,11 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
                    "profesional": c["profesional"]} for c in r["citas"][:20]],
         "casos_abiertos": [{"id": c["id"], "tipo": c["tipo"], "escalado": c["escalado"], "abierto_en": c["abierto_en"],
                             "intentos": len(c["intentos"] or [])} for c in r["casos"] if c["estado"] == "abierto"],
+        # Los últimos movimientos de estado, con su id para `proponer_revertir` (la ficha del panel muestra el mismo botón).
+        "historial": [{"id": h["id"], "cita_id": h["cita_id"], "momento": h["momento"], "de": h["estado_anterior"],
+                       "a": h["estado_nuevo"], "revertido": h["revertido"],
+                       "reversible": permisos.puede_revertir(actor.usuario_de_alcance, h, estados[h["cita_id"]])}
+                      for h in r["historial"][:MAX_HISTORIAL]],
         "mensajes": [{"direccion": m["direccion"], "momento": m["momento"], "texto": m["texto"], "respuesta": m["respuesta"]}
                      for m in r["mensajes"][-10:]]}
 
@@ -719,7 +726,156 @@ def proponer_bloqueo(conn, actor, a) -> dict:
                       + (f" (motivo: {motivo})." if motivo else "."))
 
 
-@herramienta("pedir_contacto", "Prepara pedir que la clínica contacte a quien pregunta. No la avisa: la persona debe confirmar.",
+class BloqueoId(Entrada):
+    bloqueo_id: int = Field(ge=1, description="Id del bloqueo (sale de `agenda`).")
+
+
+@herramienta("proponer_eliminar_bloqueo", "Prepara eliminar un bloqueo de agenda que aún no terminó. No lo elimina: la persona "
+             "debe confirmar.", BloqueoId, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_eliminar_bloqueo(conn, actor, a: BloqueoId) -> dict:
+    b = horario.get_block(conn, a.bloqueo_id)
+    if b is None:
+        raise permisos.NoExiste("No existe ese bloqueo")
+    permisos.exigir_profesional(actor.usuario, b["profesional_id"])
+    if b["rango"].upper <= clock.now(conn):
+        raise ErrorHerramienta("accion_no_permitida", "Ese bloqueo ya terminó: no se puede eliminar.")
+    pro = conn.execute("select nombre from profesional where id=%s", (b["profesional_id"],)).fetchone()
+    return _propuesta("eliminar_bloqueo", {"bloqueo_id": b["id"]},  # `DELETE /bloqueos/{bloqueo_id}`
+                      f"Eliminar el bloqueo de {pro['nombre']} del {_cuando(b['rango'].lower)} al {_cuando(b['rango'].upper)}.")
+
+
+class NuevoPaciente(Entrada):
+    nombres: str = Field(min_length=1, max_length=100)
+    apellidos: str = Field("", max_length=100)
+
+
+@herramienta("proponer_crear_paciente", "Prepara crear un paciente nuevo con su nombre. El documento, el celular y la "
+             "autorización de datos los escribe la persona en la tarjeta, nunca en el chat. Antes revisa con `buscar_pacientes` "
+             "que no exista.", NuevoPaciente, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_crear_paciente(conn, actor, a: NuevoPaciente) -> dict:
+    # Sin documento ni celular: esos datos no pasan por el modelo (P5). La tarjeta los pide y llama a `POST /pacientes`.
+    return _propuesta("crear_paciente", {"nombres": a.nombres, "apellidos": a.apellidos},
+                      f"Crear el paciente {a.nombres} {a.apellidos}".strip() + ".")
+
+
+class SegmentosPaciente(PacienteId):
+    internacional: bool = Field(description="Paciente internacional.")
+    deportista: bool = Field(description="Deportista de alto nivel.")
+
+
+@herramienta("proponer_segmentos", "Prepara marcar o desmarcar a un paciente como internacional o deportista de alto nivel "
+             "(los dos valores, como deben quedar). No lo marca: la persona debe confirmar.", SegmentosPaciente, ("auxiliar",),
+             PROPUESTA, auditoria="asistente:propuesta")
+def proponer_segmentos(conn, actor, a: SegmentosPaciente) -> dict:
+    p = conn.execute("select id, nombres, apellidos from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    marcas = [n for n, v in (("internacional", a.internacional), ("deportista de alto nivel", a.deportista)) if v]
+    return _propuesta("segmentos", {"paciente_id": p["id"], "internacional": a.internacional, "deportista": a.deportista},
+                      f"Dejar a {_nombre(p)} como " + (" y ".join(marcas) if marcas else "sin marcas de alto valor") + ".")
+
+
+class GestionSeguimiento(Entrada):
+    caso_id: int = Field(ge=1, description="Id del caso (de `bandeja` seguimientos o de `ficha_paciente`).")
+    resultado: Literal["acepto", "rechazo", "sin_respuesta"] = Field(description="Cómo terminó la llamada.")
+    detalle: str = Field("", max_length=300)
+
+
+RESULTADOS = {"acepto": "aceptó", "rechazo": "no quiso", "sin_respuesta": "no contestó"}
+
+
+@herramienta("proponer_gestion_seguimiento", "Prepara registrar la llamada de un seguimiento: si el paciente aceptó, no quiso o "
+             "no contestó. No la registra: la persona debe confirmar.", GestionSeguimiento, ("auxiliar",), PROPUESTA,
+             auditoria="asistente:propuesta")
+def proponer_gestion_seguimiento(conn, actor, a: GestionSeguimiento) -> dict:
+    c = conn.execute("select cs.id, cs.estado, cs.tipo, p.nombres, p.apellidos from caso_seguimiento cs "
+                     "join paciente p on p.id=cs.paciente_id where cs.id=%s", (a.caso_id,)).fetchone()
+    if c is None:
+        raise permisos.NoExiste("No existe ese seguimiento")
+    if c["estado"] not in ("abierto", "agotado"):
+        raise ErrorHerramienta("accion_no_permitida", "Ese seguimiento ya está cerrado.")
+    detalle = a.detalle.strip()
+    return _propuesta("gestion_seguimiento", {"caso_id": c["id"], "resultado": a.resultado, "detalle": detalle},
+                      f"Registrar que {_nombre(c)} {RESULTADOS[a.resultado]} en el seguimiento ({c['tipo']})"
+                      + (f": {detalle}." if detalle else "."))
+
+
+class MensajeId(Entrada):
+    mensaje_id: int = Field(ge=1, description="Id del mensaje (de `bandeja` sin_interpretar).")
+
+
+@herramienta("proponer_gestionar_mensaje", "Prepara marcar como gestionado un mensaje entrante sin interpretar. No lo marca: la "
+             "persona debe confirmar.", MensajeId, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_gestionar_mensaje(conn, actor, a: MensajeId) -> dict:
+    m = conn.execute("select m.id, m.gestionado, p.nombres, p.apellidos from mensaje m join paciente p on p.id=m.paciente_id "
+                     "where m.id=%s and m.direccion='entrante'", (a.mensaje_id,)).fetchone()
+    if m is None:
+        raise permisos.NoExiste("No existe ese mensaje")
+    if m["gestionado"]:
+        raise ErrorHerramienta("accion_no_permitida", "Ese mensaje ya está gestionado.")
+    return _propuesta("gestionar_mensaje", {"mensaje_id": m["id"]},  # `POST /mensajes/{mensaje_id}/gestionar`
+                      f"Marcar como gestionado el mensaje de {_nombre(m)}.")
+
+
+class SolicitudId(Entrada):
+    solicitud_id: int = Field(ge=1, description="Id de la solicitud (de `bandeja` contactos).")
+
+
+def _solicitud(conn, solicitud_id: int) -> dict:
+    s = conn.execute("select id, gestionada, nombre from solicitud_contacto where id=%s", (solicitud_id,)).fetchone()
+    if s is None:
+        raise permisos.NoExiste("No existe esa solicitud")
+    return s
+
+
+@herramienta("proponer_gestionar_contacto", "Prepara marcar como gestionada una solicitud de contacto. No la marca: la persona "
+             "debe confirmar.", SolicitudId, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_gestionar_contacto(conn, actor, a: SolicitudId) -> dict:
+    s = _solicitud(conn, a.solicitud_id)
+    if s["gestionada"]:
+        raise ErrorHerramienta("accion_no_permitida", "Esa solicitud ya está gestionada.")
+    return _propuesta("gestionar_contacto", {"solicitud_id": s["id"]},  # `POST /contactos/{solicitud_id}/gestionar`
+                      "Marcar como gestionada la solicitud de contacto" + (f" de {s['nombre']}." if s["nombre"] else "."))
+
+
+class VincularContacto(SolicitudId):
+    paciente_id: int = Field(ge=1, description="Id del paciente (de `buscar_pacientes`).")
+
+
+@herramienta("proponer_vincular_contacto", "Prepara vincular una solicitud de contacto del sitio web a un paciente. No la "
+             "vincula: la persona debe confirmar.", VincularContacto, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_vincular_contacto(conn, actor, a: VincularContacto) -> dict:
+    s = _solicitud(conn, a.solicitud_id)
+    p = conn.execute("select id, nombres, apellidos from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return _propuesta("vincular_contacto", {"solicitud_id": s["id"], "paciente_id": p["id"]},  # `POST /contactos/{id}/paciente`
+                      "Vincular la solicitud de contacto" + (f" de {s['nombre']}" if s["nombre"] else "") + f" a {_nombre(p)}.")
+
+
+class HistorialId(Entrada):
+    historial_id: int = Field(ge=1, description="Id del movimiento (de `ficha_paciente.historial`, con `reversible`).")
+
+
+@herramienta("proponer_revertir", "Prepara deshacer el último movimiento de estado de una cita (una cancelación, un cambio de "
+             "fecha, un desenlace...). No lo deshace: la persona debe confirmar.", HistorialId, ("auxiliar",), PROPUESTA,
+             auditoria="asistente:propuesta")
+def proponer_revertir(conn, actor, a: HistorialId) -> dict:
+    h = conn.execute("select h.id, h.cita_id, h.estado_anterior, h.estado_nuevo, h.revierte_id, "
+                     "exists(select 1 from historial_estado r where r.revierte_id=h.id) as revertido "
+                     "from historial_estado h where h.id=%s", (a.historial_id,)).fetchone()
+    if h is None:
+        raise permisos.NoExiste("No existe ese movimiento")
+    c = permisos.cita_visible(conn, actor.usuario, h["cita_id"])
+    if not permisos.puede_revertir(actor.usuario, h, c["estado"]):
+        raise ErrorHerramienta("accion_no_permitida", "Ese movimiento no se puede deshacer: solo el último de la cita, si no se "
+                               "deshizo ya.")
+    c = _cita_con_nombres(conn, h["cita_id"])
+    return _propuesta("revertir", {"historial_id": h["id"]},  # `POST /historial/{historial_id}/revertir`
+                      f"Deshacer el paso de {h['estado_anterior']} a {h['estado_nuevo']} en la cita de {_descripcion(c)}.")
+
+
+@herramienta("pedir_contacto","Prepara pedir que la clínica contacte a quien pregunta. No la avisa: la persona debe confirmar.",
              SinEntrada, PAC, PROPUESTA, auditoria="asistente:propuesta")
 def pedir_contacto(conn, actor, a) -> dict:
     _paciente(conn, actor)

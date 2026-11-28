@@ -3,9 +3,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { useAccion, useProfesionales, useServicios } from "@/api/consultas";
-import type { PacienteResumen } from "@/api/tipos";
+import type { PacienteResumen, Segmento } from "@/api/tipos";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
-import { Boton, Casilla, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
+import { cn } from "@/lib/utils";
+import { AltoValor, Boton, Casilla, Entrada, Seleccion, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 
@@ -83,11 +84,23 @@ function Paso({ n, titulo, deshabilitado, children }: { n: number; titulo: strin
 }
 
 /** El texto de búsqueda vive solo en memoria: puede ser un documento o un celular y no va en la dirección. */
-export function BuscarPaciente({ alElegir }: { alElegir: (p: { id: number; nombre: string }) => void }) {
-  const [texto, setTexto] = useState("");
-  const [buscado, setBuscado] = useState("");
+const FILTROS: { valor: Segmento | null; texto: string }[] = [
+  { valor: null, texto: "Todos" }, { valor: "internacional", texto: "Internacionales" }, { valor: "deportista", texto: "Deportistas" }];
+const TOPE_BUSQUEDA = 50;
+
+/** Con `conFiltros`, la recepción puede quedarse con los internacionales o los deportistas; sin texto, los lista a todos. */
+type DatosIniciales = { nombres?: string; apellidos?: string; celular?: string };
+
+/** `inicial` precarga la búsqueda (y la hace) y el formulario de paciente nuevo, p. ej. desde una solicitud del sitio. */
+export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
+  alElegir: (p: { id: number; nombre: string }) => void; conFiltros?: boolean; inicial?: { texto: string; paciente?: DatosIniciales };
+}) {
+  const [texto, setTexto] = useState(inicial?.texto ?? "");
+  const [buscado, setBuscado] = useState(inicial?.texto.trim() ?? "");
+  const [segmento, setSegmento] = useState<Segmento | null>(null);
   const [nuevo, setNuevo] = useState(false);
-  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado], queryFn: () => api.pacientes.buscar(buscado), enabled: buscado.length > 0 });
+  const activo = buscado.length > 0 || segmento !== null;
+  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined), enabled: activo });
   const nombre = (p: PacienteResumen) => `${p.nombres} ${p.apellidos}`.trim();
   return (
     <div className="space-y-3">
@@ -95,26 +108,41 @@ export function BuscarPaciente({ alElegir }: { alElegir: (p: { id: number; nombr
         <Entrada etiqueta="Buscar por nombre, documento o celular" value={texto} onChange={(e) => setTexto(e.target.value)} className="flex-1" />
         <Boton type="submit">Buscar</Boton>
       </form>
-      {buscado && (
+      {conFiltros && (
+        <div role="group" aria-label="Filtrar por segmento" className="flex flex-wrap gap-1.5">
+          {FILTROS.map((f) => (
+            <button key={f.texto} type="button" aria-pressed={segmento === f.valor} onClick={() => setSegmento(f.valor)}
+              className={cn("rounded-full border px-3 py-1 text-sm font-medium", segmento === f.valor ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>{f.texto}</button>
+          ))}
+        </div>
+      )}
+      {activo && (
         <Consulta q={q}>
           {(lista) => lista.length === 0
-            ? <Vacio titulo="No encontramos pacientes">Revisa el texto o crea el paciente nuevo.</Vacio>
-            : <ul className="divide-y divide-linea rounded-xl border border-linea">{lista.map((p) => (
-              <li key={p.id}><button className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-zinc-50" onClick={() => alElegir({ id: p.id, nombre: nombre(p) })}>
-                <span className="font-medium">{nombre(p)}</span><span className="text-tinta-suave">{p.documento} · {p.celular ?? "sin celular"}</span></button></li>
-            ))}</ul>}
+            ? <Vacio titulo="No encontramos pacientes">{segmento && !buscado ? "Nadie tiene esa marca todavía. Se marca desde la ficha del paciente." : "Revisa el texto o crea el paciente nuevo."}</Vacio>
+            : <>
+              <ul className="divide-y divide-linea rounded-xl border border-linea">{lista.map((p) => (
+                <li key={p.id}><button className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-zinc-50" onClick={() => alElegir({ id: p.id, nombre: nombre(p) })}>
+                  <span className="flex flex-wrap items-center gap-2 font-medium">{nombre(p)}<AltoValor internacional={p.internacional} deportista={p.deportista} /></span>
+                  <span className="text-tinta-suave">{p.documento} · {p.celular ?? "sin celular"}</span></button></li>
+              ))}</ul>
+              {lista.length >= TOPE_BUSQUEDA && <p className="text-sm text-tinta-suave">Se muestran los primeros {TOPE_BUSQUEDA}. Escribe un nombre para afinar.</p>}
+            </>}
         </Consulta>
       )}
       <div>
         {!nuevo ? <Boton variante="fantasma" pequeno onClick={() => setNuevo(true)}>¿No está? Crear paciente nuevo</Boton>
-          : <FormularioPaciente alCrear={alElegir} alCancelar={() => setNuevo(false)} />}
+          : <FormularioPaciente alCrear={alElegir} alCancelar={() => setNuevo(false)} inicial={inicial?.paciente} />}
       </div>
     </div>
   );
 }
 
-function FormularioPaciente({ alCrear, alCancelar }: { alCrear: (p: { id: number; nombre: string }) => void; alCancelar: () => void }) {
-  const [v, setV] = useState({ nombres: "", apellidos: "", documento: "", celular: "", consentimiento: false });
+/** También lo usa la tarjeta del asistente: el documento, el celular y la autorización se escriben aquí, nunca en el chat. */
+export function FormularioPaciente({ alCrear, alCancelar, inicial, boton = "Crear y elegir", cancelar = "Cancelar" }: {
+  alCrear: (p: { id: number; nombre: string }) => void; alCancelar: () => void; inicial?: DatosIniciales; boton?: string; cancelar?: string;
+}) {
+  const [v, setV] = useState({ nombres: "", apellidos: "", documento: "", celular: "", consentimiento: false, ...inicial });
   const m = useAccion(api.pacientes.crear, { ok: "Paciente creado", alExito: (r, d) => alCrear({ id: r.paciente_id, nombre: `${d.nombres} ${d.apellidos}`.trim() }) });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const enviar = (e: FormEvent) => { e.preventDefault(); m.mutate(v); };
@@ -129,7 +157,7 @@ function FormularioPaciente({ alCrear, alCancelar }: { alCrear: (p: { id: number
         <Entrada etiqueta="Celular" inputMode="tel" value={v.celular} onChange={set("celular")} required />
       </div>
       <Casilla etiqueta="El paciente autoriza el tratamiento de sus datos y recibir mensajes de la clínica" checked={v.consentimiento} onChange={set("consentimiento")} />
-      <div className="flex gap-2"><Boton type="submit" disabled={m.isPending}>Crear y elegir</Boton><Boton variante="secundario" onClick={alCancelar}>Cancelar</Boton></div>
+      <div className="flex gap-2"><Boton type="submit" disabled={m.isPending}>{boton}</Boton><Boton variante="secundario" onClick={alCancelar}>{cancelar}</Boton></div>
     </form>
   );
 }

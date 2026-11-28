@@ -1,14 +1,15 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
-import type { ConteoBandejas, ResultadoGestion } from "@/api/tipos";
+import type { Contacto, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
-import { digitosWhatsApp, esSolicitudWeb, leerSolicitudWeb } from "@/lib/solicitudes";
+import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "@/lib/solicitudes";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Confirmar, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Confirmar, Hoja, Tarjeta } from "@/ui/controles";
+import { BuscarPaciente } from "./Agendar";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
 
@@ -100,26 +101,54 @@ const ESTADO_NC = { no_confirmada: "Sin confirmar", programada: "Sin respuesta a
 
 const MAXIMO_HOY = 15;
 
-type FilaContacto = { documento: string; celular: string; nota: string };
-
-function resumenWeb(r: FilaContacto): ReactNode {
-  const w = leerSolicitudWeb(r.nota);
-  return <><b>{w.nombre ?? "Sin nombre"}</b> escribió desde el sitio web: {w.tipo}{w.paquete ? ` · ${w.paquete}` : ""}. Contáctale por {w.correo && !r.celular ? "correo" : "teléfono o WhatsApp"}.</>;
+function resumenWeb(r: Contacto): ReactNode {
+  const adjuntos = r.adjuntos?.length ? ` Adjuntó ${r.adjuntos.length === 1 ? "1 archivo" : `${r.adjuntos.length} archivos`}.` : "";
+  return <><b>{r.nombre ?? "Sin nombre"}</b> escribió desde el sitio web: {tipoDeSolicitud(r)}{r.pais ? ` (${r.pais})` : ""}.{adjuntos} Contáctale por {r.correo && !r.celular ? "correo" : "teléfono o WhatsApp"}.</>;
 }
 
-function DetalleWeb({ r }: { r: FilaContacto }) {
-  const w = leerSolicitudWeb(r.nota);
+function DetalleWeb({ r }: { r: Contacto }) {
   const wa = digitosWhatsApp(r.celular);
   return (
-    <div className="min-w-48 flex-1 space-y-0.5">
-      <p><span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-950">Solicitud web</span> <b>{w.tipo}</b>{w.paquete ? ` · ${w.paquete}` : ""}{w.idioma ? ` · ${w.idioma.toUpperCase()}` : ""}</p>
-      <p><b>{w.nombre ?? "Sin nombre"}</b>{w.pais ? ` · ${w.pais}` : ""}</p>
+    <div className="min-w-48 flex-1 space-y-1">
+      <p><span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-950">Solicitud web</span> <b>{tipoDeSolicitud(r)}</b>{r.idioma ? ` · ${r.idioma.toUpperCase()}` : ""}</p>
+      <p><b>{r.nombre ?? "Sin nombre"}</b>{r.pais ? ` · ${r.pais}` : ""}</p>
       <p className="flex flex-wrap gap-x-3">
         {r.celular && <><a className={ENLACE} href={`tel:${r.celular.replace(/[^\d+]/g, "")}`}>Llamar {r.celular}</a>{wa && <a className={ENLACE} href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}</>}
-        {w.correo && <a className={ENLACE} href={`mailto:${w.correo}`}>{w.correo}</a>}
+        {r.correo && <a className={ENLACE} href={`mailto:${r.correo}`}>{r.correo}</a>}
       </p>
-      {w.mensaje && <p className="whitespace-pre-wrap text-tinta-suave">“{w.mensaje}”</p>}
+      {r.mensaje && <p className="whitespace-pre-wrap text-tinta-suave">“{r.mensaje}”</p>}
+      {(r.adjuntos ?? []).length > 0 && (
+        <ul className="flex flex-wrap gap-x-3 gap-y-1" aria-label="Archivos adjuntos">
+          {(r.adjuntos ?? []).map((a) => (
+            <li key={a.id}><a className={ENLACE} href={api.bandejas.urlAdjunto(r.id, a.id)} download={a.nombre}>{a.nombre}</a> <span className="text-tinta-suave">({tamanoLegible(a.tamano)})</span></li>
+          ))}
+        </ul>
+      )}
+      {r.paciente_id
+        ? <p>Ficha: <Link className={ENLACE} to={`/pacientes/${r.paciente_id}`}>{r.paciente ?? "Ver paciente"}</Link></p>
+        : <VincularPaciente r={r} />}
     </div>
+  );
+}
+
+/** Vincula la solicitud a un paciente existente o a uno nuevo, con los datos de la solicitud ya escritos. */
+function VincularPaciente({ r }: { r: Contacto }) {
+  const [abierta, setAbierta] = useState(false);
+  const m = useAccion((pacienteId: number) => api.bandejas.vincularContacto(r.id, pacienteId), {
+    ok: "Solicitud vinculada a la ficha", alExito: () => setAbierta(false) });
+  const celular = r.celular.replace(/\D/g, "");
+  return (
+    <>
+      <Boton variante="secundario" pequeno onClick={() => setAbierta(true)}>Vincular a un paciente</Boton>
+      <Hoja abierta={abierta} alCerrar={() => setAbierta(false)} titulo="Vincular a un paciente"
+        descripcion="Busca la ficha de esta persona o créala. La solicitud y sus archivos quedan con el paciente.">
+        <div className="space-y-3">
+          {m.error instanceof ApiError && <Aviso>{m.error.mensaje}</Aviso>}
+          <BuscarPaciente alElegir={(p) => m.mutate(p.id)}
+            inicial={{ texto: r.nombre ?? "", paciente: { ...separarNombre(r.nombre), celular: celular.length === 12 && celular.startsWith("57") ? celular.slice(2) : r.celular } }} />
+        </div>
+      </Hoja>
+    </>
   );
 }
 

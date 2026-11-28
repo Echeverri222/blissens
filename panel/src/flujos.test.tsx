@@ -232,6 +232,19 @@ describe("agendar", () => {
     expect(screen.getByRole("button", { name: /10:00/ })).toBeInTheDocument();
   });
 
+  it("filtra pacientes por segmento sin escribir nada", async () => {
+    const pedidas: string[] = [];
+    servidor.use(http.get(`${API}/pacientes`, ({ request }) => {
+      pedidas.push(new URL(request.url).search);
+      return HttpResponse.json([{ id: 9, nombres: "Vera", apellidos: "Díaz", documento: "123", celular: null, internacional: false, deportista: true }]);
+    }));
+    montar("/pacientes", AUX);
+    await userEvent.click(await screen.findByRole("button", { name: "Deportistas" }));
+    expect(screen.getByRole("button", { name: "Deportistas" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: /Vera Díaz/ })).toHaveTextContent("Deportista");
+    expect(pedidas).toEqual(["?segmento=deportista"]);
+  });
+
   it("no pone el texto de búsqueda en la dirección", async () => {
     servidor.use(http.get(`${API}/pacientes`, () => HttpResponse.json([])));
     montar("/pacientes", AUX);

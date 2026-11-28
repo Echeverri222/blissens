@@ -1,0 +1,19 @@
+id: ya-le-respondi-a-jorge
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: Ya le contesté a Jorge lo de la mamá, sácalo de los mensajes pendientes
+intencion: Preparar marcar como gestionado el mensaje sin interpretar de Jorge Ramírez Soto.
+herramientas:
+  esperadas: [bandeja, proponer_gestionar_mensaje]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: sin_interpretar}
+    incluye: ["Jorge Ramírez Soto", "{mensaje.jorge}"]
+  - llamada: proponer_gestionar_mensaje
+    args: {mensaje_id: "{mensaje.jorge}"}
+    incluye: ["gestionar_mensaje", "Jorge Ramírez Soto"]
+respuesta:
+  incluye: ["Jorge"]
+  excluye: ["ya quedo gestionado"]
+  propuestas: [gestionar_mensaje]

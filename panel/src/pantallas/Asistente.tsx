@@ -13,6 +13,7 @@ import type { AsistenteRespuesta, Propuesta } from "@/api/tipos";
 import { cn } from "@/lib/utils";
 import { Boton, Confirmar } from "@/ui/controles";
 import { Aviso } from "@/ui/vistas";
+import { FormularioPaciente } from "@/pantallas/Agendar";
 
 const MAX_TEXTO = 1000;
 const POCOS_MENSAJES = 5;
@@ -42,6 +43,12 @@ const texto = (p: Propuesta["parametros"], k: string): string => {
   if (typeof v !== "string") throw new Error(`parámetro inválido: ${k}`);
   return v;
 };
+const booleano = (p: Propuesta["parametros"], k: string): boolean => {
+  const v = p[k];
+  if (typeof v !== "boolean") throw new Error(`parámetro inválido: ${k}`);
+  return v;
+};
+const RESULTADOS = ["acepto", "rechazo", "sin_respuesta"] as const;
 
 /** Cada tipo de propuesta se ejecuta con el endpoint que ya usa el panel; los parámetros se validan antes de enviarlos. */
 export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
@@ -60,11 +67,47 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
       }
       case "bloqueo":
         return api.bloqueos.crear({ profesional_id: numero(p, "profesional_id"), inicio: texto(p, "inicio"), fin: texto(p, "fin"), motivo: typeof p.motivo === "string" ? p.motivo : "" });
+      case "eliminar_bloqueo": return api.bloqueos.eliminar(numero(p, "bloqueo_id"));
+      case "segmentos":
+        return api.pacientes.segmentos(numero(p, "paciente_id"), { internacional: booleano(p, "internacional"), deportista: booleano(p, "deportista") });
+      case "gestion_seguimiento": {
+        const r = RESULTADOS.find((x) => x === p.resultado);
+        if (!r) throw new Error("parámetro inválido: resultado");
+        return api.bandejas.gestionSeguimiento(numero(p, "caso_id"), r, typeof p.detalle === "string" ? p.detalle : "");
+      }
+      case "gestionar_mensaje": return api.bandejas.gestionarMensaje(numero(p, "mensaje_id"));
+      case "gestionar_contacto": return api.bandejas.gestionarContacto(numero(p, "solicitud_id"));
+      case "vincular_contacto": return api.bandejas.vincularContacto(numero(p, "solicitud_id"), numero(p, "paciente_id"));
+      case "revertir": return api.citas.revertir(numero(p, "historial_id"));
+      // Lleva datos que no pasan por el modelo: lo crea el formulario de su tarjeta, no un botón de confirmar.
+      case "crear_paciente": return Promise.reject(new Error("se crea desde el formulario"));
       default: return Promise.reject(new Error("tipo desconocido"));
     }
   } catch (e) {
     return Promise.reject(e);
   }
+}
+
+/** Paciente nuevo: el modelo solo trae el nombre; documento, celular y autorización se escriben aquí y van directo a la API. */
+function TarjetaPaciente({ propuesta, estado, alCreado, alDescartar }: {
+  propuesta: Propuesta; estado?: Estado; alCreado: () => void; alDescartar: () => void;
+}) {
+  const p = propuesta.parametros;
+  const inicial = { nombres: typeof p.nombres === "string" ? p.nombres : "", apellidos: typeof p.apellidos === "string" ? p.apellidos : "" };
+  if (estado === "hecha" || estado === "descartada") {
+    return (
+      <div data-testid="propuesta" className={cn("mt-2 rounded-[var(--radius-control)] border border-linea bg-papel p-3 text-sm", estado === "descartada" && "opacity-60")}>
+        <p className="whitespace-pre-wrap break-words">{propuesta.resumen}</p>
+        {estado === "hecha" ? <p className="mt-2 flex items-center gap-1 font-medium text-emerald-800"><Check className="size-4" aria-hidden /> Hecho</p>
+          : <p className="mt-2 text-tinta-suave">Descartada</p>}
+      </div>
+    );
+  }
+  return (
+    <div data-testid="propuesta" className="mt-2">
+      <FormularioPaciente inicial={inicial} boton="Crear paciente" cancelar="Descartar" alCrear={alCreado} alCancelar={alDescartar} />
+    </div>
+  );
 }
 
 function TarjetaPropuesta({ propuesta, estado, error, alConfirmar, alDescartar }: {
@@ -183,8 +226,13 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
             <div className="w-full max-w-[90%]">
               {m.propuestas.map((p, j) => {
                 const clave = `${i}:${j}`;
+                const descartar = () => setConv((c) => ({ ...c, estados: { ...c.estados, [clave]: "descartada" } }));
+                if (p.tipo === "crear_paciente") {
+                  return <TarjetaPaciente key={clave} propuesta={p} estado={conv.estados[clave]} alDescartar={descartar}
+                    alCreado={() => setConv((c) => ({ ...c, estados: { ...c.estados, [clave]: "hecha" } }))} />;
+                }
                 return <TarjetaPropuesta key={clave} propuesta={p} estado={conv.estados[clave]} error={conv.errores[clave] || undefined}
-                  alConfirmar={() => confirmar(clave, p)} alDescartar={() => setConv((c) => ({ ...c, estados: { ...c.estados, [clave]: "descartada" } }))} />;
+                  alConfirmar={() => confirmar(clave, p)} alDescartar={descartar} />;
               })}
             </div>
           )}

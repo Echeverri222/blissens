@@ -1,0 +1,20 @@
+id: andres-es-deportista
+perfil: auxiliar
+actor: marta
+categoria: pacientes
+pregunta: Andrés Pineda es deportista de alto rendimiento, márcamelo
+intencion: Preparar la marca de deportista de alto nivel de Andrés Pineda Gil, sin marcarlo internacional.
+herramientas:
+  esperadas: [buscar_pacientes, proponer_segmentos]
+  aceptables: [ficha_paciente]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Andrés Pineda"}
+    incluye: ["Andrés Pineda Gil"]
+  - llamada: proponer_segmentos
+    args: {paciente_id: "{paciente.andres}", internacional: false, deportista: true}
+    incluye: ["segmentos", "Andrés Pineda Gil", "deportista"]
+respuesta:
+  incluye: ["Andrés"]
+  excluye: ["ya quedo marcado"]
+  propuestas: [segmentos]

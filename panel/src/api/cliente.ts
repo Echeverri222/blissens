@@ -4,7 +4,7 @@ import type { CitaEnConflicto } from "./tipos";
 import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
-  NuevoPaciente, PacienteResumen, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
+  NuevoPaciente, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
@@ -95,7 +95,7 @@ export const api = {
     eliminar: (id: number) => pedir<{ ok: boolean }>("DELETE", `/bloqueos/${id}`),
   },
   pacientes: {
-    buscar: (q: string) => get<PacienteResumen[]>("/pacientes", { q }),
+    buscar: (q: string, segmento?: Segmento) => get<PacienteResumen[]>("/pacientes", { q, segmento }),
     crear: (p: NuevoPaciente) => post<{ paciente_id: number }>("/pacientes", p),
     ficha: (id: number) => get<FichaCompleta>(`/pacientes/${id}`),
     segmentos: (id: number, s: Segmentos) => pedir<SegmentosOut>("PUT", `/pacientes/${id}/segmentos`, { cuerpo: s }),
@@ -115,6 +115,9 @@ export const api = {
       post<{ ok: boolean }>(`/seguimientos/${id}/gestion`, { resultado, detalle: detalle ?? "" }),
     gestionarMensaje: (id: number) => post<{ ok: boolean }>(`/mensajes/${id}/gestionar`),
     gestionarContacto: (id: number) => post<{ ok: boolean }>(`/contactos/${id}/gestionar`),
+    vincularContacto: (id: number, pacienteId: number) => post<{ ok: boolean }>(`/contactos/${id}/paciente`, { paciente_id: pacienteId }),
+    /** Enlace de descarga (la cookie de sesión va sola: mismo origen). */
+    urlAdjunto: (solicitudId: number, adjuntoId: number) => `${BASE}/contactos/${solicitudId}/adjuntos/${adjuntoId}`,
   },
   indicadores: {
     resumen: (f: FiltrosIndicadores, comparar = false) => get<Resumen>("/indicadores/resumen", { ...f, comparar: comparar ? "true" : undefined }),
