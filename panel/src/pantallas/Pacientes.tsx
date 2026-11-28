@@ -4,12 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { BellOff } from "lucide-react";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useAgenda } from "@/api/consultas";
-import type { FichaCompleta, Segmentos } from "@/api/tipos";
+import type { FichaCompleta, Identificacion, Segmentos } from "@/api/tipos";
 import { ESTADOS } from "@/lib/estados";
 import { fechaDe, fechaHora, fechaLarga, horaDe, sumarDias } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/Sesion";
-import { AltoValor, Casilla, Confirmar, EtiquetaEstado, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Casilla, Confirmar, Entrada, EtiquetaEstado, Prospecto, Tarjeta } from "@/ui/controles";
 import { Aviso, Consulta, Vacio } from "@/ui/vistas";
 import { BuscarPaciente } from "./Agendar";
 import { useNavigate } from "react-router-dom";
@@ -117,7 +117,7 @@ export function Ficha() {
           <Tarjeta className="flex flex-wrap items-start justify-between gap-3 p-4">
             <div>
               <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{f.paciente.nombres} {f.paciente.apellidos}
-                <AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
+                <Prospecto etapa={f.paciente.etapa} /><AltoValor internacional={f.paciente.internacional} deportista={f.paciente.deportista} /></h1>
               <p className="text-sm text-tinta-suave">Documento {f.paciente.documento ?? "—"} · {f.paciente.celular ?? "sin celular"}{f.paciente.correo ? ` · ${f.paciente.correo}` : ""}</p>
               <Familia f={f} />
               <MarcasAltoValor f={f} />
@@ -125,8 +125,11 @@ export function Ficha() {
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-950"><BellOff className="size-4" aria-hidden />Dado de baja de mensajes automáticos</p>
               )}
             </div>
-            <Link to={`/agendar?paciente=${f.paciente.id}`} className="rounded-[var(--radius-control)] bg-marca px-4 py-2 text-sm font-medium text-white">Agendar cita</Link>
+            {f.paciente.etapa === "paciente" && (
+              <Link to={`/agendar?paciente=${f.paciente.id}`} className="rounded-[var(--radius-control)] bg-marca px-4 py-2 text-sm font-medium text-white">Agendar cita</Link>
+            )}
           </Tarjeta>
+          {f.paciente.etapa === "prospecto" && <PasarAPaciente f={f} />}
           <div role="tablist" aria-label="Apartados de la ficha" className="flex gap-1 overflow-x-auto">
             {APARTADOS.map((a) => (
               <button key={a} role="tab" aria-selected={a === apartado} onClick={() => setApartado(a)}
@@ -150,9 +153,30 @@ export function Ficha() {
   );
 }
 
+/** Un prospecto pasa a paciente cuando llega a la clínica y la recepción le registra el documento. */
+function PasarAPaciente({ f }: { f: FichaCompleta }) {
+  const [documento, setDocumento] = useState("");
+  const [celular, setCelular] = useState("");
+  const m = useAccion((d: Identificacion) => api.pacientes.identificar(f.paciente.id, d), { ok: "Documento registrado: ya es paciente" });
+  return (
+    <form aria-label="Registrar documento" className="space-y-3 rounded-xl border border-linea bg-zinc-50 p-4"
+      onSubmit={(e) => { e.preventDefault(); m.mutate({ documento, celular: celular.trim() || null }); }}>
+      <div><h2 className="text-sm font-semibold">Prospecto: aún sin documento</h2>
+        <p className="text-sm text-tinta-suave">Escribió desde el sitio web. Cuando llegue a la clínica, registra su documento para poder agendarle citas presenciales.</p></div>
+      {m.error instanceof ApiError && <Aviso>{m.error.mensaje}</Aviso>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Entrada etiqueta="Documento" inputMode="numeric" value={documento} onChange={(e) => setDocumento(e.target.value)} required />
+        <Entrada etiqueta={f.paciente.celular ? "Celular (opcional, para corregirlo)" : "Celular"} inputMode="tel" value={celular} onChange={(e) => setCelular(e.target.value)} required={!f.paciente.celular} />
+      </div>
+      <Boton type="submit" disabled={m.isPending}>Registrar documento</Boton>
+    </form>
+  );
+}
+
 const ORIGEN_MARCA = {
   sitio_en: "Marcado como internacional porque se registró en el sitio en inglés. Revísalo.",
   importacion: "Marcado desde el software de la clínica.",
+  sitio_web: "Marcado como internacional porque escribió desde el sitio web.",
   recepcion: null,
 } as const;
 

@@ -59,7 +59,10 @@ def _render(request: Request, nombre: str, status_code: int = 200, **ctx):
 
 def _paciente(conn, token: str) -> dict:
     from .app import patient_from_token
-    return patient_from_token(conn, token)
+    p = patient_from_token(conn, token)
+    if p["etapa"] == "prospecto":  # sin documento no hay citas que gestionar con el asistente: la clínica lo contacta
+        raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
+    return p
 
 
 def _exigir_disponible(request: Request, conn) -> None:

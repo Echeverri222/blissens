@@ -86,6 +86,14 @@ export function AltoValor({ internacional, deportista, className }: { internacio
   );
 }
 
+/** Quien escribió desde el sitio web y aún no tiene documento: no se le agendan citas presenciales hasta que lo tenga. */
+export function Prospecto({ etapa, className }: { etapa?: string; className?: string }) {
+  if (etapa !== "prospecto") return null;
+  return (
+    <span title="Escribió desde el sitio web y aún no tiene documento" className={cn("inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-950", className)}>Prospecto</span>
+  );
+}
+
 /** Hoja de detalle: panel lateral sobre la vista actual (pantalla completa en celular). */
 export function Hoja({ abierta, alCerrar, titulo, descripcion, ancho = "md:max-w-md", children }: {
   abierta: boolean; alCerrar: () => void; titulo: string; descripcion?: string; ancho?: string; children: ReactNode;

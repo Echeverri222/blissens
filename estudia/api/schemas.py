@@ -263,6 +263,8 @@ class NuevoBloqueo(Entrada):
 # ----------------------------------------------------------------- pacientes
 
 Segmento = Literal["internacional", "deportista"]
+Etapa = Literal["prospecto", "paciente"]
+ETAPA = Field(description="`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene.")
 
 
 class PacienteResumen(Salida):
@@ -271,6 +273,7 @@ class PacienteResumen(Salida):
     apellidos: str
     documento: str | None
     celular: str | None
+    etapa: Etapa = ETAPA
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
 
@@ -292,7 +295,19 @@ class PacienteCreado(Salida):
     paciente_id: int
 
 
-SegmentoOrigen = Literal["recepcion", "importacion", "sitio_en"]
+class Identificacion(Entrada):
+    documento: str = Field(description="Documento de identidad del prospecto (se guardan solo los dígitos).")
+    celular: str | None = Field(None, description="Celular, si el prospecto aún no tenía o hay que corregirlo.")
+
+
+class PacienteIdentificado(Salida):
+    id: int
+    etapa: Etapa = ETAPA
+    documento: str | None
+    celular: str | None
+
+
+SegmentoOrigen = Literal["recepcion", "importacion", "sitio_en", "sitio_web"]
 
 
 class Segmentos(Entrada):
@@ -304,7 +319,7 @@ class SegmentosOut(Salida):
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
     segmento_origen: SegmentoOrigen | None = Field(
-        description="De dónde salió la última marca: la recepción, la importación del Excel o el registro en el sitio en inglés.")
+        description="De dónde salió la última marca: la recepción, la importación del Excel, el registro en el sitio en inglés o una solicitud del sitio web.")
     segmento_marcado_en: Momento | None
 
 
@@ -316,6 +331,7 @@ class FichaPaciente(Salida):
     celular: str | None
     correo: str | None
     acepta_mensajes: bool
+    etapa: Etapa = ETAPA
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
     segmento_origen: SegmentoOrigen | None

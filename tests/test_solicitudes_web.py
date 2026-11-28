@@ -121,7 +121,9 @@ def test_la_recepcion_ve_descarga_y_vincula_la_solicitud(mundo, conn):  # noqa: 
     web = TestClient(app, follow_redirects=False)
     enviar(web, [("sonrisa.png", PNG, "image/png")])
     fila = next(c for c in mundo.aux.get(f"{API}/bandejas/contactos").json() if c["origen"] == "sitio")
-    assert fila["interes"] == "evaluacion_virtual" and fila["pais"] == "Estados Unidos" and fila["paciente_id"] is None
+    assert fila["interes"] == "evaluacion_virtual" and fila["pais"] == "Estados Unidos"
+    prospecto = conn.execute("select id, etapa from paciente where correo='jane@example.com'").fetchone()
+    assert fila["paciente_id"] == prospecto["id"] and prospecto["etapa"] == "prospecto"   # ya nace con su ficha
     assert [(a["nombre"], a["tamano"]) for a in fila["adjuntos"]] == [("sonrisa.png", len(PNG))]
 
     url = f"{API}/contactos/{fila['id']}/adjuntos/{fila['adjuntos'][0]['id']}"
@@ -146,15 +148,15 @@ def test_la_recepcion_ve_descarga_y_vincula_la_solicitud(mundo, conn):  # noqa: 
 
 
 def test_anonimizar_borra_las_solicitudes_vinculadas_y_las_de_su_correo(client, conn):
-    enviar(client, [("sonrisa.png", PNG, "image/png")])                     # se vincula
+    p = make_patient(conn, "Jane", "Doe")
+    conn.execute("update paciente set correo='jane@example.com', celular=null where id=%s", (p,))
+    conn.commit()
+    enviar(client, [("sonrisa.png", PNG, "image/png")])                     # se asocia a Jane por su correo
     enviar(client, correo="JANE@example.com", celular="")                      # solo dejó el correo
     enviar(client, nombre="Otra Persona", correo="otra@example.com", celular="+1 305 555 0199")
     vinculada = conn.execute("select id from solicitud_contacto where nombre='Jane Doe' order by id limit 1").fetchone()["id"]
-    p = make_patient(conn, "Jane", "Doe")
-    conn.execute("update paciente set correo='jane@example.com', celular=null where id=%s", (p,))
-    solicitudes.vincular(conn, vinculada, p, None)
     exportado = privacidad.exportar_paciente(conn, p)["solicitudes_web"]
-    assert [s["id"] for s in exportado] == [vinculada] and exportado[0]["adjuntos"][0]["nombre"] == "sonrisa.png"
+    assert [s["id"] for s in exportado] == [vinculada, vinculada + 1] and exportado[0]["adjuntos"][0]["nombre"] == "sonrisa.png"
     privacidad.anonimizar_paciente(conn, p)
     assert [r["nombre"] for r in conn.execute("select nombre from solicitud_contacto")] == ["Otra Persona"]
     assert cuenta(conn, "solicitud_adjunto") == 0

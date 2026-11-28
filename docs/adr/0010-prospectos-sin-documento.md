@@ -1,0 +1,12 @@
+# 10. Prospectos sin documento
+
+**Estado:** aceptada.
+
+Quien escribe desde el sitio web desde el exterior (evaluación virtual, experiencias, contacto, o la tarjeta de solicitud del asistente del sitio) casi nunca tiene un documento colombiano, y antes quedaba como una solicitud suelta que la recepción vinculaba a mano. Ahora cada solicitud del sitio se asocia a una ficha de `paciente` llamada **prospecto**.
+
+- **Una fila de `paciente` con `etapa`** (`prospecto` o `paciente`, migración 020). Un prospecto tiene `documento` nulo y al menos correo o celular (restricción `paciente_prospecto_contacto`); se marca internacional (`segmento_origen = 'sitio_web'`), con la autorización que dio en el formulario y sin autorización de mensajes automáticos. Los pacientes locales siguen entrando con documento y celular (`/agendar/identificar`).
+- **De-duplicación.** Una solicitud nueva se asocia a quien ya tenga ese correo (sin importar mayúsculas) o, si no, ese WhatsApp (por sus dígitos), sea prospecto o paciente. Un paciente con documento no cambia de etapa ni de datos, y a quien ya existe no se le completan ni cambian datos con lo que llegue en la solicitud. Nunca se le dice a quien escribe si la persona ya existía.
+- **Su página.** El acuse por correo lleva `/p/<enlace>`. El enlace va atado a la huella del celular o, si solo hay correo, a la del correo; los enlaces anteriores siguen valiendo. El enlace solo se envía si el correo de la solicitud es el que la ficha ya tiene: quien escribe con el WhatsApp de otra persona no recibe su enlace. La página muestra las solicitudes y deja agregar archivos a la última (mismas reglas del formulario, hasta 12 por solicitud); no agenda, cambia ni cancela citas, ni usa el asistente de pacientes ni agrega familia.
+- **Sin citas presenciales hasta tener documento.** `agenda.book` rechaza a un prospecto. La recepción le registra el documento (y el celular si falta) desde la ficha (`PUT /pacientes/{id}/identificacion`) y pasa a `paciente`; el documento sigue siendo único por negocio.
+- **Privacidad.** Exportar y anonimizar funcionan igual; al anonimizar, la ficha vuelve a `etapa = paciente` (sin contacto) y se borran sus solicitudes y archivos.
+- **Migración de lo existente.** Las solicitudes del sitio sin paciente que dejaron correo se vinculan al paciente que tenga ese correo o a un prospecto nuevo por correo. Las que solo dejaron WhatsApp se quedan sueltas: la recepción las sigue vinculando a mano.

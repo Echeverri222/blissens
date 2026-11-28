@@ -88,6 +88,7 @@ SOLO_AUXILIAR = [
                                                               "consentimiento": True}),
     ("get", "/pacientes/1", None), ("put", "/pacientes/1/correo", {"correo": "ana@example.com", "acepta": True}),
     ("put", "/pacientes/1/segmentos", {"internacional": True, "deportista": False}),
+    ("put", "/pacientes/1/identificacion", {"documento": "123"}),
     ("get", "/bandejas", None), ("get", "/bandejas/no-confirmadas", None),
     ("get", "/bandejas/seguimientos", None), ("get", "/bandejas/en-riesgo", None), ("get", "/bandejas/cupos-libres", None),
     ("get", "/bandejas/sin-desenlace", None), ("get", "/bandejas/sin-interpretar", None),

@@ -236,7 +236,7 @@ describe("agendar", () => {
     const pedidas: string[] = [];
     servidor.use(http.get(`${API}/pacientes`, ({ request }) => {
       pedidas.push(new URL(request.url).search);
-      return HttpResponse.json([{ id: 9, nombres: "Vera", apellidos: "Díaz", documento: "123", celular: null, internacional: false, deportista: true }]);
+      return HttpResponse.json([{ id: 9, nombres: "Vera", apellidos: "Díaz", documento: "123", celular: null, etapa: "paciente", internacional: false, deportista: true }]);
     }));
     montar("/pacientes", AUX);
     await userEvent.click(await screen.findByRole("button", { name: "Deportistas" }));
@@ -317,7 +317,7 @@ describe("qué hacer hoy", () => {
 describe("ficha del paciente", () => {
   const FICHA = {
     paciente: { id: 7, nombres: "Ana", apellidos: "Pérez", documento: "123", celular: "+573001112233", correo: null, acepta_mensajes: true,
-      internacional: true, deportista: false, segmento_origen: "sitio_en" },
+      etapa: "paciente", internacional: true, deportista: false, segmento_origen: "sitio_en" },
     familia: { responsable: null, familiares: [] }, citas: [], historial: [], casos: [], mensajes: [],
   };
   it("muestra la marca de alto valor, de dónde salió, y la recepción la cambia con una casilla", async () => {
@@ -330,6 +330,44 @@ describe("ficha del paciente", () => {
     expect(screen.getByRole("checkbox", { name: "Internacional" })).toBeChecked();
     await userEvent.click(screen.getByRole("checkbox", { name: "Deportista de alto nivel" }));
     await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/pacientes/7/segmentos", cuerpo: { internacional: true, deportista: true } }));
+  });
+});
+
+describe("prospectos", () => {
+  const PROSPECTO = {
+    paciente: { id: 8, nombres: "Jane Doe", apellidos: "", documento: null, celular: null, correo: "jane@example.com", acepta_mensajes: false,
+      etapa: "prospecto", internacional: true, deportista: false, segmento_origen: "sitio_web" },
+    familia: { responsable: null, familiares: [] }, citas: [], historial: [], casos: [], mensajes: [],
+  };
+  it("se ve como prospecto en la búsqueda", async () => {
+    servidor.use(
+      http.get(`${API}/pacientes`, () => HttpResponse.json([{ id: 8, nombres: "Jane Doe", apellidos: "", documento: null, celular: null, etapa: "prospecto", internacional: true, deportista: false }])));
+    montar("/pacientes", AUX);
+    await userEvent.type(await screen.findByLabelText(/Buscar por nombre/), "jane");
+    await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    expect(await screen.findByRole("button", { name: /Jane Doe/ })).toHaveTextContent("Prospecto");
+  });
+  it("la ficha no ofrece agendar y la recepción le registra el documento", async () => {
+    servidor.use(
+      http.get(`${API}/pacientes/8`, () => HttpResponse.json(PROSPECTO)),
+      http.put(`${API}/pacientes/8/identificacion`, async ({ request }) => { await registrar(request); return HttpResponse.json({ id: 8, etapa: "paciente", documento: "1234567", celular: "+573001234567" }); }));
+    montar("/pacientes/8", AUX);
+    expect(await screen.findByTitle(/aún no tiene documento/)).toHaveTextContent("Prospecto");
+    expect(screen.queryByRole("link", { name: "Agendar cita" })).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Documento"), "1234567");
+    await userEvent.type(screen.getByLabelText("Celular"), "3001234567");
+    await userEvent.click(screen.getByRole("button", { name: "Registrar documento" }));
+    await waitFor(() => expect(enviadas[0]).toMatchObject({ ruta: "/api/v1/pacientes/8/identificacion", cuerpo: { documento: "1234567", celular: "3001234567" } }));
+  });
+  it("muestra el aviso cuando el documento ya es de otro paciente", async () => {
+    servidor.use(
+      http.get(`${API}/pacientes/8`, () => HttpResponse.json(PROSPECTO)),
+      http.put(`${API}/pacientes/8/identificacion`, () => HttpResponse.json({ codigo: "documento_existente", mensaje: "Ya existe un paciente con ese documento" }, { status: 409 })));
+    montar("/pacientes/8", AUX);
+    await userEvent.type(await screen.findByLabelText("Documento"), "55");
+    await userEvent.type(screen.getByLabelText("Celular"), "3001234567");
+    await userEvent.click(screen.getByRole("button", { name: "Registrar documento" }));
+    expect(await screen.findByText("Ya existe un paciente con ese documento")).toBeInTheDocument();
   });
 });
 

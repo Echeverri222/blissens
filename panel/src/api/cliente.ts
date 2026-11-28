@@ -4,7 +4,7 @@ import type { CitaEnConflicto } from "./tipos";
 import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
-  NuevoPaciente, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
+  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
@@ -98,6 +98,7 @@ export const api = {
     buscar: (q: string, segmento?: Segmento) => get<PacienteResumen[]>("/pacientes", { q, segmento }),
     crear: (p: NuevoPaciente) => post<{ paciente_id: number }>("/pacientes", p),
     ficha: (id: number) => get<FichaCompleta>(`/pacientes/${id}`),
+    identificar: (id: number, d: Identificacion) => pedir<PacienteIdentificado>("PUT", `/pacientes/${id}/identificacion`, { cuerpo: d }),
     segmentos: (id: number, s: Segmentos) => pedir<SegmentosOut>("PUT", `/pacientes/${id}/segmentos`, { cuerpo: s }),
   },
   bandejas: {
