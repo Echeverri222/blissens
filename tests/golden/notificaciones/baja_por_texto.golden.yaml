@@ -3,14 +3,14 @@ mensajes:
   plantilla: cita_agendada
   estado: entregado
   momento: +0d 0h 0m
-  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
-    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  texto: 'Hola, Ana. Su cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Le esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. Gracias por elegirnos.'
   botones: []
 - direccion: saliente
   plantilla: recordatorio_48h
   estado: entregado
   momento: +1d 2h 1m
-  texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirmas tu asistencia?
+  texto: Hola, Ana. Le recordamos su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirma su asistencia?
   botones:
   - Sí, asistiré
   - No podré ir
@@ -25,15 +25,15 @@ mensajes:
   plantilla: baja_confirmada
   estado: entregado
   momento: +1d 2h 1m
-  texto: Listo Ana, no te enviaremos más mensajes automáticos por WhatsApp. Los correos, si los recibes, se cancelan con el
-    enlace que traen. Si necesitas algo, escríbenos o llámanos.
+  texto: Listo, Ana. No le enviaremos más mensajes automáticos por WhatsApp. Los correos, si los recibe, se cancelan con el
+    enlace que traen. Si necesita algo, escríbanos o llámenos.
   botones: []
 - direccion: saliente
   plantilla: segundo_intento
   estado: omitido
   momento: +2d 2h 1m
-  texto: Hola Ana, aún no hemos recibido tu confirmación para la cita del jueves 19 de noviembre a las 10:00 a. m. con Dra.
-    Prueba. ¿Puedes responder con un toque?
+  texto: Hola, Ana. Aún no hemos recibido su confirmación para la cita del jueves 19 de noviembre a las 10:00 a. m. con Dra.
+    Prueba. ¿Puede responder con un toque?
   botones:
   - Sí, asistiré
   - No podré ir

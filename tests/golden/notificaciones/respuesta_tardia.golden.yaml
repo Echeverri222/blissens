@@ -3,14 +3,14 @@ mensajes:
   plantilla: cita_agendada
   estado: entregado
   momento: +0d 0h 0m
-  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
-    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  texto: 'Hola, Ana. Su cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Le esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. Gracias por elegirnos.'
   botones: []
 - direccion: saliente
   plantilla: recordatorio_48h
   estado: entregado
   momento: +1d 2h 1m
-  texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirmas tu asistencia?
+  texto: Hola, Ana. Le recordamos su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirma su asistencia?
   botones:
   - Sí, asistiré
   - No podré ir
@@ -25,7 +25,7 @@ mensajes:
   plantilla: respuesta_tardia
   estado: entregado
   momento: +3d 2h 5m
-  texto: Hola Ana, esa cita ya no está vigente. Si necesitas ayuda, la clínica te acompaña con gusto.
+  texto: Hola, Ana. Esa cita ya no está vigente. Si necesita ayuda, la clínica le acompaña con gusto.
   botones: []
 citas:
 - estado: programada

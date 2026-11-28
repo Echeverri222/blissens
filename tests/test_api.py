@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from estudia import agenda, bandejas, clock, db, indicators, settings, usuarios
+from estudia import agenda, bandejas, clock, db, indicators, planes, settings, usuarios
 from estudia.api.esquema import ARCHIVO, esquema
 from estudia.api.operacion import limite_cambio_clave, limite_login
 from estudia.web.app import app, crear_app
@@ -565,7 +565,8 @@ def test_trays_and_actions_match_the_domain_functions(mundo, conn):
                    "en_riesgo": len(bandejas.en_riesgo(conn)), "cupos_libres": len(bandejas.cupos_libres(conn)),
                    "sin_desenlace": len(bandejas.sin_desenlace(conn)), "sin_interpretar": 1, "contactos": 1,
                    "dados_de_baja": len(bandejas.dados_de_baja(conn)),
-                   "celulares_por_revisar": len(bandejas.celulares_por_revisar(conn))}
+                   "celulares_por_revisar": len(bandejas.celulares_por_revisar(conn)),
+                   "planes": len(planes.sin_siguiente_paso(conn))}
     assert [r["cita_id"] for r in mundo.aux.get(f"{API}/bandejas/no-confirmadas").json()] == [c]
     mid = mundo.aux.get(f"{API}/bandejas/sin-interpretar").json()[0]["id"]
     sid = mundo.aux.get(f"{API}/bandejas/contactos").json()[0]["id"]

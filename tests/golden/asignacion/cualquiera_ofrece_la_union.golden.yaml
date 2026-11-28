@@ -2,10 +2,10 @@ resultados:
 - espacios: cualquiera
   horas:
   - '10:00'
-  - '10:30'
+  - '11:00'
 - espacios: Dra. Ana Uno
   horas:
-  - '10:30'
+  - '11:00'
 - espacios: Dra. Bea Dos
   horas:
   - '10:00'
@@ -15,4 +15,4 @@ citas:
   inicio: +3d 2h 0m
 - profesional: Dra. Bea Dos
   paciente: Otra
-  inicio: +3d 2h 30m
+  inicio: +3d 3h 0m
