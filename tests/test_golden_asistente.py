@@ -31,12 +31,12 @@ from .mundo_clinica import AHORA, PACIENTES, construir
 
 RAIZ = Path(__file__).parent / "golden_asistente"
 CASOS = sorted(RAIZ.rglob("*.yaml"))
-PERFILES = ("auxiliar", "especialista", "paciente")
+PERFILES = ("auxiliar", "especialista", "paciente", "visitante")
 ACTORES = {"marta": "auxiliar", "rios": "especialista", "mejia": "especialista",
-           "laura": "paciente", "tomas": "paciente", "jorge": "paciente", "diego": "paciente"}
+           "laura": "paciente", "tomas": "paciente", "jorge": "paciente", "diego": "paciente", "visita": "visitante"}
 CATEGORIAS = ("agenda", "pendientes", "pacientes", "indicadores", "accion", "horario", "negocio",
               "fuera_de_alcance", "seguridad", "clinico", "privacidad")
-CLAVES = {"id", "perfil", "actor", "categoria", "pregunta", "intencion", "herramientas", "contexto", "respuesta", "notas"}
+CLAVES = {"id", "perfil", "actor", "categoria", "pregunta", "intencion", "herramientas", "contexto", "respuesta", "notas", "idioma"}
 EN_VIVO = os.environ.get("ASISTENTE_EN_VIVO") == "1"
 INFORME = Path(__file__).resolve().parent.parent / ".logs" / "golden-asistente" / f"{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
 # Documentos y celulares completos del mundo: ninguna salida de herramienta ni respuesta los trae (P5).
@@ -109,7 +109,7 @@ def test_estructura(ruta):
     assert set(r) <= {"incluye", "incluye_alguno", "excluye", "propuestas"}, r
     tipos = {"agendar", "cambiar_fecha", "cancelar", "confirmar", "confirmar_telefono", "desenlace", "bloqueo", "contacto",
              "eliminar_bloqueo", "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
-             "vincular_contacto", "revertir"}
+             "vincular_contacto", "revertir", "registro", "solicitud"}
     assert set(r.get("propuestas") or []) <= tipos, r.get("propuestas")
 
 
@@ -228,14 +228,15 @@ def modelo_real(monkeypatch):
     if os.environ.get("ASISTENTE_EVAL_MODELO"):
         monkeypatch.setattr(settings, "ASISTENTE_MODELO", os.environ["ASISTENTE_EVAL_MODELO"])
         monkeypatch.setattr(settings, "ASISTENTE_MODELO_PACIENTE", os.environ["ASISTENTE_EVAL_MODELO"])
+        monkeypatch.setattr(settings, "ASISTENTE_MODELO_VISITANTE", os.environ["ASISTENTE_EVAL_MODELO"])
     return _cliente_real()
 
 
-def _conversar(actor, turnos: list[str], cliente) -> dict:
+def _conversar(actor, turnos: list[str], cliente, idioma=None) -> dict:
     g = Grabadora(cliente)
     conv, respuestas, propuestas = None, [], []
     for t in turnos:
-        r = conversar(actor, t, conv, cliente=g)
+        r = conversar(actor, t, conv, cliente=g, idioma=idioma)
         conv = r["conversacion_id"]
         respuestas.append(r["respuesta"])
         propuestas += r["propuestas"]
@@ -303,7 +304,7 @@ def test_calificar_con_un_modelo_falso(conn, monkeypatch):
 def test_en_vivo(ruta, conn, modelo_real):
     caso = _cargar(ruta)
     w = construir(conn)
-    r = _conversar(w.actores[caso["actor"]], _turnos(caso), modelo_real)
+    r = _conversar(w.actores[caso["actor"]], _turnos(caso), modelo_real, caso.get("idioma"))
     fallos = calificar(caso, r, w)
     extra = sorted({x["nombre"] for x in r["llamadas"]} - set(_herramientas(caso)["esperadas"])
                    - {x for g in _herramientas(caso)["una_de"] for x in g} - set(_herramientas(caso)["aceptables"]))

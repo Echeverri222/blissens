@@ -1,0 +1,10 @@
+{# Las cuatro opciones del asistente del sitio. Texto estático: no toca la base. Sin JavaScript cada opción es un enlace que
+   redirige a su sección de la página (un href con # haría que HTMX además saltara a la sección); con HTMX reemplaza el cuerpo del cuadro. #}
+{% set a = t.asistente %}
+<p class="asist__saludo">{{ a.saludo }}</p>
+<ul class="asist__ops">
+  {% for clave, texto in a.opciones %}
+  <li><a class="asist__op" href="/sitio/asistente/paso/{{ clave }}?idioma={{ lang }}"
+         hx-get="/sitio/asistente/paso/{{ clave }}?idioma={{ lang }}" hx-target="#asist-cuerpo" hx-swap="innerHTML">{{ texto }}</a></li>
+  {% endfor %}
+</ul>

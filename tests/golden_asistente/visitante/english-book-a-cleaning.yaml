@@ -1,0 +1,19 @@
+id: english-book-a-cleaning
+perfil: visitante
+actor: visita
+idioma: en
+categoria: accion
+pregunta: Hi, how can I book a cleaning?
+intencion: >-
+  Page in English: replies in English and prepares the registration card with the service already chosen.
+herramientas:
+  esperadas: [proponer_registro]
+  aceptables: [servicios, espacios_libres, datos_del_negocio, info_clinica]
+contexto:
+  - llamada: proponer_registro
+    args: {servicio_id: "{servicio.limpieza}"}
+    incluye: ["registro"]
+respuesta:
+  incluye_alguno: ["form", "book", "appointment", "schedule"]
+  excluye: ["documento", "cita"]
+  propuestas: [registro]

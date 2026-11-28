@@ -75,40 +75,43 @@ Success = the access matrix in §5 is enforced by tests, a patient cannot obtain
 
 `L` = lectura, `P` = propuesta, `·` = not available. This table is the specification: a snapshot test compares it with the catalogue.
 
-| Herramienta | Paciente | Especialista | Auxiliar | Backed by | Audit action |
-|---|---|---|---|---|---|
-| `mis_citas` | L | · | · | `_appointments` over `familia.ids_del_hogar` | `asistente:mis_citas` |
-| `servicios` | L | L | L | catalogue of active services | · |
-| `espacios_libres` | L | · | L | `agenda.available_slots` / `any_slots`; with `cita_id`, that appointment's service and professional (even if not self-bookable, as on «Mis citas»); with «anyone», each slot names its `agenda.assign_professional` | · |
-| `datos_del_negocio` | L | L | L | `configuracion.direccion`; opening hours per weekday as the merged `horario_atencion` ranges (a lunch closure shows as two), the days without service, and the active professionals with their id | · |
-| `mi_agenda` | · | L | · | `agenda.range_agenda`, own professional | · |
-| `agenda` | · | · | L | `agenda.range_agenda`, any professional | · |
-| `detalle_cita` | · | L (own) | L | `permisos.cita_visible` | `ver_cita` |
-| `mi_horario` | · | L | · | `horario.schedule`, `horario.list_blocks` | · |
-| `mi_dia` | · | L | · | `agenda.range_agenda`, own professional, one day: counts, in progress, next, free gaps, blocks | · |
-| `citas_sin_desenlace` | · | L | · | own started appointments still alive, last 30 days, at most 50 | · |
-| `motivos_cancelacion` | · | · | L | `motivo_cancelacion` (id and label) | · |
-| `buscar_pacientes` | · | · | L | `bandejas.find_patients` | `buscar_paciente` |
-| `ficha_paciente` | · | · | L | `bandejas.patient_record`, trimmed | `ver_ficha` |
-| `resumen_dia` | · | · | L | `bandejas.resumen_dia` | · |
-| `bandeja` | · | · | L | the eight `bandejas.*` lists, chosen by an enum | · |
-| `indicadores` | · | · | L | `indicators.*`, chosen by an enum | · |
-| `proponer_agendar` | P | · | P | `POST /p/{token}/agendar` · `POST /citas` | `asistente:propuesta` |
-| `proponer_cambiar_fecha` | P | · | P | `POST /p/{token}/cambiar/{id}` · `POST /citas/{id}/cambiar-fecha` | `asistente:propuesta` |
-| `proponer_cancelar` | P | · | P | the cancel screen `/p/{token}/cancelar/{id}` · `POST /citas/{id}/cancelar` | `asistente:propuesta` |
-| `proponer_confirmar` | P | · | · | new `POST /p/{token}/confirmar/{id}` (also a button on «Mis citas») | `asistente:propuesta` |
-| `proponer_confirmar_telefono` | · | · | P | `POST /citas/{id}/confirmar` | `asistente:propuesta` |
-| `proponer_desenlace` | · | P (own) | P | `POST /citas/{id}/desenlace` | `asistente:propuesta` |
-| `proponer_bloqueo` | · | P (own) | P | `POST /bloqueos` | `asistente:propuesta` |
-| `pedir_contacto` | P | · | · | new `POST /p/{token}/contacto` (§7) | `asistente:propuesta` |
-| `proponer_eliminar_bloqueo` | · | · | P | `DELETE /bloqueos/{id}` | `asistente:propuesta` |
-| `proponer_crear_paciente` | · | · | P | `POST /pacientes`: the propuesta carries only the name; the card asks for document, phone and consent, which never reach the model (P5) | `asistente:propuesta` |
-| `proponer_segmentos` | · | · | P | `PUT /pacientes/{id}/segmentos` | `asistente:propuesta` |
-| `proponer_gestion_seguimiento` | · | · | P | `POST /seguimientos/{id}/gestion` | `asistente:propuesta` |
-| `proponer_gestionar_mensaje` | · | · | P | `POST /mensajes/{id}/gestionar` | `asistente:propuesta` |
-| `proponer_gestionar_contacto` | · | · | P | `POST /contactos/{id}/gestionar` | `asistente:propuesta` |
-| `proponer_vincular_contacto` | · | · | P | `POST /contactos/{id}/paciente` | `asistente:propuesta` |
-| `proponer_revertir` | · | · | P | `POST /historial/{id}/revertir`; the id comes from `ficha_paciente.historial` (last 10 moves, with `reversible`) | `asistente:propuesta` |
+| Herramienta | Paciente | Especialista | Auxiliar | Visitante | Backed by | Audit action |
+|---|---|---|---|---|---|---|
+| `mis_citas` | L | · | · | · | `_appointments` over `familia.ids_del_hogar` | `asistente:mis_citas` |
+| `servicios` | L | L | L | L | catalogue of active services | · |
+| `espacios_libres` | L | · | L | L | `agenda.available_slots` / `any_slots`; with `cita_id`, that appointment's service and professional (even if not self-bookable, as on «Mis citas»); with «anyone», each slot names its `agenda.assign_professional` | · |
+| `datos_del_negocio` | L | L | L | L | `configuracion.direccion`; opening hours per weekday as the merged `horario_atencion` ranges (a lunch closure shows as two), the days without service, and the active professionals with their id | · |
+| `mi_agenda` | · | L | · | · | `agenda.range_agenda`, own professional | · |
+| `agenda` | · | · | L | · | `agenda.range_agenda`, any professional | · |
+| `detalle_cita` | · | L (own) | L | · | `permisos.cita_visible` | `ver_cita` |
+| `mi_horario` | · | L | · | · | `horario.schedule`, `horario.list_blocks` | · |
+| `mi_dia` | · | L | · | · | `agenda.range_agenda`, own professional, one day: counts, in progress, next, free gaps, blocks | · |
+| `citas_sin_desenlace` | · | L | · | · | own started appointments still alive, last 30 days, at most 50 | · |
+| `motivos_cancelacion` | · | · | L | · | `motivo_cancelacion` (id and label) | · |
+| `buscar_pacientes` | · | · | L | · | `bandejas.find_patients` | `buscar_paciente` |
+| `ficha_paciente` | · | · | L | · | `bandejas.patient_record`, trimmed | `ver_ficha` |
+| `resumen_dia` | · | · | L | · | `bandejas.resumen_dia` | · |
+| `bandeja` | · | · | L | · | the eight `bandejas.*` lists, chosen by an enum | · |
+| `indicadores` | · | · | L | · | `indicators.*`, chosen by an enum | · |
+| `proponer_agendar` | P | · | P | · | `POST /p/{token}/agendar` · `POST /citas` | `asistente:propuesta` |
+| `proponer_cambiar_fecha` | P | · | P | · | `POST /p/{token}/cambiar/{id}` · `POST /citas/{id}/cambiar-fecha` | `asistente:propuesta` |
+| `proponer_cancelar` | P | · | P | · | the cancel screen `/p/{token}/cancelar/{id}` · `POST /citas/{id}/cancelar` | `asistente:propuesta` |
+| `proponer_confirmar` | P | · | · | · | new `POST /p/{token}/confirmar/{id}` (also a button on «Mis citas») | `asistente:propuesta` |
+| `proponer_confirmar_telefono` | · | · | P | · | `POST /citas/{id}/confirmar` | `asistente:propuesta` |
+| `proponer_desenlace` | · | P (own) | P | · | `POST /citas/{id}/desenlace` | `asistente:propuesta` |
+| `proponer_bloqueo` | · | P (own) | P | · | `POST /bloqueos` | `asistente:propuesta` |
+| `pedir_contacto` | P | · | · | · | new `POST /p/{token}/contacto` (§7) | `asistente:propuesta` |
+| `proponer_eliminar_bloqueo` | · | · | P | · | `DELETE /bloqueos/{id}` | `asistente:propuesta` |
+| `proponer_crear_paciente` | · | · | P | · | `POST /pacientes`: the propuesta carries only the name; the card asks for document, phone and consent, which never reach the model (P5) | `asistente:propuesta` |
+| `proponer_segmentos` | · | · | P | · | `PUT /pacientes/{id}/segmentos` | `asistente:propuesta` |
+| `proponer_gestion_seguimiento` | · | · | P | · | `POST /seguimientos/{id}/gestion` | `asistente:propuesta` |
+| `proponer_gestionar_mensaje` | · | · | P | · | `POST /mensajes/{id}/gestionar` | `asistente:propuesta` |
+| `proponer_gestionar_contacto` | · | · | P | · | `POST /contactos/{id}/gestionar` | `asistente:propuesta` |
+| `proponer_vincular_contacto` | · | · | P | · | `POST /contactos/{id}/paciente` | `asistente:propuesta` |
+| `proponer_revertir` | · | · | P | · | `POST /historial/{id}/revertir`; the id comes from `ficha_paciente.historial` (last 10 moves, with `reversible`) | `asistente:propuesta` |
+| `info_clinica` | · | · | · | L | static site copy (`web.copia`): services, virtual evaluation, experiences, international patients, team | · |
+| `proponer_registro` | · | · | · | P | card with the identification form (`servicio`, `profesional`, `desde` preselected) | · |
+| `proponer_solicitud` | · | · | · | P | card with the site request form (`evaluacion_virtual`, `experiencia`, `contacto`) | · |
 
 Rules that the table does not show:
 
@@ -162,6 +165,19 @@ Rules that the table does not show:
 - A propuesta is a card that submits the **existing** form route (`POST /p/{token}/agendar`, `POST /p/{token}/cambiar/{id}`) with its fields filled in. The cancel card opens the existing cancel screen (`GET /p/{token}/cancelar/{id}`), which asks for the reason.
 - The reply goes through Jinja autoescape. **Do not apply the `linkify` filter** to assistant text.
 - Rate limit by household and negocio in the database (count today's `asistente_mensaje` rows). `LimiteVentana` is per IP and in memory, so it is only a second line.
+
+## 7b. Visitor assistant (public landing, `/` and `/en`)
+
+Two layers on the landing, in a docked panel (bottom right; a small bar on mobile).
+
+**Layer 1, no model (always on).** A static greeting and four buttons, each an HTMX `GET /sitio/asistente/paso/{clave}` that swaps the panel body: *Agendar una cita* (the identification form, same one for existing patients), *Vivo fuera de Colombia* (one fixed line plus the request form, `interes=evaluacion_virtual`), *Dirección y horario* (footer copy, map link, back to booking), *Otra pregunta* (the AI text box if available, otherwise the contact request form). Without JavaScript the buttons are anchors to `#agendar`, `#evaluacion` and `#contacto`. `_landing()` stays DB-free; only *Otra pregunta* opens a short connection.
+
+**Layer 2, AI (profile `visitante`).** Switch `asistente_visitantes` (off by default) and the API key. `POST /sitio/asistente` (same-origin, honeypot `web`, per-IP `LimiteVentana`). The visitor is a signed cookie (`visitante`, 30 days, salt `visitante-sitio`); conversations are stored with that id and read only by it.
+- Limits: 3 tools per message, 300 characters, 8 messages per conversation, 1024 output tokens, 15 messages per visitor per day (`asistente_mensajes_dia_visitante`) and its own token budget (`asistente_tokens_dia_visitante`) on top of the business one. Model `ASISTENTE_MODELO_VISITANTE` (default Haiku), low effort.
+- Scope: services, the clinic, address and hours, and steering to the next step. No clinical advice, no prices, no data about anyone. Off-topic gets one fixed sentence. Fixed replies in Spanish and English for failure, limit and unavailable.
+- **No personal data reaches the model (P5).** The text is redacted (emails and runs of 7+ digits become `[dato omitido]`) before the model and before the database. The model never asks for document, phone or email: the cards (`proponer_registro`, `proponer_solicitud`) are the existing forms, filled in by the person. A registration card lands, for a new person, on `/p/{token}/nueva?servicio=..&profesional=..&desde=..`.
+- Retention: `retencion_asistente_visitante_dias` (7).
+- Model output is untrusted: autoescape only, no `linkify`.
 
 ## 8. Local MCP for the developer
 

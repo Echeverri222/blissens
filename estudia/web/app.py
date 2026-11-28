@@ -4,7 +4,7 @@ import re
 import secrets
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
@@ -280,6 +280,11 @@ def _ip_cliente(request: Request) -> str:
     return request.client.host if request.client else "?"
 
 
+def _uid(panel: str) -> str:
+    """El sufijo de ids de un formulario del asistente (`-asistente`, `-chat1`...), o vacío. Solo letras, dígitos y guion."""
+    return f"-{panel}" if re.fullmatch(r"[a-z0-9]{1,20}", panel or "") else ""
+
+
 def _celular_de_sitio(raw: str) -> str:
     """Un celular colombiano se normaliza; uno del exterior se conserva (solo dígitos, + y separadores). Vacío si no
     parece un teléfono (7 a 15 dígitos, como E.164)."""
@@ -292,7 +297,7 @@ def _celular_de_sitio(raw: str) -> str:
 @publico.post("/sitio/solicitud", response_class=HTMLResponse, include_in_schema=False)
 def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Form("es"), nombre: str = Form(""),
                     correo: str = Form(""), celular: str = Form(""), pais: str = Form(""), paquete: str = Form(""),
-                    mensaje: str = Form(""), consentimiento: str = Form(""), web: str = Form(""),
+                    mensaje: str = Form(""), consentimiento: str = Form(""), web: str = Form(""), panel: str = Form(""),
                     fotos: list[UploadFile | str] = File(default=[]), conn=Depends(conn_publica)):
     """Formularios de la landing (evaluación virtual, experiencias, contacto): crean una solicitud que la auxiliar ve en
     Bandejas, con fotos o PDF opcionales, y programan el aviso por correo a la clínica y el acuse a quien la envió."""
@@ -301,6 +306,7 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
     lang = idioma if idioma in copia.COPIA else "es"
     t = copia.COPIA[lang]
     f = t["form"]
+    uid = _uid(panel)  # dentro del asistente el formulario lleva otros ids que el de la sección de la landing
     nombre, correo, celular, pais, mensaje = (x.strip() for x in (nombre, correo, celular, pais, mensaje))
     values = {"nombre": nombre, "correo": correo, "celular": celular, "pais": pais, "paquete": paquete,
               "mensaje": mensaje, "consentimiento": consentimiento}
@@ -308,10 +314,10 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
     if not limite_solicitudes.disponible(_ip_cliente(request)):
         return render(request, "_solicitud.html" if request.headers.get("HX-Request") else "solicitud.html",
                       lang=lang, interes=interes, values=values, error=f["err_limite"], hecho=False,
-                      status_code=429)
+                      uid=uid, status_code=429)
     if web:  # campo trampa para robots: se responde como si hubiera salido bien, sin guardar nada
         return render(request, "_solicitud.html", lang=lang, interes=interes, values={}, error=None, hecho=True,
-                      horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=False)
+                      horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=False, uid=uid)
     tel = _celular_de_sitio(celular)
     if not nombre:
         error = f["err_nombre"]
@@ -339,7 +345,7 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
         solicitudes.crear(conn, interes=interes, idioma=lang, nombre=nombre[:120], correo=correo[:120].lower() or None,
                           celular=tel, pais=pais[:80] or None, paquete=paquete if interes == "experiencia" else None,
                           mensaje=mensaje[:2000] or None, adjuntos=archivos)
-    ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho,
+    ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho, uid=uid,
                horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo))
     if request.headers.get("HX-Request"):
         return render(request, "_solicitud.html", **ctx)
@@ -357,14 +363,22 @@ def agendar(request: Request, nombre: str | None = None, caso: int | None = None
 def identificar(request: Request, nombre: str | None = None, documento: str = Form(...), celular: str = Form(...),
                 nombres: str = Form(""), apellidos: str = Form(""), consentimiento: str = Form(""),
                 correo: str = Form(""), acepta_correo: str = Form(""), idioma: str = Form("es"),
+                servicio: str = Form(""), profesional: str = Form(""), desde: str = Form(""), panel: str = Form(""),
                 conn=Depends(conn_publica)):
     from ..data import normalize_phone
     lang = idioma if idioma in copia.COPIA else "es"
     i = copia.COPIA[lang]["ident"]
     hx = bool(request.headers.get("HX-Request"))  # la landing pide solo el formulario y recibe solo el formulario
+    uid = _uid(panel)
+    # Lo que la tarjeta del asistente ya eligió (servicio, profesional y hora) llega oculto y se valida aquí: solo enteros y una hora
+    # sin zona. Si no sirve se descarta; el calendario valida lo demás.
+    pre = {"servicio": servicio if re.fullmatch(r"[1-9][0-9]{0,8}", servicio) else "",
+           "profesional": profesional if re.fullmatch(r"[1-9][0-9]{0,8}", profesional) else "",
+           "desde": desde if re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d", desde) else ""}
+    pre = {k: v for k, v in pre.items() if v}
 
     def pagina(**ctx):
-        return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, **ctx)
+        return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, uid=uid, pre=pre, **ctx)
 
     def ir(url):
         if hx:
@@ -379,7 +393,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
                       nuevo=None, values=values)
     def limite():
         return render(request, "_identificar.html" if hx else "identificar.html", lang=lang, nuevo=None, values=values,
-                      error=copia.COPIA[lang]["form"]["err_limite"], status_code=429)
+                      uid=uid, pre=pre, error=copia.COPIA[lang]["form"]["err_limite"], status_code=429)
     if not _identificacion_permitida(request):
         return limite()
     p = conn.execute("select * from paciente where documento=%s", (documento,)).fetchone()
@@ -410,7 +424,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
          now, en_ingles, "sitio_en" if en_ingles else None, now if en_ingles else None)).fetchone()["id"]
     if correo.strip():
         correo_mod.registrar_consentimiento(conn, pid, correo, bool(acepta_correo))
-    return ir(f"/p/{links.make_token(pid, conn=conn, celular=phone)}/nueva")
+    return ir(f"/p/{links.make_token(pid, conn=conn, celular=phone)}/nueva" + (f"?{urlencode(pre)}" if pre else ""))
 
 
 # ----------------------------------------------------------------- Mis citas
@@ -954,11 +968,14 @@ def crear_app(entorno: str | None = None, asistente: bool | None = None) -> Fast
     logs.instalar(app)
     app.middleware("http")(cabeceras_de_seguridad)
     app.include_router(api_router)
+    from . import asistente_visitante
+    app.include_router(asistente_visitante.pasos)  # los botones del sitio no llaman al modelo: existen sin clave
     if asistente:
         from ..api.asistente import router as asistente_router
         app.include_router(asistente_router)
         from .asistente_paciente import router as asistente_paciente_router
         app.include_router(asistente_paciente_router)
+        app.include_router(asistente_visitante.router)
     app.include_router(panel_router)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(publico)

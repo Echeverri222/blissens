@@ -34,6 +34,7 @@ Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín.
 | `tomas` | paciente | Tomás Gómez Arango (12 años), hijo de Laura |
 | `jorge` | paciente | Jorge Ramírez Soto |
 | `diego` | paciente | Diego Herrera Nieto (faltó ayer) |
+| `visita` | visitante | Visitante anónimo del sitio web (sin cuenta; el caso puede llevar `idioma: en`) |
 
 **Pacientes** (`{paciente.x}`): laura, tomas, jorge, paula (Paula Castro León, dada de baja de WhatsApp), diego, sara (Sara
 Morales Díaz), andres (Andrés Pineda Gil), lucia (Lucía Fernández Mora), mateo (Mateo Ruiz Cano).

@@ -1,4 +1,4 @@
-"""Genera `.claude/agents/asistente-{auxiliar,paciente}.md`: un subagente de Claude Code que hace de asistente con el mismo
+"""Genera `.claude/agents/asistente-{auxiliar,paciente,visitante}.md`: un subagente de Claude Code que hace de asistente con el mismo
 texto de sistema (`estudia/asistente/instrucciones.py`) y solo las herramientas MCP de ese perfil.
 
     uv run python scripts/agentes_asistente.py          # escribe los archivos
@@ -11,7 +11,8 @@ from estudia.asistente.catalogo import herramientas_de
 from estudia.asistente.instrucciones import INSTRUCCIONES
 
 RAIZ = Path(__file__).resolve().parent.parent
-PERFILES = {"auxiliar": "la recepción (perfil auxiliar)", "paciente": "un paciente desde su enlace (perfil paciente)"}
+PERFILES = {"auxiliar": "la recepción (perfil auxiliar)", "paciente": "un paciente desde su enlace (perfil paciente)",
+            "visitante": "alguien que escribe desde el sitio web público (perfil visitante)"}
 
 
 def ruta(perfil: str) -> Path:
@@ -34,7 +35,7 @@ tools: {herramientas}
 Las herramientas proponer_* (y pedir_contacto) no escriben nada: devuelven la tarjeta que la persona confirmaría con un botón.
 
 Habla en el idioma que piden las instrucciones de arriba, igual que el asistente de la aplicación: la recepción siempre
-en español; el paciente en el idioma en que escribe (español o inglés).
+en español; el paciente y el visitante en el idioma en que escribe (español o inglés; el visitante, el de la página).
 
 Al terminar, después de tu respuesta, agrega una línea `HERRAMIENTAS:` con las herramientas que llamaste, en orden y con
 sus argumentos, para que quien te evalúa compare con el golden case.

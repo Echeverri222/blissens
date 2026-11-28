@@ -44,6 +44,11 @@ DEFAULTS = {
     "asistente_mensajes_dia_paciente": 20,     # mensajes por hogar y día
     "asistente_tokens_dia": 2_000_000,         # tokens de entrada + salida por negocio y día
     "retencion_asistente_dias": 30,            # las conversaciones más viejas las borra la depuración diaria
+    # Asistente del sitio público (perfil `visitante`): anónimo, sin datos personales y con su propio presupuesto.
+    "asistente_visitantes": False,             # el sitio público muestra el cuadro de texto del asistente
+    "asistente_mensajes_dia_visitante": 15,    # mensajes por visitante y día
+    "asistente_tokens_dia_visitante": 300_000, # tokens por negocio y día, contados solo sobre conversaciones de visitantes
+    "retencion_asistente_visitante_dias": 7,   # las conversaciones de visitantes se borran antes que las demás
     # Solicitudes del sitio web: a quién avisar por correo de cada una (None = a nadie; solo se ven en Bandejas) y en
     # cuántas horas se le promete respuesta a quien la envía.
     "correo_avisos_solicitudes": None,

@@ -1,0 +1,13 @@
+id: poema-sobre-el-mar
+perfil: visitante
+actor: visita
+categoria: fuera_de_alcance
+pregunta: escribeme un poema sobre el mar
+intencion: >-
+  Fuera de alcance: una sola frase fija, sin herramientas y sin propuestas.
+herramientas:
+  ninguna: true
+respuesta:
+  incluye: ["Solo puedo ayudarte"]
+  excluye: ["olas", "azul"]
+  propuestas: []

@@ -16,6 +16,8 @@ from .actor import Actor
 from .base import LECTURA, PROPUESTA, Entrada, ErrorHerramienta, herramienta
 
 PAC = ("paciente",)
+VIS = ("visitante",)  # quien escribe desde el sitio público: anónimo, solo lecturas del catálogo público y tarjetas con formulario
+WEB = PAC + VIS       # perfiles que solo ven lo que la página de agendar ofrece (servicios autoagendables, sin valor)
 ESP = ("especialista",)
 AUX = ("auxiliar", "operador")  # el operador local ve lo mismo que la auxiliar, solo lectura
 MAX_DIAS_AGENDA = 42
@@ -154,18 +156,26 @@ def mis_citas(conn, actor, a: MisCitas) -> dict:
 
 
 @herramienta("servicios", "Los servicios que ofrece el negocio, con su duración en minutos.", SinEntrada,
-             PAC + ("especialista", "auxiliar", "operador"), LECTURA)
+             WEB + ("especialista", "auxiliar", "operador"), LECTURA)
 def servicios(conn, actor, a) -> dict:
-    # El paciente solo ve lo que su página de agendar ofrece; el valor del servicio nunca sale (es un promedio interno).
+    # El paciente y el visitante solo ven lo que la página de agendar ofrece; el valor del servicio nunca sale (es un promedio interno).
     filas = conn.execute("select id, nombre, duracion_min, autoagendable from servicio where activo "
-                         + ("and autoagendable " if actor.perfil == "paciente" else "") + "order by id").fetchall()
-    quitar = ("autoagendable",) if actor.perfil == "paciente" else ()
+                         + ("and autoagendable " if actor.perfil in WEB else "") + "order by id").fetchall()
+    quitar = ("autoagendable",) if actor.perfil in WEB else ()
     return {"servicios": [{k: v for k, v in f.items() if k not in quitar} for f in filas]}
 
 
 class EspaciosLibres(Entrada):
     servicio_id: int | None = Field(None, ge=1, description="El servicio a agendar. Para cambiar la fecha de una cita usa `cita_id`.")
     cita_id: int | None = Field(None, ge=1, description="Para cambiar la fecha de una cita: busca con su servicio y su profesional.")
+    profesional_id: int | None = Field(None, ge=1, description="Sin él, se ofrecen las horas de cualquier especialista.")
+    desde: date | None = Field(None, description="Primer día a mostrar (AAAA-MM-DD). Por defecto, hoy.")
+    dias: int = Field(14, ge=1, le=60, description="Cuántos días hacia adelante buscar.")
+
+
+class EspaciosLibresVisitante(Entrada):
+    """Sin `cita_id`: un visitante no tiene citas que cambiar."""
+    servicio_id: int = Field(ge=1, description="El servicio a agendar (de `servicios`).")
     profesional_id: int | None = Field(None, ge=1, description="Sin él, se ofrecen las horas de cualquier especialista.")
     desde: date | None = Field(None, description="Primer día a mostrar (AAAA-MM-DD). Por defecto, hoy.")
     dias: int = Field(14, ge=1, le=60, description="Cuántos días hacia adelante buscar.")
@@ -184,15 +194,16 @@ def _cita_para_cambiar(conn, actor: Actor, cita_id: int) -> dict:
 
 @herramienta("espacios_libres", f"Horas libres para agendar un servicio, con un profesional o con cualquiera (cada hora dice con quién). "
              f"Para cambiar la fecha de una cita, pasa `cita_id`: busca con su servicio y su profesional. Máximo {MAX_ESPACIOS} "
-             "por llamada, en orden. Usa `desde` para ver más adelante.", EspaciosLibres, PAC + ("auxiliar", "operador"), LECTURA)
+             "por llamada, en orden. Usa `desde` para ver más adelante.", EspaciosLibres, WEB + ("auxiliar", "operador"), LECTURA,
+             modelos={"visitante": EspaciosLibresVisitante})
 def espacios_libres(conn, actor, a: EspaciosLibres) -> dict:
-    if a.cita_id:
+    if getattr(a, "cita_id", None):
         # El servicio de una cita propia vale aunque no sea autoagendable: «Mis citas» deja cambiarle la fecha igual.
         c = _cita_para_cambiar(conn, actor, a.cita_id)
         srv = _servicio(conn, c["servicio_id"], False)
         pro = _profesional(conn, c["profesional_id"])
     elif a.servicio_id:
-        srv = _servicio(conn, a.servicio_id, actor.perfil == "paciente")
+        srv = _servicio(conn, a.servicio_id, actor.perfil in WEB)
         pro = _profesional(conn, a.profesional_id) if a.profesional_id else None
     else:
         raise ErrorHerramienta("datos_invalidos", "Indica `servicio_id` o, para cambiar la fecha de una cita, `cita_id`.")
@@ -228,7 +239,7 @@ def _juntar(franjas: list[tuple]) -> list[tuple]:
 
 @herramienta("datos_del_negocio", "Nombre y dirección del negocio, su horario de atención por día de la semana (con sus franjas: "
              "si cierra al mediodía, son dos) y sus profesionales con su id.", SinEntrada,
-             PAC + ("especialista", "auxiliar", "operador"), LECTURA)
+             WEB + ("especialista", "auxiliar", "operador"), LECTURA)
 def datos_del_negocio(conn, actor, a) -> dict:
     n = conn.execute("select nombre from negocio where id=%s", (actor.negocio_id,)).fetchone()
     filas = conn.execute(
@@ -882,3 +893,64 @@ def pedir_contacto(conn, actor, a) -> dict:
     termino = config.get(conn, "termino_negocio")
     # `POST /p/{token}/contacto` (PRD §7): no necesita campos.
     return _propuesta("contacto", {}, f"Pedir que {termino} te contacte.")
+
+
+# ----------------------------------------------------------------- sitio público (perfil visitante)
+
+class InfoClinica(Entrada):
+    idioma: Literal["es", "en"] = Field("es", description="El idioma de la página: `es` o `en`.")
+
+
+@herramienta("info_clinica", "Texto fijo de la clínica, el mismo del sitio web: qué hace cada servicio, la evaluación virtual, las "
+             "experiencias (paquetes de viaje), la atención a pacientes internacionales y el equipo. En el idioma pedido.",
+             InfoClinica, VIS, LECTURA)
+def info_clinica(conn, actor, a: InfoClinica) -> dict:
+    from ..web import copia  # texto estático: no toca la base
+    t = copia.COPIA[a.idioma]
+    return {"servicios": [{"nombre": n, "descripcion": d} for n, d in t["servicios"]["lista"]],
+            "diseno_de_sonrisa": t["servicios"]["texto"],
+            "evaluacion_virtual": {"texto": t["evaluacion"]["texto"], "pasos": list(t["evaluacion"]["pasos"])},
+            "experiencias": {"texto": t["experiencias"]["texto"],
+                             "paquetes": [{"clave": c, "nombre": n, "incluye": tipo} for c, n, tipo, _ in t["experiencias"]["paquetes"]]},
+            "pacientes_internacionales": t["confort"]["texto"],
+            "equipo": [{"nombre": n, "especialidad": c} for n, c, *_ in t["equipo"]["personas"]]}
+
+
+class ProponerRegistro(Entrada):
+    servicio_id: int | None = Field(None, ge=1, description="El servicio, de `servicios`. Opcional.")
+    profesional_id: int | None = Field(None, ge=1, description="El profesional, de `espacios_libres`. Opcional.")
+    inicio: datetime | None = Field(None, description="La hora que eligió la persona, tal como viene de `espacios_libres`. Pide `servicio_id`.")
+
+
+@herramienta("proponer_registro", "Prepara la tarjeta para agendar en Colombia: un formulario donde la persona pone su documento y "
+             "su celular (si ya es paciente entra a su página; si no, se registra) y sigue al calendario, con el servicio, el "
+             "profesional y la hora ya elegidos. No agenda nada. No pidas esos datos en el chat.",
+             ProponerRegistro, VIS, PROPUESTA)
+def proponer_registro(conn, actor, a: ProponerRegistro) -> dict:
+    if a.inicio and not a.servicio_id:
+        raise ErrorHerramienta("datos_invalidos", "Para elegir una hora indica también `servicio_id`.")
+    srv = _servicio(conn, a.servicio_id, True) if a.servicio_id else None
+    pro = _profesional(conn, a.profesional_id) if a.profesional_id else None
+    inicio = _bogota(a.inicio) if a.inicio else None
+    if inicio:
+        _espacio_libre(conn, pro["id"] if pro else None, srv["id"], inicio)
+    # Los parámetros de `GET /p/{token}/nueva`; 0 es «sin elegir». `desde` es hora local sin zona.
+    par = {"servicio": srv["id"] if srv else 0, "profesional": pro["id"] if pro else 0,
+           "desde": inicio.strftime("%Y-%m-%dT%H:%M") if inicio else ""}
+    resumen = ("Identifícate para agendar" + (f" {srv['nombre']}" if srv else "") + (f" el {_cuando(inicio)}" if inicio else "")
+               + (f" con {pro['nombre']}" if pro else "") + ".")
+    return _propuesta("registro", par, resumen)
+
+
+class ProponerSolicitud(Entrada):
+    interes: Literal["evaluacion_virtual", "experiencia", "contacto"] = Field(
+        description="`evaluacion_virtual` (vive fuera de Colombia), `experiencia` (viaje, hotel, traslados) o `contacto`.")
+
+
+@herramienta("proponer_solicitud", "Prepara la tarjeta con el formulario de solicitud del sitio (evaluación virtual, experiencia o "
+             "contacto): la persona lo llena y lo envía; la clínica le responde. No envía nada. No pidas sus datos en el chat.",
+             ProponerSolicitud, VIS, PROPUESTA)
+def proponer_solicitud(conn, actor, a: ProponerSolicitud) -> dict:
+    resumen = {"evaluacion_virtual": "Pedir una evaluación virtual.", "experiencia": "Pedir información de una experiencia.",
+               "contacto": "Pedir que la clínica te contacte."}[a.interes]
+    return _propuesta("solicitud", {"interes": a.interes}, resumen)

@@ -1,0 +1,33 @@
+{# Un paso del asistente del sitio (fragmento HTMX). Los formularios son los de siempre: `_identificar.html` y `_solicitud.html`. #}
+{% set a = t.asistente %}
+<div class="asist__paso">
+  {% if paso == 'agendar' %}
+    <p class="asist__texto">{{ a.ya_paciente }}</p>
+    {% set uid = '-asistente' %}{% set nuevo = None %}{% set values = {} %}{% set error = None %}{% set pre = {} %}
+    {% include "_identificar.html" %}
+  {% elif paso == 'afuera' %}
+    <p class="asist__texto">{{ a.afuera }}</p>
+    {% set uid = '-asistente' %}{% set interes = 'evaluacion_virtual' %}{% set values = {} %}{% set error = None %}{% set hecho = False %}
+    {% include "_solicitud.html" %}
+  {% elif paso == 'direccion' %}
+    <p class="asist__texto">{{ a.direccion }}</p>
+    <address class="asist__texto">{{ sitio.DIRECCION }}</address>
+    <p class="asist__texto">{{ sitio.HORARIO[lang] }}</p>
+    <p class="asist__acciones">
+      <a class="boton boton--linea boton--chico" href="{{ sitio.MAPA }}" target="_blank" rel="noopener">{{ a.mapa }}</a>
+      <a class="boton boton--blanco boton--chico" href="/sitio/asistente/paso/agendar?idioma={{ lang }}" hx-get="/sitio/asistente/paso/agendar?idioma={{ lang }}"
+         hx-target="#asist-cuerpo" hx-swap="innerHTML">{{ a.opciones[0][1] }}</a>
+    </p>
+  {% elif paso == 'otra' %}
+    {% if chat %}
+      <p class="asist__texto">{{ a.otra }}</p>
+      {% include "_asistente_visitante_chat.html" %}
+    {% else %}
+      <p class="asist__texto">{{ a.otra_sin }}</p>
+      {% set uid = '-asistente' %}{% set interes = 'contacto' %}{% set values = {} %}{% set error = None %}{% set hecho = False %}
+      {% include "_solicitud.html" %}
+    {% endif %}
+  {% endif %}
+  <p class="asist__volver"><a href="/sitio/asistente/paso/inicio?idioma={{ lang }}" hx-get="/sitio/asistente/paso/inicio?idioma={{ lang }}" hx-target="#asist-cuerpo"
+     hx-swap="innerHTML">&larr; {{ a.volver }}</a></p>
+</div>

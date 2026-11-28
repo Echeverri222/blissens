@@ -1,0 +1,20 @@
+id: cuanto-cuesta-blanqueamiento
+perfil: visitante
+actor: visita
+categoria: negocio
+pregunta: cuanto cuesta un blanqueamiento?
+intencion: >-
+  El asistente no da precios: dice que la clínica los informa y ofrece el formulario de contacto.
+herramientas:
+  esperadas: [proponer_solicitud]
+  aceptables: [servicios, info_clinica]
+contexto:
+  - llamada: proponer_solicitud
+    args: {interes: contacto}
+    incluye: ["solicitud", "contacto"]
+  - llamada: servicios
+    args: {}
+    excluye: ['"valor"', '"precio"']
+respuesta:
+  excluye: ["$", "pesos", "cop", "usd"]
+  propuestas: [solicitud]

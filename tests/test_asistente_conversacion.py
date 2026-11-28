@@ -693,3 +693,74 @@ def test_d2_ninguna_conexion_de_la_ruta_sigue_abierta_mientras_se_espera_al_mode
     assert len(vistas) == 2 and all(len(v) >= 2 for v in vistas)  # se abrieron la de la sesión y la corta del bucle (y la de la herramienta)
     assert all(all(v) for v in vistas), "una conexión seguía abierta mientras se esperaba al modelo"
     assert all(x.closed for x in abiertas)  # y al final no queda ninguna
+
+
+# ------------------------------------------------------------------ visitante del sitio
+
+VIS = "visitante-de-prueba-0001"
+
+
+@pytest.fixture
+def vis_on(conn):
+    config.set_(conn, "asistente_visitantes", True)
+    conn.commit()
+
+
+def test_visitante_ajustes_modelo_y_solo_sus_herramientas(mundo, vis_on, monkeypatch):
+    v = AJUSTES["visitante"]
+    assert (v.herramientas_por_mensaje, v.largo_mensaje, v.mensajes_por_conversacion, v.max_tokens) == (3, 300, 8, 1024)
+    assert v.clave_dia == "asistente_mensajes_dia_visitante"
+    monkeypatch.setattr(settings, "ASISTENTE_MODELO_VISITANTE", "claude-haiku-5-5")
+    falso = Falso(responde("Hola."))
+    conversar(Actor.de_visitante(1, VIS), "Hola", cliente=falso, idioma="en")
+    p = falso.peticiones[0]
+    assert p["model"] == "claude-haiku-5-5" and p["system"] == INSTRUCCIONES["visitante"]
+    assert [t["name"] for t in p["tools"]] == [h.nombre for h in herramientas_de("visitante")]
+    assert "inglés" in p["messages"][0]["content"][0]["text"]
+
+
+def test_visitante_el_texto_se_redacta_antes_del_modelo_y_de_la_base(mundo, vis_on, conn):
+    falso = Falso(responde("ok"))
+    conversar(Actor.de_visitante(1, VIS), "Soy ana@correo.com, llámame al 300 111 2233", cliente=falso)
+    enviado = json.dumps(falso.peticiones[0]["messages"], ensure_ascii=False)
+    assert "ana@correo.com" not in enviado and "2233" not in enviado and "[dato omitido]" in enviado
+    conn.rollback()
+    assert "ana@correo.com" not in json.dumps([m["contenido"] for m in filas(conn, "asistente_mensaje")])
+
+
+def test_omitir_datos_personales_quita_correos_y_numeros_largos_pero_no_cifras_normales():
+    f = conversacion.omitir_datos_personales
+    assert f("a@b.co y +57 300-111-2233") == "[dato omitido] y [dato omitido]"
+    assert f("Tengo 12 años y 3 citas") == "Tengo 12 años y 3 citas"
+
+
+def test_visitante_se_guarda_con_su_id_y_solo_el_dueno_la_lee(mundo, vis_on, conn):
+    cid = conversar(Actor.de_visitante(1, VIS), "Hola", cliente=Falso(responde("ok")))["conversacion_id"]
+    conn.rollback()
+    c = filas(conn, "asistente_conversacion")
+    assert c[0]["perfil"] == "visitante" and c[0]["visitante"] == VIS and c[0]["paciente_id"] is None and c[0]["usuario_id"] is None
+    otro = Actor.de_visitante(1, "otro-visitante-0002")
+    for actor in (otro, mundo.ana, mundo.aux):
+        with pytest.raises(ConversacionNoExiste):
+            conversar(actor, "Hola", cid, cliente=Falso(responde("no")))
+    assert [m["rol"] for m in conversacion.leer(Actor.de_visitante(1, VIS), cid)["mensajes"]] == ["usuario", "asistente"]
+
+
+def test_visitante_tiene_su_propio_tope_diario(mundo, vis_on, conn):
+    config.set_(conn, "asistente_mensajes_dia_visitante", 1)
+    conn.commit()
+    v = Actor.de_visitante(1, VIS)
+    conversar(v, "Hola", cliente=Falso(responde("ok")))
+    assert conversar(v, "Otra vez", cliente=Falso())["respuesta"] == RESPUESTAS["visitante"]["es"]["limite"]
+    assert conversar(Actor.de_visitante(1, "otro-visitante-0002"), "Hola", cliente=Falso(responde("sí")))["respuesta"] == "sí"
+
+
+def test_visitante_tiene_su_propio_presupuesto_de_tokens_que_no_frena_a_los_demas(mundo, vis_on, conn):
+    config.set_(conn, "asistente_tokens_dia_visitante", 100)
+    conn.commit()
+    conversar(Actor.de_visitante(1, VIS), "Hola", cliente=Falso(responde("ok", entrada=90, salida=40)))
+    falso = Falso()
+    r = conversar(Actor.de_visitante(1, "otro-visitante-0002"), "Hola", cliente=falso)
+    assert r["respuesta"] == RESPUESTAS["visitante"]["es"]["no_disponible"] and falso.peticiones == []
+    assert conversar(mundo.aux, "Hola", cliente=Falso(responde("sí")))["respuesta"] == "sí"
+    assert conversar(mundo.ana, "Hola", cliente=Falso(responde("sí")))["respuesta"] == "sí"

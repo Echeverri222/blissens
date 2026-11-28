@@ -213,9 +213,11 @@ def construir(conn) -> Mundo:
         "rios": Actor.de_usuario(_usuario(e_rios, "especialista", PROFESIONALES["rios"], w.pro["rios"])),
         "mejia": Actor.de_usuario(_usuario(e_mejia, "especialista", PROFESIONALES["mejia"], w.pro["mejia"])),
         **{k: Actor.de_paciente(1, w.paciente[k]) for k in ("laura", "tomas", "jorge", "diego")},
+        "visita": Actor.de_visitante(1, "visitante-golden-0001"),
     }
     config.set_(conn, "asistente_equipo", True)
     config.set_(conn, "asistente_pacientes", True)
+    config.set_(conn, "asistente_visitantes", True)
     config.set_(conn, "direccion", "Calle 10 # 43-20, consultorio 301, Medellín")
     conn.commit()
     return w
