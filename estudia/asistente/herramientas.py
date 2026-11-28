@@ -20,6 +20,7 @@ ESP = ("especialista",)
 AUX = ("auxiliar", "operador")  # el operador local ve lo mismo que la auxiliar, solo lectura
 MAX_DIAS_AGENDA = 42
 MAX_FILAS = 50
+MAX_FILAS_BANDEJA = 15  # ya vienen en orden de prioridad; con el total, el modelo sabe cuántas quedan
 MAX_ESPACIOS = 12
 MAX_CITAS_PACIENTE = 20
 
@@ -438,7 +439,7 @@ class Bandeja(Entrada):
                      "contactos", "dados_de_baja"] = Field(description="Cuál lista de trabajo de recepción.")
 
 
-@herramienta("bandeja", f"Una lista de trabajo de recepción (máximo {MAX_FILAS} filas): citas sin confirmar, seguimientos, pacientes en riesgo, "
+@herramienta("bandeja", f"Una lista de trabajo de recepción, en orden de prioridad (las {MAX_FILAS_BANDEJA} primeras y el total): citas sin confirmar, seguimientos, pacientes en riesgo, "
              "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto o pacientes dados de baja.",
              Bandeja, AUX, LECTURA)
 def bandeja(conn, actor, a: Bandeja) -> dict:
@@ -447,7 +448,18 @@ def bandeja(conn, actor, a: Bandeja) -> dict:
         filas = [_contacto(conn, f) for f in filas]
     elif a.bandeja == "dados_de_baja":  # a quién hay que llamar: el número completo está en el panel, aquí sus últimos 4
         filas = [{**f, "celular_ultimos4": _ultimos4(f["celular"])} for f in filas]
-    return {"bandeja": a.bandeja, **_limitar(filas)}
+    return {"bandeja": a.bandeja, **_limitar([_compacta(f) for f in filas], MAX_FILAS_BANDEJA)}
+
+
+def _compacta(f: dict) -> dict:
+    """Una fila de bandeja sin lo que no dice nada (campos vacíos o en falso) y con la hora al minuto: cada fila viaja al
+    modelo en cada vuelta, y en una bandeja larga eso es la mayor parte de lo que se paga."""
+    out = {}
+    for k, v in f.items():
+        if v is None or v is False:
+            continue
+        out[k] = v.strftime("%Y-%m-%dT%H:%M") if isinstance(v, datetime) else v
+    return out
 
 
 def _contacto(conn, f: dict) -> dict:

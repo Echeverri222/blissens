@@ -95,6 +95,17 @@ describe("conversación", () => {
     expect(within(log).queryByRole("link")).not.toBeInTheDocument();
   });
 
+  it("en escritorio queda fijo a la derecha: no tapa el panel y sigue abierto al cambiar de página", async () => {
+    servidor.use(estado(), responder("Llama a Ana Pérez.", [], 5));
+    montar("/agenda", AUX);
+    await abrirYPreguntar("¿A quién llamo?");
+    expect(await screen.findByText("Llama a Ana Pérez.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(within(screen.getAllByRole("navigation", { name: "Secciones" })[0]).getByRole("link", { name: /Pacientes/ }));
+    expect(await screen.findByRole("heading", { name: /Pacientes/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("complementary", { name: "Asistente" })).getByText("Llama a Ana Pérez.")).toBeInTheDocument();
+  });
+
   it("avisa cuando quedan pocos mensajes", async () => {
     servidor.use(estado({ mensajes_restantes: 3 }));
     montar("/agenda", AUX);

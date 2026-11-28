@@ -15,6 +15,7 @@ import pytest
 
 from estudia import clock, usuarios
 from estudia.asistente import CATALOGO, Actor, definiciones_api, ejecutar, herramientas_de
+from estudia.asistente.herramientas import MAX_FILAS_BANDEJA
 from estudia.asistente.mcp import crear_servidor
 from estudia.asistente.operador import validar_sql
 
@@ -619,7 +620,7 @@ def test_tope_las_listas_largas_tienen_su_propio_limite_de_filas(mundo, conn):
                      (mundo.ana, NOW + timedelta(minutes=i)))
     conn.commit()
     r = ok(ej(mundo.a_aux, "bandeja", bandeja="sin_interpretar"))
-    assert len(r["filas"]) == 50 and r["total"] == 55 and r["hay_mas"] is True
+    assert len(r["filas"]) == MAX_FILAS_BANDEJA and r["total"] == 55 and r["hay_mas"] is True
 
 
 # ------------------------------------------------------------------ Conexión por llamada (D2)
