@@ -13038,7 +13038,9 @@
               "gestionar_mensaje",
               "gestionar_contacto",
               "vincular_contacto",
-              "revertir"
+              "revertir",
+              "no_contactar",
+              "quitar_no_contactar"
             ],
             "title": "Tipo"
           },

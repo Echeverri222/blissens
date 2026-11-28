@@ -864,7 +864,7 @@ class AsistenteMensajeIn(Entrada):
 class PropuestaOut(Salida):
     tipo: Literal["agendar", "cambiar_fecha", "cancelar", "confirmar_telefono", "desenlace", "bloqueo", "eliminar_bloqueo",
                   "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
-                  "vincular_contacto", "revertir"]
+                  "vincular_contacto", "revertir", "no_contactar", "quitar_no_contactar"]
     parametros: dict[str, Any] = Field(description="Lo que lleva el endpoint existente que la ejecuta, ya con sus ids")
     resumen: str = Field(description="Una línea para la tarjeta de confirmación")
 

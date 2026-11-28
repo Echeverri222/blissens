@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from estudia import clock, usuarios
+from estudia import clock, pacientes, usuarios
 from estudia.asistente import CATALOGO, Actor, definiciones_api, ejecutar, herramientas_de
 from estudia.asistente.herramientas import MAX_FILAS_BANDEJA
 from estudia.asistente.mcp import crear_servidor
@@ -59,6 +59,8 @@ MATRIZ = {
     "proponer_gestionar_contacto": ("", "", "P", "asistente:propuesta", ""),
     "proponer_vincular_contacto": ("", "", "P", "asistente:propuesta", ""),
     "proponer_revertir": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_no_contactar": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_quitar_no_contactar": ("", "", "P", "asistente:propuesta", ""),
     "info_clinica": ("", "", "", None, "L"),
     "proponer_registro": ("", "", "", None, "P"),
     "proponer_solicitud": ("", "", "", None, "P"),
@@ -531,6 +533,7 @@ def test_p2_ninguna_propuesta_escribe_en_la_base(mundo, conn):
         (mundo.a_aux, "proponer_gestionar_mensaje", dict(mensaje_id=x.mensaje)),
         (mundo.a_aux, "proponer_gestionar_contacto", dict(solicitud_id=x.solicitud)),
         (mundo.a_aux, "proponer_vincular_contacto", dict(solicitud_id=x.solicitud, paciente_id=mundo.luis)),
+        (mundo.a_aux, "proponer_no_contactar", dict(paciente_id=mundo.luis, motivo="cobro", nota="Cartera")),
     ]
     antes = conteos(conn)
     otras = _estado_de_recepcion(conn)
@@ -891,3 +894,64 @@ def test_visitante_ninguna_salida_lleva_datos_personales_ni_escribe(mundo, conn)
         assert dato not in texto
     assert conteos(conn) == antes
     assert accesos(conn) == []
+
+
+# ------------------------------------------------------------------ R5 a R8 del PRD de respuestas de la clínica
+
+def test_r26_la_ficha_y_la_busqueda_traen_semaforo_no_contactar_y_estado_del_celular(mundo, conn):
+    f = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["paciente"]
+    assert f["semaforo"] == "verde" and f["celular_estado"] == "sin_verificar" and f["tiene_celular"] is True
+    assert "celular" not in f and f["no_contactar"] is None
+    fila = ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"][0]
+    assert fila["semaforo"] == "verde" and "no_contactar" not in fila
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis", semaforo="rojo"))["pacientes"] == []
+    assert [x["id"] for x in ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis", semaforo="verde"))["pacientes"]] == [mundo.luis]
+    pacientes.no_contactar(conn, mundo.luis, "cobro", None, None)
+    conn.commit()
+    f = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["paciente"]
+    assert f["no_contactar"] == "cobro"
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"][0]["no_contactar"] == "cobro"
+    pacientes.no_contactar(conn, mundo.luis, "fallecido", None, None)
+    conn.commit()
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"] == []  # los fallecidos no salen
+
+
+def test_r26_intentos_usados_de_tres_en_la_ficha_y_en_la_bandeja_de_seguimientos(mundo, conn):
+    x = _pendientes_de_recepcion(mundo, conn)
+    conn.execute("insert into intento(caso_id, numero, canal, resultado, momento) values (%s, 1, 'automatico', null, %s)", (x.caso, NOW))
+    conn.commit()
+    caso = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["casos_abiertos"][0]
+    assert (caso["intentos"], caso["intentos_max"]) == (1, 3)
+    fila = ok(ej(mundo.a_aux, "bandeja", bandeja="seguimientos"))["filas"][0]
+    assert (fila["intentos"], fila["intentos_max"], fila["semaforo"]) == (1, 3, "verde")
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="sin_respuesta"))["propuesta"]
+    assert "último" not in p["resumen"]
+    conn.execute("insert into intento(caso_id, numero, canal, resultado, momento) values (%s, 2, 'manual', 'sin_respuesta', %s)", (x.caso, NOW))
+    conn.commit()
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="sin_respuesta"))["propuesta"]
+    assert "intento 3 de 3" in p["resumen"] and "último" in p["resumen"]
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="acepto"))["propuesta"]
+    assert "último" not in p["resumen"]
+
+
+def test_r26_bandeja_celulares_por_revisar_sin_numeros_completos(mundo, conn):
+    conn.execute("update paciente set celular_estado='invalido' where id=%s", (mundo.luis,))
+    conn.commit()
+    r = ok(ej(mundo.a_aux, "bandeja", bandeja="celulares_por_revisar"))
+    assert [f["paciente_id"] for f in r["filas"]] == [mundo.luis] and r["filas"][0]["motivo"] == "invalido"
+    assert r["filas"][0]["celular_ultimos4"] == "2233"
+    assert "573001112233" not in str(r) and "celular" not in r["filas"][0]
+
+
+def test_r26_proponer_no_contactar_y_quitarlo(mundo, conn):
+    p = ok(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=mundo.luis, motivo="queja", nota="Reclamo abierto"))["propuesta"]
+    assert p["tipo"] == "no_contactar" and p["parametros"] == {"paciente_id": mundo.luis, "motivo": "queja", "nota": "Reclamo abierto"}
+    assert "Luis" in p["resumen"] and "No contactar" in p["resumen"]
+    assert codigo(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=999999, motivo="otro")) == "no_existe"
+    assert codigo(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=mundo.luis, motivo="caprichos")) == "datos_invalidos"
+    assert codigo(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=mundo.luis)) == "accion_no_permitida"
+    pacientes.no_contactar(conn, mundo.luis, "queja", None, None)
+    conn.commit()
+    p = ok(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=mundo.luis))["propuesta"]
+    assert p["tipo"] == "quitar_no_contactar" and p["parametros"] == {"paciente_id": mundo.luis}
+    assert codigo(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=999999)) == "no_existe"

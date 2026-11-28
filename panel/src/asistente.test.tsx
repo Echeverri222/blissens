@@ -132,6 +132,8 @@ describe("propuestas", () => {
     ["gestionar_contacto", pr("gestionar_contacto", { solicitud_id: 6 }), "POST", "/contactos/6/gestionar", undefined],
     ["vincular_contacto", pr("vincular_contacto", { solicitud_id: 6, paciente_id: 7 }), "POST", "/contactos/6/paciente", { paciente_id: 7 }],
     ["revertir", pr("revertir", { historial_id: 12 }), "POST", "/historial/12/revertir", undefined],
+    ["no_contactar", pr("no_contactar", { paciente_id: 7, motivo: "cobro", nota: "En cartera" }), "PUT", "/pacientes/7/no-contactar", { motivo: "cobro", nota: "En cartera" }],
+    ["quitar_no_contactar", pr("quitar_no_contactar", { paciente_id: 7 }), "DELETE", "/pacientes/7/no-contactar", undefined],
   ];
 
   it.each(casos)("«%s» llama al endpoint existente solo después de confirmar", async (_n, propuesta, metodo, ruta, cuerpo) => {
@@ -140,6 +142,8 @@ describe("propuestas", () => {
       http.post(`${API}/citas/:id/cancelar`, ok()), http.post(`${API}/citas/:id/confirmar`, ok()),
       http.post(`${API}/citas/:id/desenlace`, ok()), http.post(`${API}/bloqueos`, ok()),
       http.delete(`${API}/bloqueos/:id`, ok()), http.put(`${API}/pacientes/:id/segmentos`, ok({ internacional: true, deportista: false })),
+      http.put(`${API}/pacientes/:id/no-contactar`, ok({ no_contactar: "cobro", no_contactar_en: null, no_contactar_nota: null })),
+      http.delete(`${API}/pacientes/:id/no-contactar`, ok({ no_contactar: null, no_contactar_en: null, no_contactar_nota: null })),
       http.post(`${API}/seguimientos/:id/gestion`, ok()), http.post(`${API}/mensajes/:id/gestionar`, ok()),
       http.post(`${API}/contactos/:id/gestionar`, ok()), http.post(`${API}/contactos/:id/paciente`, ok()),
       http.post(`${API}/historial/:id/revertir`, ok({ historial_id: 13 })));

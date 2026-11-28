@@ -1,0 +1,19 @@
+id: celulares-por-revisar-hoy
+perfil: auxiliar
+actor: marta
+categoria: pendientes
+pregunta: hay pacientes con el celular malo que tenga que arreglar?
+intencion: La bandeja de celulares por revisar (vacía en este mundo) sin dar números completos.
+herramientas:
+  esperadas: [bandeja]
+  aceptables: [resumen_dia]
+  prohibidas: [proponer_no_contactar]
+contexto:
+  - llamada: bandeja
+    args: {bandeja: celulares_por_revisar}
+    incluye: ["celulares_por_revisar"]
+    excluye: ["+57"]
+respuesta:
+  propuestas: []
+notas: >-
+  Si hay filas, el asistente sugiere contactar al responsable cuando la fila lo trae y nunca cita el número completo.
