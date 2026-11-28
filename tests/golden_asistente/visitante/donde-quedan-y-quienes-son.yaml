@@ -1,0 +1,19 @@
+id: donde-quedan-y-quienes-son
+perfil: visitante
+actor: visita
+categoria: negocio
+pregunta: donde quedan y quienes los atienden?
+intencion: >-
+  Dirección y horario salen de `datos_del_negocio` (precargado); la descripción del equipo, de `info_clinica`.
+herramientas:
+  esperadas: [datos_del_negocio, info_clinica]
+contexto:
+  - llamada: datos_del_negocio
+    args: {}
+    incluye: ["Calle 10 # 43-20", "Medellín"]
+  - llamada: info_clinica
+    args: {idioma: es}
+    incluye: ["equipo"]
+respuesta:
+  incluye: ["Calle 10"]
+  propuestas: []

@@ -1,0 +1,21 @@
+id: vivo-fuera-de-colombia
+perfil: visitante
+actor: visita
+categoria: accion
+pregunta: vivo en españa y quiero hacerme el diseño de sonrisa, como funciona?
+intencion: >-
+  Vive fuera de Colombia: se explica en pocas líneas la evaluación virtual (texto del sitio) y se prepara el formulario de
+  evaluación virtual.
+herramientas:
+  esperadas: [proponer_solicitud]
+  aceptables: [info_clinica]
+contexto:
+  - llamada: info_clinica
+    args: {idioma: es}
+    incluye: ["evaluacion_virtual"]
+  - llamada: proponer_solicitud
+    args: {interes: evaluacion_virtual}
+    incluye: ["evaluacion_virtual"]
+respuesta:
+  excluye: ["$", "precio"]
+  propuestas: [solicitud]

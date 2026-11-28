@@ -135,6 +135,10 @@
     d.querySelectorAll("[data-abrir-en-escritorio]").forEach(function (el) { el.open = true; });
   }
 
+  /* Asistente del sitio: abierto en escritorio; en el celular queda plegado como una barra pequeña junto a la barra fija. */
+  var asist = d.querySelector(".asist__caja");
+  if (asist && window.matchMedia && !matchMedia("(min-width: 900px)").matches) asist.open = false;
+
   d.body.addEventListener("htmx:afterSettle", function (e) {
     var t = (e.detail && e.detail.target) || (e.detail && e.detail.elt) || e.target;
     if (!t || !t.querySelector) return;

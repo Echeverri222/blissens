@@ -1,5 +1,6 @@
 """Enlaces personales firmados que vencen (PRD §6.11). Desde el PRD #4 llevan el negocio dentro."""
 import hashlib
+import secrets
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -70,3 +71,34 @@ def negocio_del_token(token: str) -> int | None:
 def read_token(token: str, max_age_days: int = 30) -> int | None:
     r = read_token_completo(token, max_age_days)
     return r[1] if r else None
+
+
+# ----------------------------------------------------------------- visitante del sitio (cookie firmada)
+
+COOKIE_VISITANTE = "visitante"
+VIGENCIA_VISITANTE_DIAS = 30
+
+
+def _serializador_visitante() -> URLSafeTimedSerializer:
+    claves = [settings.SECRET_KEY] + ([settings.SECRET_KEY_ANTERIOR] if settings.SECRET_KEY_ANTERIOR else [])
+    return URLSafeTimedSerializer(claves, salt="visitante-sitio")
+
+
+def nuevo_visitante() -> str:
+    """Un id al azar para quien escribe en el asistente del sitio. No identifica a nadie: solo agrupa sus mensajes."""
+    return secrets.token_urlsafe(16)
+
+
+def firmar_visitante(visitante: str) -> str:
+    return _serializador_visitante().dumps(visitante)
+
+
+def leer_visitante(valor: str | None) -> str | None:
+    """El id de visitante de una cookie firmada y vigente, o None si falta, está alterada o venció."""
+    if not valor:
+        return None
+    try:
+        v = _serializador_visitante().loads(valor, max_age=VIGENCIA_VISITANTE_DIAS * 86400)
+    except (BadSignature, SignatureExpired):
+        return None
+    return v if isinstance(v, str) and 8 <= len(v) <= 64 else None

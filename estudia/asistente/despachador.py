@@ -85,7 +85,7 @@ def ejecutar(actor: Actor, nombre: str, args: dict | None = None, *, conexion: s
     finally:
         conn.close()
     if actor.perfil != "operador":
-        salida = sanear(jsonable(salida), SENSIBLES_PACIENTE if actor.perfil == "paciente" else SENSIBLES)
+        salida = sanear(jsonable(salida), SENSIBLES_PACIENTE if actor.perfil in ("paciente", "visitante") else SENSIBLES)
     else:
         salida = jsonable(salida)
     return recortar(salida)

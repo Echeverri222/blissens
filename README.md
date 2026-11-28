@@ -136,9 +136,11 @@ rutas no existen y nada cambia (en Bedrock, sin `AWS_REGION`). Para probarlo en 
      tener aceptado el acuerdo en Bedrock; el código le pone el prefijo `anthropic.` al id, y la reserva del servidor
      (`fallbacks`) no existe allí.
 2. Agrega `ANTHROPIC_API_KEY=...` a `.env` y reinicia `make dev`. El modelo se elige con `ASISTENTE_MODELO` y
-   `ASISTENTE_MODELO_PACIENTE` (por defecto `claude-opus-5-5`).
+   `ASISTENTE_MODELO_PACIENTE` (por defecto `claude-opus-5-5`); el de la página pública usa `ASISTENTE_MODELO_VISITANTE`
+   (por defecto `claude-haiku-5-5`).
 3. Enciéndelo para el negocio: `make negocio ARGS="config blissens asistente_equipo true"` y, para los pacientes,
-   `make negocio ARGS="config blissens asistente_pacientes true"`.
+   `make negocio ARGS="config blissens asistente_pacientes true"`; para los visitantes de la página pública,
+   `asistente_visitantes`.
 4. Equipo: entra al panel y abre *Asistente* (arriba a la derecha). Pacientes: abre un enlace `/p/<token>` y usa
    *Preguntarle al asistente*; pide un consentimiento aparte antes de la primera pregunta.
 

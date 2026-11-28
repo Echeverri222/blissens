@@ -1,0 +1,14 @@
+{# El cuadro de texto del asistente de IA del sitio. Solo se muestra si el asistente está disponible. #}
+{% set a = t.asistente %}
+<div id="asist-mensajes" class="chat__mensajes asist__mensajes" role="log" aria-live="polite"></div>
+<div id="asist-error" role="alert"></div>
+<form id="asist-form" class="form" method="post" action="/sitio/asistente" hx-post="/sitio/asistente" hx-target="#asist-mensajes"
+      hx-swap="beforeend" hx-indicator="#asist-escribiendo" hx-disabled-elt="#asist-form button, #asist-form textarea" data-limpiar-al-enviar>
+  <input type="hidden" name="idioma" value="{{ lang }}">
+  <input type="hidden" id="asist-conversacion" name="conversacion" value="">
+  <div class="trampa" aria-hidden="true"><label>No llenar <input name="web" tabindex="-1" autocomplete="off"></label></div>
+  <label>{{ a.texto }}<textarea name="texto" rows="2" maxlength="300" required></textarea></label>
+  <button type="submit">{{ a.enviar }}</button>
+  <p id="asist-escribiendo" class="htmx-indicator nota" role="status">{{ a.escribiendo }}</p>
+</form>
+<p class="nota nota--campo">{{ a.aviso_ia }}</p>

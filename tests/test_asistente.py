@@ -25,43 +25,47 @@ RAIZ = Path(__file__).resolve().parent.parent
 TABLAS_P2 = ("cita", "bloqueo", "cancelacion", "historial_estado", "solicitud_contacto")
 
 # La tabla de §5 como datos literales: cambiar el catálogo sin cambiar esto (y el PRD) rompe la prueba.
-# herramienta: (paciente, especialista, auxiliar, acción de auditoría). L = lectura, P = propuesta, "" = no disponible.
+# herramienta: (paciente, especialista, auxiliar, acción de auditoría, visitante). L = lectura, P = propuesta, "" = no disponible.
 MATRIZ = {
-    "mis_citas": ("L", "", "", "asistente:mis_citas"),
-    "servicios": ("L", "L", "L", None),
-    "espacios_libres": ("L", "", "L", None),
-    "datos_del_negocio": ("L", "L", "L", None),
-    "mi_agenda": ("", "L", "", None),
-    "agenda": ("", "", "L", None),
-    "detalle_cita": ("", "L", "L", "ver_cita"),
-    "mi_horario": ("", "L", "", None),
-    "mi_dia": ("", "L", "", None),
-    "citas_sin_desenlace": ("", "L", "", None),
-    "motivos_cancelacion": ("", "", "L", None),
-    "buscar_pacientes": ("", "", "L", "buscar_paciente"),
-    "ficha_paciente": ("", "", "L", "ver_ficha"),
-    "resumen_dia": ("", "", "L", None),
-    "bandeja": ("", "", "L", None),
-    "indicadores": ("", "", "L", None),
-    "proponer_agendar": ("P", "", "P", "asistente:propuesta"),
-    "proponer_cambiar_fecha": ("P", "", "P", "asistente:propuesta"),
-    "proponer_cancelar": ("P", "", "P", "asistente:propuesta"),
-    "proponer_confirmar": ("P", "", "", "asistente:propuesta"),
-    "proponer_confirmar_telefono": ("", "", "P", "asistente:propuesta"),
-    "proponer_desenlace": ("", "P", "P", "asistente:propuesta"),
-    "proponer_bloqueo": ("", "P", "P", "asistente:propuesta"),
-    "pedir_contacto": ("P", "", "", "asistente:propuesta"),
-    "proponer_eliminar_bloqueo": ("", "", "P", "asistente:propuesta"),
-    "proponer_crear_paciente": ("", "", "P", "asistente:propuesta"),
-    "proponer_segmentos": ("", "", "P", "asistente:propuesta"),
-    "proponer_gestion_seguimiento": ("", "", "P", "asistente:propuesta"),
-    "proponer_gestionar_mensaje": ("", "", "P", "asistente:propuesta"),
-    "proponer_gestionar_contacto": ("", "", "P", "asistente:propuesta"),
-    "proponer_vincular_contacto": ("", "", "P", "asistente:propuesta"),
-    "proponer_revertir": ("", "", "P", "asistente:propuesta"),
+    "mis_citas": ("L", "", "", "asistente:mis_citas", ""),
+    "servicios": ("L", "L", "L", None, "L"),
+    "espacios_libres": ("L", "", "L", None, "L"),
+    "datos_del_negocio": ("L", "L", "L", None, "L"),
+    "mi_agenda": ("", "L", "", None, ""),
+    "agenda": ("", "", "L", None, ""),
+    "detalle_cita": ("", "L", "L", "ver_cita", ""),
+    "mi_horario": ("", "L", "", None, ""),
+    "mi_dia": ("", "L", "", None, ""),
+    "citas_sin_desenlace": ("", "L", "", None, ""),
+    "motivos_cancelacion": ("", "", "L", None, ""),
+    "buscar_pacientes": ("", "", "L", "buscar_paciente", ""),
+    "ficha_paciente": ("", "", "L", "ver_ficha", ""),
+    "resumen_dia": ("", "", "L", None, ""),
+    "bandeja": ("", "", "L", None, ""),
+    "indicadores": ("", "", "L", None, ""),
+    "proponer_agendar": ("P", "", "P", "asistente:propuesta", ""),
+    "proponer_cambiar_fecha": ("P", "", "P", "asistente:propuesta", ""),
+    "proponer_cancelar": ("P", "", "P", "asistente:propuesta", ""),
+    "proponer_confirmar": ("P", "", "", "asistente:propuesta", ""),
+    "proponer_confirmar_telefono": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_desenlace": ("", "P", "P", "asistente:propuesta", ""),
+    "proponer_bloqueo": ("", "P", "P", "asistente:propuesta", ""),
+    "pedir_contacto": ("P", "", "", "asistente:propuesta", ""),
+    "proponer_eliminar_bloqueo": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_crear_paciente": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_segmentos": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_gestion_seguimiento": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_gestionar_mensaje": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_gestionar_contacto": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_vincular_contacto": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_revertir": ("", "", "P", "asistente:propuesta", ""),
+    "info_clinica": ("", "", "", None, "L"),
+    "proponer_registro": ("", "", "", None, "P"),
+    "proponer_solicitud": ("", "", "", None, "P"),
 }
 SOLO_OPERADOR = {"esquema", "consulta_sql"}
-PERFILES = ("paciente", "especialista", "auxiliar")
+PERFILES = ("paciente", "especialista", "auxiliar", "visitante")
+COLUMNA = {"paciente": 0, "especialista": 1, "auxiliar": 2, "visitante": 4}  # la 3 es la auditoría
 TIPO = {"lectura": "L", "propuesta": "P"}
 CLAVE = "clave-de-prueba"
 DOC_ANA = "7654321"
@@ -70,7 +74,7 @@ VALOR = 123457
 
 
 def esperado(perfil: str) -> dict[str, str]:
-    i = PERFILES.index(perfil)
+    i = COLUMNA[perfil]
     return {n: fila[i] for n, fila in MATRIZ.items() if fila[i]}
 
 
@@ -105,7 +109,7 @@ def mundo(conn):
         a_aux=Actor.de_usuario(usuario(aux, "auxiliar")),
         a_esp1=Actor.de_usuario(usuario(e1, "especialista", pro1)),
         a_esp2=Actor.de_usuario(usuario(e2, "especialista", pro2)),
-        a_op=Actor.de_operador(1))
+        a_op=Actor.de_operador(1), a_vis=Actor.de_visitante(1, "visitante-de-prueba-1"))
 
 
 def ej(actor, nombre, /, **args):
@@ -186,7 +190,7 @@ def test_matriz_cada_herramienta_tiene_descripcion_en_espanol_y_definicion_para_
 # ------------------------------------------------------------------ P1: parity
 
 def test_p1_sin_el_perfil_el_despachador_responde_sin_permiso_aunque_se_nombre_la_herramienta(mundo):
-    actores = {"paciente": mundo.a_ana, "especialista": mundo.a_esp1, "auxiliar": mundo.a_aux, "operador": mundo.a_op}
+    actores = {"paciente": mundo.a_ana, "especialista": mundo.a_esp1, "auxiliar": mundo.a_aux, "visitante": mundo.a_vis, "operador": mundo.a_op}
     for h in CATALOGO.values():
         for perfil, actor in actores.items():
             if perfil not in h.perfiles:
@@ -537,7 +541,7 @@ def test_p2_ninguna_propuesta_escribe_en_la_base(mundo, conn):
     for actor in (mundo.a_esp1, mundo.a_aux):
         assert "propuesta" in ok(ej(actor, "proponer_desenlace", cita_id=mundo.c_ana, desenlace="atendida"))
     assert conteos(conn) == antes
-    assert {t.nombre for t in CATALOGO.values() if t.tipo == "propuesta"} == {n for n in MATRIZ if "P" in MATRIZ[n][:3]}
+    assert {t.nombre for t in CATALOGO.values() if t.tipo == "propuesta"} == {n for n in MATRIZ if "P" in (*MATRIZ[n][:3], MATRIZ[n][4])}
 
 
 def _estado_de_recepcion(conn):
@@ -853,3 +857,37 @@ def test_mcp_esquema_lista_tablas_y_columnas(mundo):
     cols = ok(ej(mundo.a_op, "esquema", tabla="paciente"))["columnas"]
     assert {"nombre": "documento", "tipo": "text"} in cols
     assert codigo(ej(mundo.a_op, "esquema", tabla="no_existe")) == "no_existe"
+
+
+# ------------------------------------------------------------------ Visitante del sitio
+
+def test_visitante_los_servicios_son_solo_los_autoagendables_y_sin_valor(mundo):
+    r = ok(ej(mundo.a_vis, "servicios"))
+    assert r["servicios"] and "valor" not in set(claves(r))
+
+
+def test_visitante_espacios_libres_no_acepta_cita_id_y_pide_servicio(mundo):
+    assert codigo(ej(mundo.a_vis, "espacios_libres", servicio_id=mundo.svc, cita_id=mundo.c_ana)) == "datos_invalidos"
+    assert codigo(ej(mundo.a_vis, "espacios_libres")) == "datos_invalidos"
+    assert ok(ej(mundo.a_vis, "espacios_libres", servicio_id=mundo.svc))["espacios"]
+
+
+def test_visitante_las_propuestas_tienen_la_forma_esperada(mundo):
+    inicio = espacio(mundo, mundo.a_vis)
+    r = ok(ej(mundo.a_vis, "proponer_registro", servicio_id=mundo.svc, inicio=inicio))["propuesta"]
+    assert r["tipo"] == "registro" and r["parametros"]["servicio"] == mundo.svc and r["parametros"]["desde"]
+    assert ok(ej(mundo.a_vis, "proponer_registro"))["propuesta"]["tipo"] == "registro"
+    assert codigo(ej(mundo.a_vis, "proponer_registro", inicio=inicio)) == "datos_invalidos"
+    assert ok(ej(mundo.a_vis, "proponer_solicitud", interes="evaluacion_virtual"))["propuesta"]["parametros"] == {"interes": "evaluacion_virtual"}
+    assert codigo(ej(mundo.a_vis, "proponer_solicitud", interes="otra")) == "datos_invalidos"
+
+
+def test_visitante_ninguna_salida_lleva_datos_personales_ni_escribe(mundo, conn):
+    antes = conteos(conn)
+    salidas = [ej(mundo.a_vis, n, **a) for n, a in (("servicios", {}), ("datos_del_negocio", {}), ("info_clinica", {"idioma": "en"}),
+                                                   ("espacios_libres", {"servicio_id": mundo.svc}))]
+    texto = json.dumps(salidas, ensure_ascii=False)
+    for dato in (DOC_ANA, CEL_ANA, "ana@example.org", "Pérez", str(VALOR)):
+        assert dato not in texto
+    assert conteos(conn) == antes
+    assert accesos(conn) == []

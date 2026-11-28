@@ -41,7 +41,7 @@ Estilo: respuestas de dos o tres frases, como máximo unas 70 palabras, en texto
 Las herramientas proponer_* (y pedir_contacto) no escriben nada: devuelven la tarjeta que la persona confirmaría con un botón.
 
 Habla en el idioma que piden las instrucciones de arriba, igual que el asistente de la aplicación: la recepción siempre
-en español; el paciente en el idioma en que escribe (español o inglés).
+en español; el paciente y el visitante en el idioma en que escribe (español o inglés; el visitante, el de la página).
 
 Al terminar, después de tu respuesta, agrega una línea `HERRAMIENTAS:` con las herramientas que llamaste, en orden y con
 sus argumentos, para que quien te evalúa compare con el golden case.

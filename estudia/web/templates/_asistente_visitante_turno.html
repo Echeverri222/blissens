@@ -1,0 +1,24 @@
+{# Lo que HTMX agrega al final de la conversación del sitio; el id de la conversación y el error van "fuera de banda".
+   El texto del asistente es salida del modelo, no confiable: solo autoescape, como texto plano. Nunca |safe ni linkify. #}
+{% for m in mensajes %}
+  {% if m.rol == 'usuario' %}
+    <div class="burbuja burbuja--yo"><p>{{ m.texto }}</p></div>
+  {% else %}
+    <div class="burbuja burbuja--asistente"><p>{{ m.texto }}</p></div>
+    {% for pr in m.propuestas %}
+      <div class="propuesta tarjeta asist__tarjeta" data-tipo="{{ pr.tipo }}">
+        <h3 class="asist__tarjeta-t">{{ pr.titulo }}</h3>
+        {% set uid = '-' ~ pr.uid %}{% set values = {} %}{% set error = None %}
+        {% if pr.tipo == 'registro' %}
+          {% set nuevo = None %}{% set pre = pr.pre %}
+          {% include "_identificar.html" %}
+        {% else %}
+          {% set interes = pr.interes %}{% set hecho = False %}
+          {% include "_solicitud.html" %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+<input type="hidden" id="asist-conversacion" name="conversacion" value="{{ conversacion_id or '' }}" hx-swap-oob="true">
+<div id="asist-error" role="alert" hx-swap-oob="true">{% if error_texto %}<p class="error">{{ error_texto }}</p>{% endif %}</div>

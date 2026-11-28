@@ -14,6 +14,11 @@
       "command": "uv",
       "args": ["run", "python", "-m", "estudia.asistente.mcp", "--perfil", "paciente"],
       "env": {"ENTORNO": "local"}
+    },
+    "estudia-visitante": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "estudia.asistente.mcp", "--perfil", "visitante"],
+      "env": {"ENTORNO": "local"}
     }
   }
 }

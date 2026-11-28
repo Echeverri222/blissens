@@ -2,11 +2,13 @@
 
 El español es la versión por defecto. El inglés sale de https://blissens.com/; el español del sitio real se traduce en el
 navegador (Weglot), así que estos textos están redactados a partir del original en inglés."""
+from urllib.parse import quote_plus
 
 HORARIO = {"es": "Lunes a viernes 8 a. m. a 5 p. m. · Sábados 8 a. m. a 12 m.",
            "en": "Monday to Friday 8 a.m. to 5 p.m. · Saturday 8 a.m. to 12 p.m."}
 DIRECCION = ("Carrera 25 # 1A Sur 45, C.C. El Tesoro, Torre Médica 2, consultorios 1156 y 1157, El Poblado, Medellín, "
              "Colombia")
+MAPA = "https://www.google.com/maps/search/?api=1&query=" + quote_plus(DIRECCION)
 CORREO = "info@blissens.com"
 TELEFONO = "+57 305 306 9616"
 TELEFONO_TEL = "+573053069616"
@@ -144,6 +146,19 @@ ES = {
                          "Mis citas."},
     "pie": {"horario": "Horario", "direccion": "Dirección", "contacto": "Contacto", "derechos": "Todos los derechos reservados.",
             "politica": "Política de tratamiento de datos", "equipo": "Acceso equipo", "inicio": "Ir al inicio", "siguenos": "Síguenos"},
+    "asistente": {"titulo": "Asistente", "aria": "Asistente del sitio", "abrir": "Abrir o cerrar el asistente",
+                  "saludo": "Hola, soy el asistente de Blissens. ¿En qué te ayudo?",
+                  "opciones": [("agendar", "Agendar una cita"), ("afuera", "Vivo fuera de Colombia"),
+                               ("direccion", "Dirección y horario"), ("otra", "Otra pregunta")],
+                  "ya_paciente": "¿Ya eres paciente? Usa el mismo formulario.",
+                  "afuera": "Si vives fuera de Colombia, empezamos con una evaluación virtual: cuéntanos tu caso y recibes "
+                            "asesoría especializada.",
+                  "direccion": "Atendemos en:", "mapa": "Ver en el mapa", "volver": "Volver",
+                  "otra": "Escribe tu pregunta y te ayudo.", "otra_sin": "Déjanos tu mensaje y la clínica te responde.",
+                  "aviso_ia": "Soy un asistente de inteligencia artificial y puedo equivocarme. No escribas datos personales "
+                              "ni de salud: eso va solo en los formularios.",
+                  "texto": "Tu pregunta", "enviar": "Enviar", "escribiendo": "Escribiendo…",
+                  "err_texto": "Escribe un mensaje de hasta {max} caracteres."},
     "barra": "Agendar cita", "idioma_aria": "Cambiar idioma a inglés",
 }
 
@@ -264,6 +279,19 @@ EN = {
                          "My appointments."},
     "pie": {"horario": "Schedule", "direccion": "Address", "contacto": "Contact", "derechos": "All rights reserved.",
             "politica": "Data processing policy", "equipo": "Staff access", "inicio": "Go to home", "siguenos": "Follow us"},
+    "asistente": {"titulo": "Assistant", "aria": "Site assistant", "abrir": "Open or close the assistant",
+                  "saludo": "Hi, I’m the Blissens assistant. How can I help?",
+                  "opciones": [("agendar", "Book an appointment"), ("afuera", "I live abroad"),
+                               ("direccion", "Address and hours"), ("otra", "Something else")],
+                  "ya_paciente": "Already a patient? Use the same form.",
+                  "afuera": "If you live outside Colombia, we start with a virtual assessment: tell us about your case and "
+                            "you get specialized advice.",
+                  "direccion": "We are at:", "mapa": "View on the map", "volver": "Back",
+                  "otra": "Type your question and I’ll help.", "otra_sin": "Leave us a message and the clinic will reply.",
+                  "aviso_ia": "I’m an AI assistant and I can make mistakes. Don’t type personal or health details: those go "
+                              "only in the forms.",
+                  "texto": "Your question", "enviar": "Send", "escribiendo": "Typing…",
+                  "err_texto": "Write a message of up to {max} characters."},
     "barra": "Book appointment", "idioma_aria": "Switch language to Spanish",
 }
 

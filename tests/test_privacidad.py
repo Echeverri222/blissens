@@ -167,3 +167,14 @@ def test_enlace_con_huella_de_celular_deja_de_servir_si_el_celular_cambia(conn):
     conn.execute("update paciente set celular='+573005550000' where id=%s", (pa,))
     conn.commit()
     assert c.get(f"/p/{token}").status_code == 404
+
+
+def test_asistente_visitante_se_depura_a_los_7_dias_por_su_propia_clave(conn):
+    ahora = clock.now(conn)
+    for dias, v in ((10, "v-vieja-0001"), (2, "v-reciente-02")):
+        ultima = ahora - timedelta(days=dias)
+        conn.execute("insert into asistente_conversacion(perfil, visitante, creada_en, ultima_en) values ('visitante',%s,%s,%s)",
+                     (v, ultima, ultima))
+    conn.commit()
+    assert privacidad.depurar(conn) == {"asistente_visitante": 1}
+    assert [r["visitante"] for r in conn.execute("select visitante from asistente_conversacion")] == ["v-reciente-02"]

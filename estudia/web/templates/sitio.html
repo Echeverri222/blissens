@@ -193,4 +193,12 @@
 
 {% block barra %}
 <div class="barra" id="barra"><a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.barra }}</a></div>
+{# Asistente del sitio, capa 1: texto estático, sin base de datos ni modelo. Va junto a la barra fija (hermano posterior, para
+   subirse sobre ella en el celular). Sin JavaScript sus opciones son enlaces a las secciones de la página. #}
+<aside class="asist" id="asistente" aria-label="{{ t.asistente.aria }}">
+  <details class="asist__caja" open>
+    <summary class="asist__cabeza" aria-label="{{ t.asistente.abrir }}"><span class="asist__punto" aria-hidden="true"></span><span>{{ t.asistente.titulo }}</span></summary>
+    <div class="asist__cuerpo" id="asist-cuerpo" aria-live="polite">{% include "_asistente_inicio.html" %}</div>
+  </details>
+</aside>
 {% endblock %}

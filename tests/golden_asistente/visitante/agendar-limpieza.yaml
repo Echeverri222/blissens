@@ -1,0 +1,23 @@
+id: agendar-limpieza
+perfil: visitante
+actor: visita
+categoria: accion
+pregunta: hola, quiero agendar una limpieza, tienen espacio el viernes?
+intencion: >-
+  Quiere agendar en Colombia. Mira los horarios, y prepara la tarjeta de registro con el servicio ya elegido; nunca pide
+  documento ni celular en el chat.
+herramientas:
+  esperadas: [servicios, espacios_libres, proponer_registro]
+  aceptables: [datos_del_negocio]
+contexto:
+  - llamada: espacios_libres
+    args: {servicio_id: "{servicio.limpieza}", desde: "{fecha.viernes}", dias: 1}
+    incluye: ["Limpieza"]
+  - llamada: proponer_registro
+    args: {servicio_id: "{servicio.limpieza}"}
+    incluye: ["registro"]
+respuesta:
+  excluye: ["documento de identidad", "cedula", "su celular", "tu celular", "$"]
+  propuestas: [registro]
+notas: >-
+  La persona pone sus datos en el formulario de la tarjeta, nunca en el chat (P5).

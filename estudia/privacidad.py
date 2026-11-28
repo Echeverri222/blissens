@@ -106,6 +106,12 @@ def depurar(conn) -> dict:
         borradas = conn.execute("delete from asistente_conversacion where ultima_en < %s", (_antes_de(conn, d),)).rowcount
         if borradas:
             out["asistente"] = borradas
+    d = config.get(conn, "retencion_asistente_visitante_dias")
+    if d:  # las de visitantes anónimos se guardan menos tiempo que las demás
+        borradas = conn.execute("delete from asistente_conversacion where perfil='visitante' and ultima_en < %s",
+                                (_antes_de(conn, d),)).rowcount
+        if borradas:
+            out["asistente_visitante"] = borradas
     return out
 
 

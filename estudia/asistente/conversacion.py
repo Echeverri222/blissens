@@ -15,6 +15,7 @@ Reglas que este módulo hace cumplir:
 - Nunca se escribe el texto de las personas en el registro: solo perfil, nombres de herramientas, tokens y duración.
 """
 import json
+import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -50,8 +51,24 @@ AJUSTES = {
     "auxiliar": Ajustes(8, 1000, None, "asistente_mensajes_dia_usuario", 4096, "medium", lambda: settings.ASISTENTE_MODELO),
     "especialista": Ajustes(8, 1000, None, "asistente_mensajes_dia_usuario", 4096, "medium", lambda: settings.ASISTENTE_MODELO),
     "paciente": Ajustes(4, 300, 12, "asistente_mensajes_dia_paciente", 2048, "low", lambda: settings.ASISTENTE_MODELO_PACIENTE),
+    "visitante": Ajustes(3, 300, 8, "asistente_mensajes_dia_visitante", 1024, "low", lambda: settings.ASISTENTE_MODELO_VISITANTE),
 }
-INTERRUPTOR = {"auxiliar": "asistente_equipo", "especialista": "asistente_equipo", "paciente": "asistente_pacientes"}
+INTERRUPTOR = {"auxiliar": "asistente_equipo", "especialista": "asistente_equipo", "paciente": "asistente_pacientes",
+               "visitante": "asistente_visitantes"}
+# Presupuesto de tokens propio de un perfil anónimo: se cuenta solo sobre sus conversaciones, para que el tráfico del sitio
+# no deje sin asistente al equipo ni a los pacientes. El presupuesto general (`asistente_tokens_dia`) también se aplica.
+PRESUPUESTO_PROPIO = {"visitante": "asistente_tokens_dia_visitante"}
+
+# Datos personales que se quitan del texto de un visitante ANTES de enviarlo al modelo o guardarlo: el sitio es público y
+# anónimo, así que lo que escriba no debe llevar correos ni números de documento o celular.
+OMITIDO = "[dato omitido]"
+_CORREO = re.compile(r"[^\s@<>()\[\]\"',;:]+@[^\s@<>()\[\]\"',;:]+\.[^\s@<>()\[\]\"',;:]+")
+_NUMERO = re.compile(r"(?<!\d)\+?\d(?:[ .\-]?\d){6,}(?!\d)")
+
+
+def omitir_datos_personales(texto: str) -> str:
+    """Reemplaza correos y rachas de 7 o más dígitos (con espacios, guiones o puntos entre ellos) por «[dato omitido]»."""
+    return _NUMERO.sub(OMITIDO, _CORREO.sub(OMITIDO, texto))
 
 
 class AsistenteApagado(Exception):
@@ -85,8 +102,10 @@ def _hogar(conn, actor: Actor) -> list[int] | None:
     return familia.hogar(conn, actor.paciente_id)[1] if actor.perfil == "paciente" else None
 
 
-def _dueno(actor: Actor) -> tuple[str, int]:
+def _dueno(actor: Actor) -> tuple[str, int | str]:
     """Una conversación es de quien la escribió: ni el responsable lee las de su familiar ni el familiar las suyas."""
+    if actor.perfil == "visitante":
+        return "c.visitante=%s", actor.visitante
     return ("c.paciente_id=%s", actor.paciente_id) if actor.perfil == "paciente" else ("c.usuario_id=%s", actor.usuario_id)
 
 
@@ -101,13 +120,19 @@ CUENTA_HOY = "((m.rol='user' and m.contenido->0->>'type'='text') or m.rol='fallo
 
 
 def _mensajes_hoy(conn, actor: Actor, hogar: list[int] | None) -> int:
-    cond, valor = ("c.paciente_id = any(%s)", hogar) if actor.perfil == "paciente" else ("c.usuario_id=%s", actor.usuario_id)
+    cond, valor = ("c.paciente_id = any(%s)", hogar) if actor.perfil == "paciente" else _dueno(actor)
     return conn.execute(
         f"select count(*) n from asistente_mensaje m join asistente_conversacion c on c.id=m.conversacion_id "
         f"where {cond} and {CUENTA_HOY} and m.creado_en >= %s", (valor, _inicio_del_dia(conn))).fetchone()["n"]
 
 
-def _tokens_hoy(conn) -> int:
+def _tokens_hoy(conn, perfil: str | None = None) -> int:
+    """Los tokens de hoy del negocio; con `perfil`, solo los de las conversaciones de ese perfil."""
+    if perfil:
+        return conn.execute(
+            "select coalesce(sum(m.tokens_entrada + m.tokens_salida), 0)::bigint n from asistente_mensaje m "
+            "join asistente_conversacion c on c.id=m.conversacion_id where c.perfil=%s and m.creado_en >= %s",
+            (perfil, _inicio_del_dia(conn))).fetchone()["n"]
     return conn.execute("select coalesce(sum(tokens_entrada + tokens_salida), 0)::bigint n from asistente_mensaje where creado_en >= %s",
                         (_inicio_del_dia(conn),)).fetchone()["n"]
 
@@ -146,8 +171,9 @@ def _guardar(actor: Actor, conversacion_id: int | None, turnos: list[tuple]) -> 
         ahora = clock.now(conn)
         if conversacion_id is None:
             conversacion_id = conn.execute(
-                "insert into asistente_conversacion(perfil, usuario_id, paciente_id, creada_en, ultima_en) values (%s,%s,%s,%s,%s) "
-                "returning id", (actor.perfil, actor.usuario_id, actor.paciente_id, ahora, ahora)).fetchone()["id"]
+                "insert into asistente_conversacion(perfil, usuario_id, paciente_id, visitante, creada_en, ultima_en) "
+                "values (%s,%s,%s,%s,%s,%s) returning id",
+                (actor.perfil, actor.usuario_id, actor.paciente_id, actor.visitante, ahora, ahora)).fetchone()["id"]
         else:
             conn.execute("update asistente_conversacion set ultima_en=%s where id=%s", (ahora, conversacion_id))
         for rol, contenido, entrada, salida in turnos:
@@ -281,14 +307,16 @@ def _llamar(ejecutor: ThreadPoolExecutor, cliente, limite: float, peticion: dict
         raise _Fallo(f"api:{type(e).__name__}") from None
 
 
-def _contexto(conn, actor: Actor) -> str:
+def _contexto(conn, actor: Actor, idioma: str | None = None) -> str:
     negocio = conn.execute("select nombre from negocio where id=%s", (actor.negocio_id,)).fetchone()["nombre"]
     if actor.perfil == "paciente":
         persona = familia.primer_nombre(conn.execute("select nombres from paciente where id=%s", (actor.paciente_id,)).fetchone())
+    elif actor.perfil == "visitante":
+        persona = "visitante del sitio web"
     else:
         persona = familia.primer_nombre(actor.usuario.get("nombre"))
     ahora = clock.now(conn)
-    return contexto(negocio, persona, f"{fmt.DIAS[ahora.weekday()]} {ahora:%Y-%m-%d %H:%M} (hora del negocio)")
+    return contexto(negocio, persona, f"{fmt.DIAS[ahora.weekday()]} {ahora:%Y-%m-%d %H:%M} (hora del negocio)", idioma)
 
 
 # Lo que viaja ya consultado con cada mensaje, en <precargado>: responde lo más común ("¿quién sigue?", "¿a qué hora es mi
@@ -300,6 +328,7 @@ def _precarga_de(perfil: str, hoy: date) -> list[tuple[str, dict]]:
                      ("datos_del_negocio", {}), ("servicios", {}), ("motivos_cancelacion", {})],
         "especialista": [("mi_dia", {}), ("datos_del_negocio", {})],
         "paciente": [("mis_citas", {}), ("servicios", {}), ("datos_del_negocio", {})],
+        "visitante": [("servicios", {}), ("datos_del_negocio", {})],
     }.get(perfil, [])
 
 
@@ -325,8 +354,8 @@ def precarga(actor: Actor, hoy: date, *, conexion=None, vistos: list | None = No
     return "<precargado>\n" + "\n".join(partes) + "\n</precargado>"
 
 
-def _respuesta(actor: Actor, motivo: str, conversacion_id: int | None) -> dict:
-    return {"conversacion_id": conversacion_id, "respuesta": respuesta_fija(actor.perfil, motivo), "propuestas": []}
+def _respuesta(actor: Actor, motivo: str, conversacion_id: int | None, idioma: str = "es") -> dict:
+    return {"conversacion_id": conversacion_id, "respuesta": respuesta_fija(actor.perfil, motivo, idioma), "propuestas": []}
 
 
 def _pacientes_en(x, out: dict[str, int]) -> None:
@@ -361,7 +390,7 @@ def enlaces(perfil: str, respuesta: str, vistos: list) -> list[dict]:
             if len(n) > 3 and n in respuesta]
 
 
-def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, cliente=None) -> dict:
+def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, cliente=None, idioma: str | None = None) -> dict:
     """Un mensaje de la persona y la respuesta del asistente. Devuelve `{conversacion_id, respuesta, propuestas}`.
 
     - Lanza `AsistenteApagado` (interruptor del negocio apagado o sin clave), `TextoInvalido` (vacío o demasiado largo) y
@@ -371,6 +400,7 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
       `propuestas` vacío, y no guardan ningún turno (un fallo del modelo deja solo su fila `fallo`, que cuenta para los topes).
       `conversacion_id` es el recibido (puede ser None).
     - `cliente`: algo con `.beta.messages.create(**kwargs)`; sin él se usa el cliente real de la API.
+    - `idioma` (`es` o `en`): el de la página del sitio, para el visitante; va en el contexto y elige la respuesta fija.
     """
     aj = _ajustes(actor)
     texto = (texto or "").strip()
@@ -389,20 +419,24 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
         hogar = _hogar(conn, actor)
         historial = [{"role": f["rol"], "content": _reenviable(f["contenido"]) if f["rol"] == "assistant" else f["contenido"]}
                      for f in (_turnos(conn, actor, conversacion_id) if conversacion_id is not None else [])]
-        if _tokens_hoy(conn) >= int(config.get(conn, "asistente_tokens_dia")):
-            return _respuesta(actor, "no_disponible", conversacion_id)
+        if _tokens_hoy(conn) >= int(config.get(conn, "asistente_tokens_dia")) or (
+                actor.perfil in PRESUPUESTO_PROPIO
+                and _tokens_hoy(conn, actor.perfil) >= int(config.get(conn, PRESUPUESTO_PROPIO[actor.perfil]))):
+            return _respuesta(actor, "no_disponible", conversacion_id, idioma or "es")
         if _mensajes_hoy(conn, actor, hogar) >= int(config.get(conn, aj.clave_dia)):
-            return _respuesta(actor, "limite", conversacion_id)
+            return _respuesta(actor, "limite", conversacion_id, idioma or "es")
         if aj.mensajes_por_conversacion is not None and conversacion_id is not None:
             humanos = sum(1 for f in historial if f["role"] == "user" and f["content"][0].get("type") == "text")
             if humanos >= aj.mensajes_por_conversacion:
-                return _respuesta(actor, "limite", conversacion_id)
-        marco = _contexto(conn, actor)
+                return _respuesta(actor, "limite", conversacion_id, idioma or "es")
+        marco = _contexto(conn, actor, idioma)
         hoy = clock.now(conn).date()
     finally:
         conn.close()
 
-    # 2. El bucle, sin conexión abierta.
+    # 2. El bucle, sin conexión abierta. El texto de un visitante pierde sus datos personales antes de ir al modelo o a la base.
+    if actor.perfil == "visitante":
+        texto = omitir_datos_personales(texto)
     cliente = cliente or cliente_de_la_api()
     entrada = [{"type": "text", "text": marco}, {"type": "text", "text": texto}]
     vistos: list = []
@@ -455,12 +489,12 @@ def conversar(actor: Actor, texto: str, conversacion_id: int | None = None, *, c
             id_guardado = _guardar(actor, conversacion_id, nuevos)
         except _Fallo as f:
             _anotar_fallo(actor, conversacion_id, tokens_entrada, tokens_salida)
-            return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"fallo:{f}", _respuesta(actor, "fallo", conversacion_id),
+            return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"fallo:{f}", _respuesta(actor, "fallo", conversacion_id, idioma or "es"),
                              cache)
         except Exception as e:  # no se pudo guardar, o una falla inesperada: tampoco se guarda medio turno
             _anotar_fallo(actor, conversacion_id, tokens_entrada, tokens_salida)
             return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, f"error:{type(e).__name__}",
-                             _respuesta(actor, "fallo", conversacion_id), cache)
+                             _respuesta(actor, "fallo", conversacion_id, idioma or "es"), cache)
     finally:
         ejecutor.shutdown(wait=False, cancel_futures=True)
     return _terminar(actor, usadas, tokens_entrada, tokens_salida, inicio, "ok",

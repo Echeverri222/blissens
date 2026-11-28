@@ -39,6 +39,7 @@ DATOS_REALES_DIR = ROOT / os.environ.get("DATOS_REALES_DIR", "datos_reales")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ASISTENTE_MODELO = os.environ.get("ASISTENTE_MODELO", "claude-opus-5-5")
 ASISTENTE_MODELO_PACIENTE = os.environ.get("ASISTENTE_MODELO_PACIENTE", "") or ASISTENTE_MODELO
+ASISTENTE_MODELO_VISITANTE = os.environ.get("ASISTENTE_MODELO_VISITANTE", "") or "claude-haiku-5-5"  # el sitio público: el más barato
 # Dónde corre el modelo: `anthropic` (la API de Claude, con ANTHROPIC_API_KEY) o `bedrock` (Amazon Bedrock, con la región en
 # AWS_REGION y las credenciales de AWS: AWS_BEARER_TOKEN_BEDROCK, o el perfil o las variables de siempre).
 ASISTENTE_PROVEEDOR = os.environ.get("ASISTENTE_PROVEEDOR", "anthropic").strip().lower()

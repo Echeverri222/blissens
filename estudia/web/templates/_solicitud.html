@@ -1,14 +1,16 @@
 {# Formulario de solicitud de la landing (evaluación virtual, experiencias o contacto). Crea una solicitud de contacto. #}
-{% set f = t.form %}{% set v = values or {} %}
-<div id="sol-{{ interes }}" class="sol">
+{# `uid` (opcional): sufijo de los ids cuando el formulario va dentro del asistente (ver _identificar.html). #}
+{% set f = t.form %}{% set v = values or {} %}{% set uid = uid or '' %}
+<div id="sol-{{ interes }}{{ uid }}" class="sol">
 {% if hecho %}
   <div class="aviso aviso--claro" role="status"><p>{{ t.experiencias.ok if interes == 'experiencia' else f.ok.format(horas=horas or 24) }}
     {% if con_correo and interes != 'experiencia' %}{{ f.ok_correo }}{% endif %}</p></div>
 {% else %}
   <form class="form" method="post" action="/sitio/solicitud" enctype="multipart/form-data" hx-encoding="multipart/form-data"
-        hx-post="/sitio/solicitud" hx-target="#sol-{{ interes }}" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+        hx-post="/sitio/solicitud" hx-target="#sol-{{ interes }}{{ uid }}" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
     <input type="hidden" name="interes" value="{{ interes }}">
     <input type="hidden" name="idioma" value="{{ lang }}">
+    {% if uid %}<input type="hidden" name="panel" value="{{ uid[1:] }}">{% endif %}
     <div class="trampa" aria-hidden="true"><label>No llenar <input name="web" tabindex="-1" autocomplete="off"></label></div>
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
     <label>{{ f.nombre }}<input name="nombre" autocomplete="name" required value="{{ v.nombre or '' }}"></label>
@@ -19,12 +21,12 @@
     {% if interes == 'evaluacion_virtual' %}
     <label>{{ f.pais }}<input name="pais" autocomplete="country-name" value="{{ v.pais or '' }}"></label>
     <label>{{ f.fotos }}<input name="fotos" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf"
-        aria-describedby="fotos-ayuda-{{ interes }}"></label>
-    <p class="nota nota--campo" id="fotos-ayuda-{{ interes }}">{{ f.fotos_ayuda }}</p>
+        aria-describedby="fotos-ayuda-{{ interes }}{{ uid }}"></label>
+    <p class="nota nota--campo" id="fotos-ayuda-{{ interes }}{{ uid }}">{{ f.fotos_ayuda }}</p>
     {% endif %}
     {% if interes == 'experiencia' %}
     <label>{{ f.paquete }}
-      <select name="paquete" id="paquete-{{ interes }}" required>
+      <select name="paquete" id="paquete-{{ interes }}{{ uid }}" required>
         <option value="">{{ f.paquete_ph }}</option>
         {% for clave, nombre, _, _ in t.experiencias.paquetes %}<option value="{{ clave }}" {% if v.paquete == clave %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
       </select>

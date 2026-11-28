@@ -3,8 +3,9 @@
     uv run python -m estudia.asistente.mcp                                   # operador: lectura + esquema y consulta_sql
     uv run python -m estudia.asistente.mcp --perfil auxiliar [--usuario X]   # lo que ve la recepción en el asistente
     uv run python -m estudia.asistente.mcp --perfil paciente [--paciente F146]  # lo que ve un paciente desde su enlace
+    uv run python -m estudia.asistente.mcp --perfil visitante                # lo que ve quien escribe desde el sitio público
 
-Con `auxiliar` o `paciente` el servidor expone exactamente las herramientas y el alcance de ese perfil (las propuestas no
+Con `auxiliar`, `paciente` o `visitante` el servidor expone exactamente las herramientas y el alcance de ese perfil (las propuestas no
 escriben: devuelven la tarjeta que la persona confirmaría) y entrega como instrucciones el mismo texto de sistema que usa el
 asistente, con el bloque de contexto. Sirve para iterar herramientas, instrucciones y golden cases sin gastar en el modelo
 del asistente; la elección de herramientas y la velocidad reales solo se ven en la interfaz.
@@ -29,7 +30,8 @@ from .conversacion import _contexto, precarga
 from .despachador import ejecutar
 from .instrucciones import INSTRUCCIONES
 
-PERFILES_MCP = ("operador", "auxiliar", "paciente")
+PERFILES_MCP = ("operador", "auxiliar", "paciente", "visitante")
+VISITANTE_FALSO = "visitante-de-prueba"  # el id fijo del visitante en el MCP local (en la aplicación sale de una cookie firmada)
 
 
 def _funcion(h: Herramienta, actor: Actor, conexion) -> Callable[..., dict]:
@@ -91,11 +93,13 @@ def actor_de(conn, negocio_id: int, perfil: str, usuario: str | None = None, pac
         return Actor.de_usuario(_usuario(conn, usuario))
     if perfil == "paciente":
         return Actor.de_paciente(negocio_id, _paciente(conn, paciente))
+    if perfil == "visitante":
+        return Actor.de_visitante(negocio_id, VISITANTE_FALSO)
     return Actor.de_operador(negocio_id)
 
 
 def instrucciones_de(conn, actor: Actor) -> str | None:
-    """Para auxiliar y paciente: el texto de sistema del asistente y su bloque de contexto (fijado al arrancar)."""
+    """Para los perfiles con asistente: el texto de sistema del asistente y su bloque de contexto (fijado al arrancar)."""
     if actor.perfil not in INSTRUCCIONES:
         return None
     return (f"{INSTRUCCIONES[actor.perfil]}\n\n{_contexto(conn, actor)}\n\nLas herramientas proponer_* no escriben nada: "

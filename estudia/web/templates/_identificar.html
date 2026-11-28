@@ -1,7 +1,11 @@
 {# Primer paso del agendamiento (identificar). Se usa en /agendar y, con HTMX, dentro de la landing. #}
-{% set i = t.ident %}
-<form id="ident" class="form" method="post" action="{{ prefijo }}/agendar/identificar" hx-post="{{ prefijo }}/agendar/identificar" hx-target="#ident" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
+{# `uid` (opcional): sufijo de los ids cuando el formulario va dentro del asistente, para no repetir los de la sección de la landing.
+   `pre` (opcional): servicio, profesional y desde que la tarjeta del asistente ya eligió; viajan ocultos hasta el calendario. #}
+{% set i = t.ident %}{% set uid = uid or '' %}{% set pre = pre or {} %}
+<form id="ident{{ uid }}" class="form" method="post" action="{{ prefijo }}/agendar/identificar" hx-post="{{ prefijo }}/agendar/identificar" hx-target="#ident{{ uid }}" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
   <input type="hidden" name="idioma" value="{{ lang }}">
+  {% if uid %}<input type="hidden" name="panel" value="{{ uid[1:] }}">{% endif %}
+  {% for campo in ('servicio', 'profesional', 'desde') %}{% if pre.get(campo) %}<input type="hidden" name="{{ campo }}" value="{{ pre[campo] }}">{% endif %}{% endfor %}
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
   <label>{{ i.documento }}
     <input name="documento" inputmode="numeric" autocomplete="off" required value="{{ values.documento or '' }}" {% if nuevo %}readonly{% endif %}>
