@@ -40,7 +40,6 @@ DEFAULTS = {
     "bloqueo_login_min": 15,
     # Metas de los indicadores: {"inasistencia": {"max": 0.15}, "asistencia": {"min": 0.8}, ...}; cada clave es opcional.
     "metas_indicadores": {},
-    "asistente_nombre": "Bliss",               # cómo se llama el asistente; viaja en <contexto> (R25)
     # Asistente (docs/prd-asistente.md, D4). Con la clave de la API puesta, cada negocio lo enciende por separado.
     "asistente_equipo": False,                 # el equipo del negocio puede usar el asistente
     "asistente_pacientes": False,              # los pacientes del negocio pueden usarlo

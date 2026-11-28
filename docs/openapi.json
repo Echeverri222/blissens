@@ -9636,7 +9636,7 @@
           "nombre": {
             "type": "string",
             "title": "Nombre",
-            "description": "Cómo se llama el asistente (configuración `asistente_nombre`)",
+            "description": "Cómo se llama el asistente: siempre Bliss",
             "default": "Bliss"
           },
           "negocio": {
