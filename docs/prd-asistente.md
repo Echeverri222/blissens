@@ -123,8 +123,8 @@ Rules that the table does not show:
 - **`mis_citas`**: upcoming appointments of the household only. Returns first name, service, professional, date, time and state. An optional `para` (a household member's id) is checked with `familia.sujeto`.
 - **`espacios_libres`**: at most 12 slots per call. For a paciente it returns free times only, never who holds the taken ones.
 - **`servicios`**: name and duration. **Never `servicio.valor`** for the paciente perfil: it is an internal average, not a price.
-- **`buscar_pacientes`**: at most 10 rows: id, full name, and the last 4 digits of the document.
-- **`ficha_paciente`**: name, last 4 digits of the document, consent flags, the last 20 appointments, open follow-up cases, the last 10 state moves (with `reversible`), and the last 10 messages. No phone, email or birth date.
+- **`buscar_pacientes`**: at most 10 rows: id, full name, the last 4 digits of the document, and `etapa` (`prospecto`: wrote from the website and has no document yet; `paciente`). Matches name, document, phone or email.
+- **`ficha_paciente`**: name, last 4 digits of the document, `etapa`, consent flags, the last 20 appointments, open follow-up cases, the last 10 state moves (with `reversible`), and the last 10 messages. No phone, email or birth date.
 - **`bandeja`** and **`indicadores`**: at most 50 rows per call. `indicadores` takes `reporte`, `desde`, `hasta`, and optional `profesional_id` and `servicio_id`.
 - **`detalle_cita`** and every tool that takes an id: an id outside the actor's scope returns `no_existe`, the same as an id that does not exist (the `permisos.NoExiste` convention).
 - **Every tool**: output is capped at 8 000 characters. Past that, the tool returns the first rows and `"truncado": true`.

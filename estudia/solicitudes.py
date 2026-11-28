@@ -6,9 +6,10 @@ avisar, y el acuse a quien la envió, si dejó correo. La recepción la gestiona
 """
 from dataclasses import dataclass
 
-from . import canales, clock, config, pacientes, settings, tasks
+from . import canales, clock, config, links, pacientes, settings, tasks
 
 MAX_ADJUNTOS = 4
+MAX_ADJUNTOS_TOTAL = 12              # entre lo que mandó al principio y lo que agregó después
 MAX_BYTES = 5 * 1024 * 1024          # por archivo (lo mismo exige la base)
 MAX_TOTAL = 12 * 1024 * 1024
 INTERESES = {"evaluacion_virtual": ("Evaluación virtual", "Virtual assessment"),
@@ -55,19 +56,36 @@ def validar_adjuntos(adjuntos: list[Adjunto]) -> list[tuple[str, str, bytes]]:
     return out
 
 
+def _guardar_adjuntos(conn, solicitud_id: int, adjuntos: list[tuple[str, str, bytes]], now) -> None:
+    for n, tipo, datos in adjuntos:
+        conn.execute("insert into solicitud_adjunto(solicitud_id, nombre, tipo, tamano, datos, creado_en) "
+                     "values (%s,%s,%s,%s,%s,%s)", (solicitud_id, n, tipo, len(datos), datos, now))
+
+
+def agregar_adjuntos(conn, solicitud_id: int, adjuntos: list[tuple[str, str, bytes]]) -> None:
+    """Más archivos (ya validados) para una solicitud existente, hasta `MAX_ADJUNTOS_TOTAL` en ella. Si estaba gestionada,
+    vuelve a la bandeja: la recepción tiene algo nuevo que mirar."""
+    ya = conn.execute("select count(*) n from solicitud_adjunto where solicitud_id=%s", (solicitud_id,)).fetchone()["n"]
+    if ya + len(adjuntos) > MAX_ADJUNTOS_TOTAL:
+        raise AdjuntoInvalido("cantidad")
+    _guardar_adjuntos(conn, solicitud_id, adjuntos, clock.now(conn))
+    conn.execute("update solicitud_contacto set gestionada=false where id=%s", (solicitud_id,))
+
+
 def crear(conn, *, interes: str, idioma: str, nombre: str, correo: str | None, celular: str, pais: str | None,
           paquete: str | None, mensaje: str | None, adjuntos: list[tuple[str, str, bytes]]) -> int:
-    """Guarda la solicitud y sus adjuntos y programa los correos. Los datos ya vienen validados."""
+    """Guarda la solicitud, la asocia a su paciente (el que ya tenga ese correo o WhatsApp, o un prospecto nuevo), guarda
+    sus adjuntos y programa los correos. Los datos ya vienen validados."""
     from .web import copia
     now = clock.now(conn)
+    paciente_id, _ = pacientes.atender_solicitud(conn, nombre=nombre, correo=correo, celular=celular)
     etiqueta = copia.INTERESES[interes] + (f" · {copia.PAQUETES[paquete]}" if paquete else "")
     sid = conn.execute(
         "insert into solicitud_contacto(documento, celular, nota, momento, origen, interes, idioma, nombre, correo, pais, "
-        "paquete, mensaje) values ('—',%s,%s,%s,'sitio',%s,%s,%s,%s,%s,%s,%s) returning id",
-        (celular, f"Sitio web · {etiqueta}", now, interes, idioma, nombre, correo, pais, paquete, mensaje)).fetchone()["id"]
-    for n, tipo, datos in adjuntos:
-        conn.execute("insert into solicitud_adjunto(solicitud_id, nombre, tipo, tamano, datos, creado_en) "
-                     "values (%s,%s,%s,%s,%s,%s)", (sid, n, tipo, len(datos), datos, now))
+        "paquete, mensaje, paciente_id) values ('—',%s,%s,%s,'sitio',%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (celular, f"Sitio web · {etiqueta}", now, interes, idioma, nombre, correo, pais, paquete, mensaje,
+         paciente_id)).fetchone()["id"]
+    _guardar_adjuntos(conn, sid, adjuntos, now)
     if config.get(conn, "correo_avisos_solicitudes"):
         tasks.schedule(conn, "correo_solicitud", now, {"solicitud_id": sid, "tipo": "aviso"})
     if correo:
@@ -79,6 +97,19 @@ def crear(conn, *, interes: str, idioma: str, nombre: str, correo: str | None, c
 
 def _negocio(conn) -> str:
     return conn.execute("select nombre from negocio where id=(select negocio_activo())").fetchone()["nombre"]
+
+
+def _enlace_personal(conn, s: dict) -> str | None:
+    """La página de la persona (`/p/<enlace>`), solo si el correo de la solicitud es el que ella tiene en su ficha: el
+    enlace va a ese buzón y nunca a quien escribió con el WhatsApp de otra persona."""
+    if not s["paciente_id"]:
+        return None
+    p = conn.execute("select id, celular, correo, nombres, documento from paciente where id=%s", (s["paciente_id"],)).fetchone()
+    from .privacidad import ANONIMO
+    if p is None or not p["correo"] or p["correo"].lower() != (s["correo"] or "").lower() \
+            or (p["documento"] is None and p["nombres"] == ANONIMO):
+        return None
+    return f"{settings.BASE_URL}/p/{links.make_token(p['id'], conn=conn, celular=p['celular'], correo=p['correo'])}"
 
 
 def componer(conn, s: dict, tipo: str) -> tuple[str, str, str] | None:
@@ -100,17 +131,20 @@ def componer(conn, s: dict, tipo: str) -> tuple[str, str, str] | None:
     if not s["correo"]:
         return None
     horas = config.get(conn, "plazo_respuesta_solicitud_horas")
+    enlace = _enlace_personal(conn, s)
     primer = (s["nombre"] or "").split()[0].title() if s["nombre"] else ""
     if s["idioma"] == "en":
         return (s["correo"], f"We received your request – {negocio}",
                 f"Hi {primer},\n\nThank you for writing to {negocio}. We received your request "
                 f"({INTERESES[s['interes']][1].lower()}) and our team will reply within {horas} hours.\n\n"
-                "If you need to add something, just reply to this email.\n\n"
+                + (f"Follow your request and add photos or X-rays here: {enlace}\n\n" if enlace else "")
+                + "If you need to add something, just reply to this email.\n\n"
                 "You are receiving this message only because you sent a request on our website.")
     return (s["correo"], f"Recibimos tu solicitud – {negocio}",
             f"Hola {primer},\n\nGracias por escribirle a {negocio}. Recibimos tu solicitud "
             f"({INTERESES[s['interes']][0].lower()}) y nuestro equipo te responderá en las próximas {horas} horas.\n\n"
-            "Si quieres agregar algo, responde este correo.\n\n"
+            + (f"Mira cómo va tu solicitud y agrega fotos o radiografías aquí: {enlace}\n\n" if enlace else "")
+            + "Si quieres agregar algo, responde este correo.\n\n"
             "Recibes este mensaje solo porque enviaste una solicitud en nuestro sitio web.")
 
 

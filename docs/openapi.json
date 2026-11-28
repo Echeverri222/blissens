@@ -2310,6 +2310,109 @@
         }
       }
     },
+    "/api/v1/pacientes/{paciente_id}/identificacion": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Ponerle el documento a un prospecto: pasa a paciente",
+        "description": "Un prospecto es quien escribió desde el sitio web y aún no tiene documento. Con el documento (y el celular, si le falta) pasa a ser paciente y ya se le pueden agendar citas. 409 si otro paciente ya tiene ese documento.",
+        "operationId": "identificar_paciente_api_v1_pacientes__paciente_id__identificacion_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Identificacion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PacienteIdentificado"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/pacientes/{paciente_id}/correo": {
       "put": {
         "tags": [
@@ -7349,6 +7452,55 @@
         }
       }
     },
+    "/p/{token}/adjuntos": {
+      "post": {
+        "summary": "Prospecto Adjuntos",
+        "description": "Agrega fotos o PDF a la última solicitud del prospecto, con las mismas reglas que el formulario del sitio.",
+        "operationId": "prospecto_adjuntos_p__token__adjuntos_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_prospecto_adjuntos_p__token__adjuntos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/p/{token}/familia/agregar": {
       "get": {
         "summary": "Familia Form",
@@ -8998,6 +9150,26 @@
             "type": "string",
             "title": "Idioma",
             "default": "es"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio",
+            "default": ""
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional",
+            "default": ""
+          },
+          "desde": {
+            "type": "string",
+            "title": "Desde",
+            "default": ""
+          },
+          "panel": {
+            "type": "string",
+            "title": "Panel",
+            "default": ""
           }
         },
         "type": "object",
@@ -9046,6 +9218,26 @@
             "type": "string",
             "title": "Idioma",
             "default": "es"
+          },
+          "servicio": {
+            "type": "string",
+            "title": "Servicio",
+            "default": ""
+          },
+          "profesional": {
+            "type": "string",
+            "title": "Profesional",
+            "default": ""
+          },
+          "desde": {
+            "type": "string",
+            "title": "Desde",
+            "default": ""
+          },
+          "panel": {
+            "type": "string",
+            "title": "Panel",
+            "default": ""
           }
         },
         "type": "object",
@@ -9054,6 +9246,28 @@
           "celular"
         ],
         "title": "Body_identificar_n__nombre__agendar_identificar_post"
+      },
+      "Body_prospecto_adjuntos_p__token__adjuntos_post": {
+        "properties": {
+          "fotos": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Fotos",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Body_prospecto_adjuntos_p__token__adjuntos_post"
       },
       "Body_reloj_simulador_reloj_post": {
         "properties": {
@@ -10823,6 +11037,15 @@
             "type": "boolean",
             "title": "Acepta Mensajes"
           },
+          "etapa": {
+            "type": "string",
+            "enum": [
+              "prospecto",
+              "paciente"
+            ],
+            "title": "Etapa",
+            "description": "`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene."
+          },
           "internacional": {
             "type": "boolean",
             "title": "Internacional",
@@ -10840,7 +11063,8 @@
                 "enum": [
                   "recepcion",
                   "importacion",
-                  "sitio_en"
+                  "sitio_en",
+                  "sitio_web"
                 ]
               },
               {
@@ -10859,6 +11083,7 @@
           "celular",
           "correo",
           "acepta_mensajes",
+          "etapa",
           "internacional",
           "deportista",
           "segmento_origen"
@@ -11063,6 +11288,33 @@
           "franjas"
         ],
         "title": "HorarioOut"
+      },
+      "Identificacion": {
+        "properties": {
+          "documento": {
+            "type": "string",
+            "title": "Documento",
+            "description": "Documento de identidad del prospecto (se guardan solo los dígitos)."
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular",
+            "description": "Celular, si el prospecto aún no tenía o hay que corregirlo."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "documento"
+        ],
+        "title": "Identificacion"
       },
       "IntentoOut": {
         "properties": {
@@ -11567,6 +11819,53 @@
         ],
         "title": "PacienteCreado"
       },
+      "PacienteIdentificado": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "etapa": {
+            "type": "string",
+            "enum": [
+              "prospecto",
+              "paciente"
+            ],
+            "title": "Etapa",
+            "description": "`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene."
+          },
+          "documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documento"
+          },
+          "celular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celular"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etapa",
+          "documento",
+          "celular"
+        ],
+        "title": "PacienteIdentificado"
+      },
       "PacienteMinimo": {
         "properties": {
           "id": {
@@ -11633,6 +11932,15 @@
             ],
             "title": "Celular"
           },
+          "etapa": {
+            "type": "string",
+            "enum": [
+              "prospecto",
+              "paciente"
+            ],
+            "title": "Etapa",
+            "description": "`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene."
+          },
           "internacional": {
             "type": "boolean",
             "title": "Internacional",
@@ -11651,6 +11959,7 @@
           "apellidos",
           "documento",
           "celular",
+          "etapa",
           "internacional",
           "deportista"
         ],
@@ -12537,7 +12846,8 @@
                 "enum": [
                   "recepcion",
                   "importacion",
-                  "sitio_en"
+                  "sitio_en",
+                  "sitio_web"
                 ]
               },
               {
@@ -12545,7 +12855,7 @@
               }
             ],
             "title": "Segmento Origen",
-            "description": "De dónde salió la última marca: la recepción, la importación del Excel o el registro en el sitio en inglés."
+            "description": "De dónde salió la última marca: la recepción, la importación del Excel, el registro en el sitio en inglés o una solicitud del sitio web."
           },
           "segmento_marcado_en": {
             "anyOf": [
