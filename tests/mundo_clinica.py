@@ -101,6 +101,7 @@ class Mundo:
     mensaje: dict[str, int] = field(default_factory=dict)
     solicitud: dict[str, int] = field(default_factory=dict)
     historial: dict[str, int] = field(default_factory=dict)
+    tratamiento: dict[str, int] = field(default_factory=dict)
     actores: dict[str, Actor] = field(default_factory=dict)
 
     def resolver(self, x):
@@ -156,6 +157,10 @@ def construir(conn) -> Mundo:
         w.paciente[k] = make_patient(conn, nombres, apellidos, doc=doc, celular=cel, acepta=acepta)
     conn.execute("update paciente set responsable_id=%s, parentesco='hijo', fecha_nacimiento='2014-03-09' where id=%s",
                  (w.paciente["laura"], w.paciente["tomas"]))
+
+    # Andrés tiene un tratamiento activo con la Dra. Ríos, sin plan entregado todavía (R14).
+    w.tratamiento["andres"] = conn.execute("insert into tratamiento(paciente_id, profesional_id, sesiones_previstas) values "
+                                           "(%s,%s,6) returning id", (w.paciente["andres"], w.pro["rios"])).fetchone()["id"]
 
     pacientes.no_contactar(conn, w.paciente["rafael"], "queja", "Queja abierta por un cobro", None)
 
