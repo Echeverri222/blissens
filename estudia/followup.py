@@ -54,11 +54,30 @@ SEGUIMIENTO = sorted(set(RETRY_TEMPLATE.values()))
 HORAS_ENTRE_SEGUIMIENTOS_DEL_HOGAR = 20
 
 
+def nombre_con_titulo(titulo: str | None, nombre: str) -> str:
+    return f"{titulo.strip()} {nombre}".strip() if titulo and titulo.strip() else nombre
+
+
+def _profesional_del_caso(conn, caso) -> str:
+    """El profesional de la cita o del tratamiento de origen, con su título; sin él, "nuestro equipo"."""
+    if caso["cita_id"]:
+        r = conn.execute("select p.titulo, p.nombre from cita c join profesional p on p.id=c.profesional_id where c.id=%s",
+                         (caso["cita_id"],)).fetchone()
+    elif caso["tratamiento_id"]:
+        r = conn.execute("select p.titulo, p.nombre from tratamiento t join profesional p on p.id=t.profesional_id "
+                         "where t.id=%s", (caso["tratamiento_id"],)).fetchone()
+    else:
+        r = None
+    return nombre_con_titulo(r["titulo"], r["nombre"]) if r else "nuestro equipo"
+
+
 def _datos(conn, caso: dict) -> dict:
     data = {"caso_id": caso["id"], "enlace": messaging.patient_link(conn, caso["paciente_id"], f"/agendar?caso={caso['id']}")}
     if caso["cita_id"]:
         from .agenda import _info
         data.update(_info(conn, caso["cita_id"]))
+    # Solo el profesional (título y nombre): nunca el servicio, el diagnóstico ni montos.
+    data["profesional"] = _profesional_del_caso(conn, caso)
     return data
 
 

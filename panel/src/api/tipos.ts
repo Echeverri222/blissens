@@ -12,6 +12,7 @@ export type Profesional = S["ProfesionalOut"];
 export type Servicio = S["ServicioOut"];
 export type Metas = S["Metas"];
 export type Motivo = S["MotivoOut"];
+export type MotivoAdmin = S["MotivoAdmin"];
 export type Agenda = S["AgendaOut"];
 export type CitaAgenda = S["CitaAgenda"];
 export type Bloqueo = S["BloqueoOut"];

@@ -16,8 +16,8 @@ contexto:
     excluye: ["Cirugía"]
 respuesta:
   incluye: ["clinic"]
-  excluye: ["Solo puedo ayudarte"]
+  excluye: ["solo puedo ayudarle"]
   propuestas: []
 notas: >-
   Responde en inglés (idioma de la persona). No es fuera de alcance: es una cita, solo que no autoagendable. Tampoco es
-  pregunta clínica, así que no corresponde «Llama a la clínica».
+  pregunta clínica, así que no corresponde «Llame a la clínica».

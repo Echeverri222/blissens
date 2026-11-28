@@ -76,3 +76,44 @@ def test_panel_actions_record_who_and_when(mundo, conn):
     assert {x["usuario"] for x in p["por_usuario"]} == {"Recepción"}
     r = mundo.aux.get(f"{API}/indicadores/reagendamiento?desde={hoy}&hasta={hoy}").json()
     assert set(r["buckets"]) == {"mismo_dia", "1_3", "4_14", "15_60", "no_reagendo"} and r["total"] == 0
+
+
+# ------------------------------------------------------------------ R10: título del profesional
+
+def test_titulo_del_profesional_solo_lo_cambia_quien_administra(mundo, conn):
+    pid = mundo.aux.get(f"{API}/profesionales").json()[0]["id"]
+    assert mundo.aux.put(f"{API}/admin/profesionales/{pid}", json={"titulo": "Dra."}).status_code == 403
+    jefa = admin(conn)
+    r = jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": " Dra. "})
+    assert r.status_code == 200 and r.json()["titulo"] == "Dra."
+    assert {p["id"]: p["titulo"] for p in mundo.aux.get(f"{API}/profesionales").json()}[pid] == "Dra."
+    assert jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": ""}).json()["titulo"] == ""
+    assert jefa.put(f"{API}/admin/profesionales/{pid}", json={"titulo": "x" * 21}).status_code == 422
+    assert jefa.put(f"{API}/admin/profesionales/99999", json={"titulo": "Dr."}).status_code == 404
+
+
+# ------------------------------------------------------------------ R11: motivos de cancelación activos
+
+def test_motivos_por_defecto_y_admin_los_elige_y_ordena(mundo, conn):
+    etiquetas = lambda r: [m["etiqueta"] for m in r.json()]  # noqa: E731
+    assert etiquetas(mundo.aux.get(f"{API}/motivos-cancelacion")) == ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]
+    assert mundo.aux.get(f"{API}/admin/motivos-cancelacion").status_code == 403
+    jefa = admin(conn)
+    todos = jefa.get(f"{API}/admin/motivos-cancelacion").json()
+    assert len(todos) == 8 and [m["activo"] for m in todos] == [True] * 5 + [False] * 3  # los inactivos no se borran
+    ids = {m["etiqueta"]: m["id"] for m in todos}
+    nuevo = [ids["Viaje"], ids["Salud"], ids["Transporte"]]
+    r = jefa.put(f"{API}/admin/motivos-cancelacion", json={"activos": nuevo})
+    assert r.status_code == 200
+    assert etiquetas(mundo.aux.get(f"{API}/motivos-cancelacion")) == ["Viaje", "Salud", "Transporte", "Otro"]  # "Otro" siempre al final y activo
+    assert jefa.put(f"{API}/admin/motivos-cancelacion", json={"activos": [i for e, i in ids.items() if e != "Otro"][:6]}).status_code == 422  # 6 sin contar "Otro"
+    assert jefa.put(f"{API}/admin/motivos-cancelacion", json={"activos": [99999]}).status_code == 404
+    assert etiquetas(mundo.aux.get(f"{API}/motivos-cancelacion"))[-1] == "Otro"
+
+
+def test_el_motivo_inactivo_sigue_valido_para_el_historico(mundo, conn):
+    inactivo = conn.execute("select id from motivo_cancelacion where etiqueta='Transporte'").fetchone()["id"]
+    assert inactivo not in [m["id"] for m in mundo.aux.get(f"{API}/motivos-cancelacion").json()]
+    from estudia import catalog
+    assert inactivo not in [m["id"] for m in catalog.motivos_activos(conn)]
+    assert conn.execute("select count(*) as n from motivo_cancelacion").fetchone()["n"] == 8

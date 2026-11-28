@@ -7289,6 +7289,289 @@
         }
       }
     },
+    "/api/v1/admin/profesionales/{profesional_id}": {
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Fijar el título de un profesional",
+        "description": "El título (\"Dra.\", \"Dr.\") se antepone al nombre en los mensajes de recuperación; vacío lo quita.",
+        "operationId": "titulo_profesional_api_v1_admin_profesionales__profesional_id__put",
+        "parameters": [
+          {
+            "name": "profesional_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profesional Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TituloProfesional"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfesionalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/motivos-cancelacion": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Todos los motivos de cancelación, activos o no",
+        "description": "Los activos primero, en el orden en que se ofrecen.",
+        "operationId": "ver_motivos_api_v1_admin_motivos_cancelacion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MotivoAdmin"
+                  },
+                  "type": "array",
+                  "title": "Response Ver Motivos Api V1 Admin Motivos Cancelacion Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Elegir y ordenar los motivos que se ofrecen",
+        "description": "Máximo 5 motivos más \"Otro\" (siempre activo, al final). Los que no se envían quedan inactivos: no se borran y los indicadores conservan su historia.",
+        "operationId": "fijar_motivos_api_v1_admin_motivos_cancelacion_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotivosActivos"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MotivoAdmin"
+                  },
+                  "type": "array",
+                  "title": "Response Fijar Motivos Api V1 Admin Motivos Cancelacion Put"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/metas": {
       "get": {
         "tags": [
@@ -9349,6 +9632,18 @@
             "type": "integer",
             "title": "Mensajes Restantes",
             "description": "Mensajes que le quedan hoy a este usuario"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre",
+            "description": "Cómo se llama el asistente (configuración `asistente_nombre`)",
+            "default": "Bliss"
+          },
+          "negocio": {
+            "type": "string",
+            "title": "Negocio",
+            "description": "Nombre del negocio, para el subtítulo «Asistente de …»",
+            "default": ""
           }
         },
         "type": "object",
@@ -12314,6 +12609,30 @@
         "title": "Metas",
         "description": "Metas de los indicadores; todas son opcionales. Tasas entre 0 y 1; el dinero en pesos."
       },
+      "MotivoAdmin": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo",
+            "description": "Se ofrece al cancelar (panel, WhatsApp, página del paciente y asistente)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etiqueta",
+          "activo"
+        ],
+        "title": "MotivoAdmin"
+      },
       "MotivoIndicador": {
         "properties": {
           "motivo": {
@@ -12354,6 +12673,25 @@
           "etiqueta"
         ],
         "title": "MotivoOut"
+      },
+      "MotivosActivos": {
+        "properties": {
+          "activos": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Activos",
+            "description": "Ids de los motivos que se ofrecen, en orden. Máximo 5 más \"Otro\", que siempre está activo y va al final; los demás quedan inactivos."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "activos"
+        ],
+        "title": "MotivosActivos"
       },
       "NegocioOut": {
         "properties": {
@@ -13044,6 +13382,12 @@
           "especialidad": {
             "type": "string",
             "title": "Especialidad"
+          },
+          "titulo": {
+            "type": "string",
+            "title": "Titulo",
+            "description": "Cómo se antepone al nombre en los mensajes de seguimiento (\"Dra.\", \"Dr.\"); vacío si no usa",
+            "default": ""
           }
         },
         "type": "object",
@@ -14432,6 +14776,22 @@
           "pares"
         ],
         "title": "TiempoServicio"
+      },
+      "TituloProfesional": {
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Titulo",
+            "description": "\"Dra.\", \"Dr.\"…; vacío lo quita"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "titulo"
+        ],
+        "title": "TituloProfesional"
       },
       "UsuarioAdmin": {
         "properties": {

@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from .. import agenda, clock, config, horario, permisos, usuarios
+from .. import agenda, catalog, clock, config, horario, permisos, usuarios
 from ..web.limite import LimiteVentana
 from . import schemas as sc
 from .comun import (
@@ -116,7 +116,7 @@ def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn
 
 @router.get("/profesionales", tags=["Catálogos"], summary="Profesionales activos", response_model=list[sc.ProfesionalOut])
 def profesionales(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, nombre, especialidad from profesional where activo order by id").fetchall()
+    return conn.execute("select id, nombre, especialidad, titulo from profesional where activo order by id").fetchall()
 
 
 @router.get("/servicios", tags=["Catálogos"], summary="Servicios", response_model=list[sc.ServicioOut])
@@ -126,7 +126,7 @@ def servicios(conn=Depends(get_conn), u=Depends(usuario_actual)):
 
 @router.get("/motivos-cancelacion", tags=["Catálogos"], summary="Motivos de cancelación", response_model=list[sc.MotivoOut])
 def motivos(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()
+    return catalog.motivos_activos(conn)
 
 
 # ----------------------------------------------------------------- agenda

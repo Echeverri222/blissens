@@ -14,6 +14,15 @@ SERVICIOS = [  # nombre, duración, autoagendable, admite adelanto
 
 MOTIVOS = ["Salud", "Trabajo o estudio", "Viaje", "Transporte", "Motivo económico", "Confusión de fecha",
            "Ya no la necesito", "Otro"]
+# Los que se ofrecen por defecto; el resto queda inactivo (los datos históricos se conservan). "Otro" va siempre al final.
+MOTIVOS_ACTIVOS = ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]
+MAX_MOTIVOS_ACTIVOS = 5  # sin contar "Otro"
+MOTIVO_OTRO = "Otro"
+
+
+def motivos_activos(conn) -> list[dict]:
+    """Los motivos de cancelación que se ofrecen hoy, en su orden, con "Otro" al final."""
+    return conn.execute("select id, etiqueta from motivo_cancelacion where activo order by etiqueta = 'Otro', orden, id").fetchall()
 
 _CONF = [{"id": "conf:si:{cita_id}", "title": "Sí, asistiré"},
          {"id": "conf:no:{cita_id}", "title": "No podré ir"},
@@ -26,54 +35,34 @@ _CONF_HOGAR = [{"id": "confh:si:{ids}", "title": "Sí, asistiremos"},
                {"id": "confh:cambiar:{ids}", "title": "Cambiar o cancelar"}]
 
 PLANTILLAS = {
-    "cita_agendada": ("¡Hola {nombre}! Tu cita quedó agendada para el {fecha} a las {hora} con {profesional}. "
-                      "Te esperamos en {direccion}. ¡Gracias por elegirnos!", "botones", []),
-    "recordatorio_48h": ("Hola {nombre}, te recordamos tu cita del {fecha} a las {hora} con {profesional}. "
-                         "¿Nos confirmas tu asistencia?", "botones", _CONF),
-    "recordatorio_24h": ("Hola {nombre}, mañana es tu cita: {fecha} a las {hora} con {profesional}, en {direccion}. "
-                         "¡Te esperamos!", "botones", []),
-    "segundo_intento": ("Hola {nombre}, aún no hemos recibido tu confirmación para la cita del {fecha} a las {hora} "
-                        "con {profesional}. ¿Puedes responder con un toque?", "botones", _CONF),
-    "confirmacion_recibida": ("¡Gracias, {nombre}! Tu cita del {fecha} a las {hora} quedó confirmada. "
-                              "Te esperamos en {direccion}.", "botones", []),
-    "pedir_motivo": ("Listo {nombre}, cancelamos tu cita del {fecha}. Para mejorar nuestro servicio, "
-                     "¿nos cuentas el motivo? Elige una opción.", "lista", []),
-    "cancelacion_recibida": ("Gracias, {nombre}. Tu cita del {fecha} quedó cancelada. Cuando quieras retomarla, "
-                             "elige un nuevo espacio aquí: {enlace}", "botones", _AHORA_NO),
-    "seguimiento_reasignacion": ("Hola {nombre}, queremos ayudarte a retomar la cita que cancelaste. "
-                                 "Mira los espacios disponibles aquí: {enlace}", "botones", _AHORA_NO),
-    "seguimiento_inasistencia": ("Hola {nombre}, te extrañamos en tu cita del {fecha}. Si quieres reagendarla, "
-                                 "elige un espacio aquí: {enlace}", "botones", _AHORA_NO),
-    "continuidad_tratamiento": ("Hola {nombre}, queremos acompañarte a continuar tu plan de atención. "
-                                "Agenda tu próxima cita aquí: {enlace}", "botones", _AHORA_NO),
-    "oferta_adelanto": ("Hola {nombre}, tu cita podría adelantarse de {fecha_actual} a las {hora_actual} a "
-                        "{fecha_nueva} a las {hora_nueva}. ¿Quieres hacerlo?", "botones",
+    "cita_agendada": ("Hola, {nombre}. Su cita quedó agendada para el {fecha} a las {hora} con {profesional}. Le esperamos en {direccion}. Gracias por elegirnos.", "botones", []),
+    "recordatorio_48h": ("Hola, {nombre}. Le recordamos su cita del {fecha} a las {hora} con {profesional}. ¿Nos confirma su asistencia?", "botones", _CONF),
+    "recordatorio_24h": ("Hola, {nombre}. Mañana es su cita: {fecha} a las {hora} con {profesional}, en {direccion}. Le esperamos.", "botones", []),
+    "segundo_intento": ("Hola, {nombre}. Aún no hemos recibido su confirmación para la cita del {fecha} a las {hora} con {profesional}. ¿Puede responder con un toque?", "botones", _CONF),
+    "confirmacion_recibida": ("Gracias, {nombre}. Su cita del {fecha} a las {hora} quedó confirmada. Le esperamos en {direccion}.", "botones", []),
+    "pedir_motivo": ("Listo, {nombre}. Cancelamos su cita del {fecha}. Para mejorar nuestro servicio, ¿nos cuenta el motivo? Elija una opción.", "lista", []),
+    "cancelacion_recibida": ("Gracias, {nombre}. Su cita del {fecha} quedó cancelada. Cuando quiera retomarla, elija un nuevo espacio aquí: {enlace}", "botones", _AHORA_NO),
+    "seguimiento_reasignacion": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio. Elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
+    "seguimiento_inasistencia": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio. Si desea retomar su cita del {fecha}, elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
+    "continuidad_tratamiento": ("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional} le guarda un espacio para continuar su plan. Elija el que mejor le quede: {enlace}", "botones", _AHORA_NO),
+    "oferta_adelanto": ("Hola, {nombre}. Su cita podría adelantarse de {fecha_actual} a las {hora_actual} a {fecha_nueva} a las {hora_nueva}. ¿Desea hacerlo?", "botones",
                         [{"id": "oferta:si:{oferta_id}", "title": "Sí, adelantarla"},
                          {"id": "oferta:no:{oferta_id}", "title": "No, gracias"}]),
-    "adelanto_confirmado": ("¡Listo, {nombre}! Adelantamos tu cita: ahora es el {fecha} a las {hora} con "
-                            "{profesional}, en {direccion}. Esta es tu nueva fecha.", "botones", []),
-    "oferta_no_disponible": ("Hola {nombre}, ese espacio ya no está disponible. No te preocupes: tu cita original "
-                             "sigue igual.", "botones", []),
-    "baja_confirmada": ("Listo {nombre}, no te enviaremos más mensajes automáticos por WhatsApp. Los correos, si los "
-                        "recibes, se cancelan con el enlace que traen. Si necesitas algo, escríbenos o llámanos.",
+    "adelanto_confirmado": ("Listo, {nombre}. Adelantamos su cita: ahora es el {fecha} a las {hora} con {profesional}, en {direccion}. Esta es su nueva fecha.", "botones", []),
+    "oferta_no_disponible": ("Hola, {nombre}. Ese espacio ya no está disponible. No se preocupe: su cita original sigue igual.", "botones", []),
+    "baja_confirmada": ("Listo, {nombre}. No le enviaremos más mensajes automáticos por WhatsApp. Los correos, si los recibe, se cancelan con el enlace que traen. Si necesita algo, escríbanos o llámenos.",
                         "botones", []),
-    "respuesta_tardia": ("Hola {nombre}, esa cita ya no está vigente. Si necesitas ayuda, la clínica te acompaña "
-                         "con gusto.", "botones", []),
-    "cambiar_fecha": ("Claro, {nombre}. Elige tu nueva fecha aquí: {enlace}. Tu cita actual se mantiene hasta "
-                      "que elijas otra.", "botones", []),
-    "seguimiento_pausado": ("Entendido, {nombre}. No insistiremos más sobre esto. Cuando quieras retomar, "
-                            "aquí estamos.", "botones", []),
-    "cita_agendada_hogar": ("¡Hola {nombre}! Te confirmamos lo que quedó agendado:\n{lista}\n"
-                            "Los esperamos en {direccion}. ¡Gracias por elegirnos!", "botones", []),
-    "recordatorio_48h_hogar": ("Hola {nombre}, te recordamos las próximas citas de tu familia:\n{lista}\n"
-                               "¿Nos confirmas la asistencia?", "botones", _CONF_HOGAR),
-    "recordatorio_24h_hogar": ("Hola {nombre}, mañana tienen cita:\n{lista}\nLos esperamos en {direccion}.",
+    "respuesta_tardia": ("Hola, {nombre}. Esa cita ya no está vigente. Si necesita ayuda, la clínica le acompaña con gusto.", "botones", []),
+    "cambiar_fecha": ("Claro, {nombre}. Elija su nueva fecha aquí: {enlace}. Su cita actual se mantiene hasta que elija otra.", "botones", []),
+    "seguimiento_pausado": ("Entendido, {nombre}. No insistiremos más sobre esto. Cuando quiera retomar, aquí estamos.", "botones", []),
+    "cita_agendada_hogar": ("Hola, {nombre}. Le confirmamos lo que quedó agendado:\n{lista}\nLos esperamos en {direccion}. Gracias por elegirnos.", "botones", []),
+    "recordatorio_48h_hogar": ("Hola, {nombre}. Le recordamos las próximas citas de su familia:\n{lista}\n¿Nos confirma la asistencia?", "botones", _CONF_HOGAR),
+    "recordatorio_24h_hogar": ("Hola, {nombre}. Mañana tienen cita:\n{lista}\nLos esperamos en {direccion}.",
                                "botones", []),
-    "segundo_intento_hogar": ("Hola {nombre}, mañana tienen cita:\n{lista}\nAún nos falta la confirmación de las que "
-                              "dicen «sin confirmar». ¿Puedes responder con un toque?", "botones", _CONF_HOGAR),
-    "confirmacion_recibida_hogar": ("¡Gracias, {nombre}! Quedaron confirmadas:\n{lista}\nLos esperamos en {direccion}.",
+    "segundo_intento_hogar": ("Hola, {nombre}. Mañana tienen cita:\n{lista}\nAún nos falta la confirmación de las que dicen «sin confirmar». ¿Puede responder con un toque?", "botones", _CONF_HOGAR),
+    "confirmacion_recibida_hogar": ("Gracias, {nombre}. Quedaron confirmadas:\n{lista}\nLos esperamos en {direccion}.",
                                     "botones", []),
-    "cambiar_hogar": ("Claro, {nombre}. Desde aquí puedes cambiar o cancelar cada cita: {enlace}", "botones", []),
+    "cambiar_hogar": ("Claro, {nombre}. Desde aquí puede cambiar o cancelar cada cita: {enlace}", "botones", []),
 }
 
 
@@ -84,8 +73,8 @@ def load(conn) -> None:
             "insert into servicio(nombre, duracion_min, autoagendable, admite_adelanto) values (%s,%s,%s,%s) "
             "on conflict (negocio_id, nombre) do nothing", (nombre, dur, auto, adel))
     for i, m in enumerate(MOTIVOS, start=1):
-        conn.execute("insert into motivo_cancelacion(etiqueta, orden) values (%s,%s) on conflict (negocio_id, etiqueta) do nothing",
-                     (m, i))
+        conn.execute("insert into motivo_cancelacion(etiqueta, orden, activo) values (%s,%s,%s) "
+                     "on conflict (negocio_id, etiqueta) do nothing", (m, i, m in MOTIVOS_ACTIVOS))
     for clave, (texto, tipo, botones) in PLANTILLAS.items():
         conn.execute(
             "insert into plantilla(clave, texto, tipo, botones) values (%s,%s,%s,%s) "

@@ -61,7 +61,8 @@ def test_no_podre_ir_cancels_asks_reason_and_offers_new_slots(conn):
     press(conn, a, button(conn, a, "recordatorio_48h", 1))
     assert status(conn, c) == "cancelada"
     pedir = outbox(conn, a, "pedir_motivo")[0]
-    assert pedir["tipo"] == "lista" and len(pedir["botones"]) == 8
+    assert pedir["tipo"] == "lista" and len(pedir["botones"]) == 5
+    assert [o["title"] for o in pedir["botones"]] == ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]
     assert all(len(o["title"]) <= 24 for o in pedir["botones"])
     press(conn, a, pedir["botones"][2]["id"])  # Viaje
     assert conn.execute("select m.etiqueta from cancelacion c join motivo_cancelacion m on m.id=c.motivo_id").fetchone()["etiqueta"] == "Viaje"

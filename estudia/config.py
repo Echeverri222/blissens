@@ -26,6 +26,7 @@ DEFAULTS = {
     "texto_consentimiento": "Autorizo a {nombre} a tratar mis datos personales para gestionar mis citas y enviarme mensajes\n"
                             "      sobre ellas (Ley 1581 de 2012). Puedo pedir la baja respondiendo BAJA.",
     "consentimiento_version": "1",
+    "version_plantillas": 2,            # catálogo de plantillas que tiene el negocio (2 = en usted, R9)
     "demo_mode": True,
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
@@ -39,6 +40,7 @@ DEFAULTS = {
     "bloqueo_login_min": 15,
     # Metas de los indicadores: {"inasistencia": {"max": 0.15}, "asistencia": {"min": 0.8}, ...}; cada clave es opcional.
     "metas_indicadores": {},
+    "asistente_nombre": "Bliss",               # cómo se llama el asistente; viaja en <contexto> (R25)
     # Asistente (docs/prd-asistente.md, D4). Con la clave de la API puesta, cada negocio lo enciende por separado.
     "asistente_equipo": False,                 # el equipo del negocio puede usar el asistente
     "asistente_pacientes": False,              # los pacientes del negocio pueden usarlo

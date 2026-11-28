@@ -10,7 +10,7 @@ from typing import Literal
 from psycopg.types.range import Range
 from pydantic import Field
 
-from .. import agenda, bandejas, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos
+from .. import agenda, bandejas, catalog, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos
 from ..lifecycle import ALIVE
 from ..pacientes import DatosInvalidos
 from .actor import Actor
@@ -259,7 +259,7 @@ def datos_del_negocio(conn, actor, a) -> dict:
 
 @herramienta("motivos_cancelacion", "Los motivos de cancelación con su id (`proponer_cancelar` pide uno).", SinEntrada, AUX, LECTURA)
 def motivos_cancelacion(conn, actor, a) -> dict:
-    return {"motivos": conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()}
+    return {"motivos": catalog.motivos_activos(conn)}
 
 
 # ----------------------------------------------------------------- agenda y citas del equipo
@@ -585,7 +585,7 @@ def _cita_del_hogar(conn, actor: Actor, cita_id: int) -> tuple[dict, dict]:
 
 
 def _de_quien(p: dict, c: dict) -> str:
-    return "tu cita" if c["paciente_id"] == p["id"] else f"la cita de {familia.primer_nombre(c['paciente'])}"
+    return "su cita" if c["paciente_id"] == p["id"] else f"la cita de {familia.primer_nombre(c['paciente'])}"
 
 
 def _cita_del_equipo(conn, actor: Actor, cita_id: int, accion: str) -> dict:
@@ -708,7 +708,7 @@ def proponer_confirmar(conn, actor, a: CancelarPaciente) -> dict:
         raise ErrorHerramienta("accion_no_permitida", "Esa cita ya empezó o no tiene hora: no se puede confirmar.")
     # `POST /p/{token}/confirmar/{cita_id}`: el mismo paso que el botón «Sí, asistiré» del recordatorio.
     return _propuesta("confirmar", {"cita_id": c["id"]},
-                      f"Confirmar que asistirás a {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}."
+                      f"Confirmar que asistirá a {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}."
                       if c["paciente_id"] == p["id"] else
                       f"Confirmar {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}.")
 
@@ -960,7 +960,7 @@ def pedir_contacto(conn, actor, a) -> dict:
     _paciente(conn, actor)
     termino = config.get(conn, "termino_negocio")
     # `POST /p/{token}/contacto` (PRD §7): no necesita campos.
-    return _propuesta("contacto", {}, f"Pedir que {termino} te contacte.")
+    return _propuesta("contacto", {}, f"Pedir que {termino} se comunique con usted.")
 
 
 # ----------------------------------------------------------------- sitio público (perfil visitante)
@@ -1005,7 +1005,7 @@ def proponer_registro(conn, actor, a: ProponerRegistro) -> dict:
     # Los parámetros de `GET /p/{token}/nueva`; 0 es «sin elegir». `desde` es hora local sin zona.
     par = {"servicio": srv["id"] if srv else 0, "profesional": pro["id"] if pro else 0,
            "desde": inicio.strftime("%Y-%m-%dT%H:%M") if inicio else ""}
-    resumen = ("Identifícate para agendar" + (f" {srv['nombre']}" if srv else "") + (f" el {_cuando(inicio)}" if inicio else "")
+    resumen = ("Identifíquese para agendar" + (f" {srv['nombre']}" if srv else "") + (f" el {_cuando(inicio)}" if inicio else "")
                + (f" con {pro['nombre']}" if pro else "") + ".")
     return _propuesta("registro", par, resumen)
 
@@ -1020,5 +1020,5 @@ class ProponerSolicitud(Entrada):
              ProponerSolicitud, VIS, PROPUESTA)
 def proponer_solicitud(conn, actor, a: ProponerSolicitud) -> dict:
     resumen = {"evaluacion_virtual": "Pedir una evaluación virtual.", "experiencia": "Pedir información de una experiencia.",
-               "contacto": "Pedir que la clínica te contacte."}[a.interes]
+               "contacto": "Pedir que la clínica se comunique con usted."}[a.interes]
     return _propuesta("solicitud", {"interes": a.interes}, resumen)

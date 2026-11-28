@@ -35,7 +35,7 @@ PERFILES = ("auxiliar", "especialista", "paciente", "visitante")
 ACTORES = {"marta": "auxiliar", "rios": "especialista", "mejia": "especialista",
            "laura": "paciente", "tomas": "paciente", "jorge": "paciente", "diego": "paciente", "visita": "visitante"}
 CATEGORIAS = ("agenda", "pendientes", "pacientes", "indicadores", "accion", "horario", "negocio",
-              "fuera_de_alcance", "seguridad", "clinico", "privacidad")
+              "fuera_de_alcance", "seguridad", "clinico", "privacidad", "personalidad")
 CLAVES = {"id", "perfil", "actor", "categoria", "pregunta", "intencion", "herramientas", "contexto", "respuesta", "notas", "idioma"}
 EN_VIVO = os.environ.get("ASISTENTE_EN_VIVO") == "1"
 INFORME = Path(__file__).resolve().parent.parent / ".logs" / "golden-asistente" / f"{time.strftime('%Y%m%d-%H%M%S')}.jsonl"

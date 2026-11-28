@@ -23,7 +23,7 @@ def client(conn):
 def test_root_is_spanish_landing_and_en_is_english(client):
     es = client.get("/")
     assert es.status_code == 200 and '<html lang="es"' in es.text
-    assert "SONRÍE Y MIRA" not in es.text and "Sonríe y mira" in es.text and "Vivo en Medellín" in es.text
+    assert "SONRÍA Y MIRE" not in es.text and "Sonría y mire" in es.text and "Vivo en Medellín" in es.text
     en = client.get("/en")
     assert en.status_code == 200 and '<html lang="en"' in en.text
     assert "I live abroad" in en.text and "Our team" in en.text
@@ -89,7 +89,7 @@ def test_panel_and_booking_still_work(client):
     p = client.get("/panel")
     assert p.status_code in (200, 307, 302) or (p.status_code == 503 and "make panel" in p.text)
     r = client.get("/agendar")
-    assert r.status_code == 200 and "Agenda tu cita" in r.text and 'name="documento"' in r.text
+    assert r.status_code == 200 and "Agende su cita" in r.text and 'name="documento"' in r.text
 
 
 def test_experience_form_creates_contact_request(client, conn):

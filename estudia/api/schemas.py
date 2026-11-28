@@ -86,6 +86,11 @@ class ProfesionalOut(Salida):
     id: int
     nombre: str
     especialidad: str
+    titulo: str = Field("", description="Cómo se antepone al nombre en los mensajes de seguimiento (\"Dra.\", \"Dr.\"); vacío si no usa")
+
+
+class TituloProfesional(Entrada):
+    titulo: str = Field(max_length=20, description="\"Dra.\", \"Dr.\"…; vacío lo quita")
 
 
 class ServicioOut(Salida):
@@ -99,6 +104,15 @@ class ServicioOut(Salida):
 class MotivoOut(Salida):
     id: int
     etiqueta: str
+
+
+class MotivoAdmin(MotivoOut):
+    activo: bool = Field(description="Se ofrece al cancelar (panel, WhatsApp, página del paciente y asistente)")
+
+
+class MotivosActivos(Entrada):
+    activos: list[int] = Field(max_length=6, description="Ids de los motivos que se ofrecen, en orden. Máximo 5 más \"Otro\", "
+                                                         "que siempre está activo y va al final; los demás quedan inactivos.")
 
 
 # ----------------------------------------------------------------- agenda
@@ -857,6 +871,8 @@ class AsistenteEstadoOut(Salida):
     disponible: bool = Field(description="El negocio encendió el asistente para el equipo (y hay clave de la API)")
     perfil: Literal["auxiliar", "especialista"]
     mensajes_restantes: int = Field(description="Mensajes que le quedan hoy a este usuario")
+    nombre: str = Field("Bliss", description="Cómo se llama el asistente (configuración `asistente_nombre`)")
+    negocio: str = Field("", description="Nombre del negocio, para el subtítulo «Asistente de …»")
 
 
 class AsistenteMensajeIn(Entrada):

@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timedelta
 
-from . import agenda, clock, config, correo, familia, lifecycle, messaging
+from . import agenda, catalog, clock, config, correo, familia, lifecycle, messaging
 from .lifecycle import ALIVE
 
 
@@ -116,7 +116,7 @@ def process_response(conn, patient_id: int, answer: str, cita_id: int) -> bool:
         messaging.send(conn, patient_id, "confirmacion_recibida", agenda._info(conn, cita_id), direct=True)
     elif answer == "no":
         cancel_id = agenda.cancel(conn, cita_id, "paciente", "whatsapp", defer_acuse=True)
-        reasons = conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()
+        reasons = catalog.motivos_activos(conn)
         options = [{"id": f"motivo:{cancel_id}:{r['id']}", "title": r["etiqueta"][:24]} for r in reasons]
         messaging.send(conn, patient_id, "pedir_motivo", agenda._info(conn, cita_id), direct=True, options=options,
                        entity=("cancelacion", cancel_id))

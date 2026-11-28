@@ -52,7 +52,7 @@ def test_full_acceptance_journey(conn):
     motivo = conn.execute("select id from motivo_cancelacion where etiqueta='Trabajo o estudio'").fetchone()["id"]
     conn.commit()
     r = client.post(f"/p/{token}/cancelar/{c1['id']}", data={"motivo": motivo})
-    assert "Elige tu espacio" in r.text
+    assert "Elija su espacio" in r.text
     conn.rollback()
     cancelled_at = clock.now(conn)
     assert status(conn, c1["id"]) == "cancelada"

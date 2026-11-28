@@ -11,7 +11,7 @@ herramientas:
 contexto:
   - llamada: pedir_contacto
     args: {}
-    incluye: ["Pedir que la clínica te contacte"]
+    incluye: ["Pedir que la clínica se comunique con usted"]
 respuesta:
   excluye: ["te llamaran", "ya avise", "ya les avise", "ya quedo"]
   propuestas: [contacto]

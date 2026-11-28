@@ -6,21 +6,21 @@
   {% if contacto %}
     <h1>Gracias</h1>
     <div class="aviso" role="status">
-      <p>No pudimos agregar a esa persona de forma automática. {{ termino|capitalize }} se pondrá en contacto contigo muy pronto para ayudarte.</p>
+      <p>No pudimos agregar a esa persona de forma automática. {{ termino|capitalize }} se pondrá en contacto con usted muy pronto para ayudarle.</p>
     </div>
     <a role="button" class="outline" href="/p/{{ token }}">Volver a mis citas</a>
   {% elif responsable %}
     <h1>Agregar a mi familia</h1>
-    <p>Tu familia la gestiona {{ responsable.nombres|nombre }}. Pídele que agregue a esta persona desde su enlace.</p>
+    <p>Su familia la gestiona {{ responsable.nombres|nombre }}. Pídale que agregue a esta persona desde su enlace.</p>
     <a role="button" class="outline" href="/p/{{ token }}">Volver a mis citas</a>
   {% else %}
     <h1>Agregar a mi familia</h1>
-    <p>Agenda y gestiona sus citas desde tu enlace. Los mensajes de sus citas llegarán a tu celular.</p>
+    <p>Agende y gestione sus citas desde su enlace. Los mensajes de sus citas llegarán a su celular.</p>
     <form class="form" method="post" action="/p/{{ token }}/familia/agregar">
       {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
       <label>Parentesco
         <select name="parentesco" required>
-          <option value="" {% if not values.parentesco %}selected{% endif %} disabled>Elige…</option>
+          <option value="" {% if not values.parentesco %}selected{% endif %} disabled>Elija…</option>
           {% for k, v in parentescos.items() %}<option value="{{ k }}" {% if values.parentesco == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </label>

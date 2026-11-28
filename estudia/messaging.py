@@ -109,7 +109,7 @@ def lista_de_citas(conn, citas: list[dict], raiz_id: int, marcar: set[int] = fro
     for c in sorted(citas, key=lambda c: (c["rango"].lower, c["id"])):  # solo citas con hora
         r = conn.execute("select p.nombres, pr.nombre as profesional from paciente p, profesional pr "
                          "where p.id=%s and pr.id=%s", (c["paciente_id"], c["profesional_id"])).fetchone()
-        quien = "Tú" if c["paciente_id"] == raiz_id else (familia.primer_nombre(r) or "Tu familiar")
+        quien = "Usted" if c["paciente_id"] == raiz_id else (familia.primer_nombre(r) or "Su familiar")
         cuando = fmt.fecha_hora(c["rango"].lower.astimezone(clock.TZ)) if c["rango"] else fmt.fecha(c["dia"])
         lineas.append(f"• {quien}: {cuando}, con {r['profesional']}{' (sin confirmar)' if c['id'] in marcar else ''}")
     return "\n".join(lineas)
