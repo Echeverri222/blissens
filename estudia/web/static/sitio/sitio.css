@@ -167,14 +167,8 @@ body.menu-abierto .barra { display: none; }
 
 /* ---------- Paneles con formulario ---------- */
 .panel-form { position: relative; background: #111113; border: 1px solid rgba(255,255,255,.14); border-radius: 1rem; padding: clamp(1.25rem, 3vw, 2.25rem); color: #fff; }
-.panel-form--acento { overflow: hidden; }
-.panel-form--acento::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--degradado); }
 .panel-form h3 { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; margin-bottom: 1.25rem; }
 .panel-form--claro { background: var(--papel); border-color: var(--linea); color: var(--tinta); }
-.panel-form--centro { max-width: 40rem; margin: 3rem auto 0; }
-.migas { display: flex; gap: .6rem; list-style: none; padding: 0; margin: 1.5rem 0 0; }
-.migas li { width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); color: var(--gris-claro); font-size: .9rem; }
-.migas li.on { background: #fff; color: #000; border-color: #fff; }
 
 /* ---------- Formularios (sitio y páginas del paciente) ---------- */
 .form label, form label { display: block; font-size: .9rem; font-weight: 500; margin: 0 0 1rem; }
@@ -245,6 +239,13 @@ input[type=file] { padding: .55rem .7rem; }
 .pie__base p { margin: 0; }
 .pie__equipo { color: #9a9aa1; }
 
+/* Evaluación virtual y contacto: un llamado a la acción en lugar del formulario (el formulario vive en el asistente). */
+.llamado { display: grid; gap: 1.25rem; justify-items: start; align-content: center; padding: clamp(1.25rem, 3vw, 2.25rem); border: 1px solid rgba(255,255,255,.14); border-radius: 1rem; }
+.llamado h3 { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; margin: 0; }
+.contacto-vias { display: grid; gap: .75rem; align-content: center; } .contacto-vias .boton { width: 100%; overflow-wrap: anywhere; }
+@media (min-width: 560px) { .contacto-vias { grid-template-columns: 1fr 1fr; } }
+.solicitud__titulo { font-family: var(--serif); font-weight: 400; font-size: 1.8rem; margin: 0 0 1.25rem; }
+
 /* ---------- Barra fija móvil ---------- */
 .barra { position: fixed; inset: auto 0 0 0; z-index: 40; padding: .6rem 1rem calc(.6rem + env(safe-area-inset-bottom)); background: rgba(0,0,0,.88); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,.15);
          transform: translateY(110%); transition: transform .35s var(--ease); }
@@ -290,6 +291,10 @@ address.asist__texto { font-style: normal; }
 .asist .nota--campo { margin: .25rem 0 .75rem; }
 .asist textarea { min-height: 4.5rem; }
 .asist .form { margin: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .asist__caja--llamada { animation: asist-llamada .9s var(--ease); }
+  @keyframes asist-llamada { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.55), 0 12px 40px rgba(0,0,0,.35); } 100% { box-shadow: 0 0 0 .9rem rgba(255,255,255,0), 0 12px 40px rgba(0,0,0,.35); } }
+}
 @media (max-width: 899px) { html:not(.js) .asist__cuerpo { max-height: 55vh; } }
 
 /* ---------- Revelado al desplazarse (solo con JS y sin preferencia de movimiento reducido) ---------- */

@@ -27,12 +27,55 @@ def test_root_is_spanish_landing_and_en_is_english(client):
     en = client.get("/en")
     assert en.status_code == 200 and '<html lang="en"' in en.text
     assert "I live abroad" in en.text and "Our team" in en.text
-    assert 'href="/panel"' in es.text and 'action="/agendar/identificar"' in es.text and 'id="agendar"' in es.text
+    assert 'href="/panel"' in es.text and 'id="agendar"' in es.text
+
+
+@pytest.mark.parametrize("ruta", ["/", "/en"])
+def test_la_landing_no_tiene_formularios_fuera_del_panel(client, ruta):
+    html = client.get(ruta).text
+    fuera = html.split('<aside class="asist"')[0]
+    assert "<form" not in fuera and "<form" not in html  # el panel arranca con las opciones, sin formularios
+    assert 'id="reservar"' not in html and "/sitio/solicitud" not in html and "/agendar/identificar" not in html
+
+
+def test_los_botones_abren_el_asistente_y_tienen_enlace_de_respaldo(client):
+    es = client.get("/").text
+    pares = set(re.findall(r'<a [^>]*href="([^"]+)"[^>]*data-abrir-asistente="(\w+)"', es))
+    assert ("/agendar", "agendar") in pares and ("/evaluacion", "afuera") in pares
+    for paquete in ("premium", "standard", "essential"):
+        assert (f"/experiencia?idioma=es&amp;paquete={paquete}", "experiencia") in pares
+    assert not re.search(r"<button[^>]*data-paquete", es) and "tel:" in es and "wa.me/573053069616" in es and "maps" in es
+    en = set(re.findall(r'<a [^>]*href="([^"]+)"[^>]*data-abrir-asistente="(\w+)"', client.get("/en").text))
+    assert ("/agendar?idioma=en", "agendar") in en and ("/evaluacion?idioma=en", "afuera") in en
+    assert ("/experiencia?idioma=en&amp;paquete=premium", "experiencia") in en
+    assert "/agendar?idioma=en" in client.get("/en").text.split('class="barra"')[1]
+
+
+@pytest.mark.parametrize("ruta,lang,interes", [("/evaluacion", "es", "evaluacion_virtual"), ("/contacto", "es", "contacto"),
+                                                ("/experiencia", "es", "experiencia"), ("/evaluacion?idioma=en", "en", "evaluacion_virtual"),
+                                                ("/contacto?idioma=en", "en", "contacto")])
+def test_paginas_aparte_de_solicitud_sin_javascript(client, ruta, lang, interes):
+    r = client.get(ruta)
+    assert r.status_code == 200 and f'<html lang="{lang}"' in r.text and f'name="interes" value="{interes}"' in r.text
+    assert 'action="/sitio/solicitud"' in r.text and f'name="idioma" value="{lang}"' in r.text and "noindex" in r.text
+    assert ("name=\"pais\"" in r.text) == (interes == "evaluacion_virtual")
+
+
+def test_pagina_de_experiencia_preselecciona_el_paquete(client):
+    r = client.get("/experiencia?idioma=en&paquete=standard")
+    assert re.search(r'<option value="standard"\s+selected', r.text) and "Please select a package" in r.text
+    assert "selected" not in client.get("/experiencia?paquete=otro").text  # un paquete inválido no se preselecciona
+
+
+def test_agendar_en_ingles(client):
+    r = client.get("/agendar?idioma=en")
+    assert r.status_code == 200 and '<html lang="en"' in r.text and "Book your appointment" in r.text
 
 
 def test_landing_makes_no_third_party_requests(client):
     for ruta in ("/", "/en", "/agendar"):
         html = re.sub(r'<link rel="(canonical|alternate)"[^>]*>', "", client.get(ruta).text)  # no cargan nada
+        html = re.sub(r"<a\b[^>]*>", "", html)  # los enlaces (WhatsApp, mapa) son navegación, no cargan nada
         assert not re.search(r'(src|href|action)="(https?:)?//', html), ruta
         assert not re.search(r"url\(['\"]?https?://", html), ruta
     css = client.get("/static/sitio/sitio.css").text

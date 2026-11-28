@@ -23,8 +23,8 @@
     <h1 id="hero-t" class="hero__titulo rev">{% for linea in t.hero.titulo %}<span>{{ linea }}</span>{% endfor %}</h1>
     <p class="hero__sub rev">{% for linea in t.hero.sub %}<span>{{ linea }}</span>{% endfor %}</p>
     <div class="hero__ctas rev" role="group" aria-label="{{ t.hero.aria }}">
-      <a class="boton boton--linea" href="#evaluacion">{{ t.hero.afuera }}</a>
-      <a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.hero.local }}</a>
+      <a class="boton boton--linea" href="{{ t.evaluacion_url }}" data-abrir-asistente="afuera">{{ t.hero.afuera }}</a>
+      <a class="boton boton--blanco" href="{{ t.agendar_url }}" data-abrir-asistente="agendar">{{ t.hero.local }}</a>
     </div>
   </div>
   <a class="hero__bajar" href="#nosotros" aria-label="{{ t.adn.kicker }}"><span></span></a>
@@ -88,9 +88,9 @@
       <p class="rev claro">{{ t.evaluacion.texto }}</p>
       <ol class="pasos4 rev">{% for p in t.evaluacion.pasos %}<li><span class="num">{{ loop.index }}</span><span>{{ p }}</span></li>{% endfor %}</ol>
     </div>
-    <div class="panel-form rev">
+    <div class="llamado rev">
       <h3>{{ t.evaluacion.form_titulo }}</h3>
-      {% set interes = 'evaluacion_virtual' %}{% include "_solicitud.html" %}
+      <a class="boton boton--blanco" href="{{ t.evaluacion_url }}" data-abrir-asistente="afuera">{{ t.evaluacion.boton }}</a>
     </div>
   </div>
 </section>
@@ -134,14 +134,10 @@
         <img src="/static/sitio/{{ img }}" width="460" height="460" loading="lazy" decoding="async" alt="">
         <div class="paquete__pie">
           <div><h3>{{ nombre }}</h3><p>{{ tipo }}</p></div>
-          <button class="boton boton--blanco boton--chico" type="button" data-paquete="{{ clave }}" aria-label="{{ t.experiencias.elegir }} {{ nombre }}">{{ t.experiencias.elegir }}</button>
+          <a class="boton boton--blanco boton--chico" href="{{ t.experiencia_url }}&amp;paquete={{ clave }}" data-abrir-asistente="experiencia" data-paquete="{{ clave }}" aria-label="{{ t.experiencias.elegir }}: {{ nombre }}">{{ t.experiencias.elegir }}</a>
         </div>
       </article>
       {% endfor %}
-    </div>
-    <div class="panel-form panel-form--centro rev" id="reservar">
-      <h3>{{ t.experiencias.form_titulo }}</h3>
-      {% set interes = 'experiencia' %}{% include "_solicitud.html" %}
     </div>
   </div>
 </section>
@@ -158,16 +154,12 @@
 </section>
 
 <section class="sec sec--negra" id="agendar" aria-labelledby="ag-t">
-  <div class="contenedor dos">
-    <div class="dos__texto">
+  <div class="contenedor angosto centrado">
+    <div>
       <p class="kicker rev">{{ t.agendar.kicker }}</p>
       <h2 id="ag-t" class="titulo rev">{{ t.agendar.titulo }}</h2>
       <p class="rev claro">{{ t.agendar.texto }}</p>
-      <ol class="migas rev" aria-hidden="true"><li class="on">1</li><li>2</li><li>3</li></ol>
-    </div>
-    <div class="panel-form panel-form--acento rev">
-      <h3>{{ t.agendar.paso1 }}</h3>
-      {% set nuevo = None %}{% include "_identificar.html" %}
+      <p class="rev"><a class="boton boton--blanco" href="{{ t.agendar_url }}" data-abrir-asistente="agendar">{{ t.agendar.boton }}</a></p>
     </div>
   </div>
 </section>
@@ -184,17 +176,20 @@
         <dt>{{ t.contacto.telefono }}</dt><dd><a href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a></dd>
       </dl>
     </div>
-    <div class="panel-form panel-form--claro rev">
-      {% set interes = 'contacto' %}{% include "_solicitud.html" %}
+    <div class="contacto-vias rev">
+      <a class="boton" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
+      <a class="boton boton--linea" href="https://wa.me/{{ sitio.TELEFONO_TEL[1:] }}" target="_blank" rel="noopener">{{ t.contacto.whatsapp }}</a>
+      <a class="boton boton--linea" href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a>
+      <a class="boton boton--linea" href="{{ sitio.MAPA }}" target="_blank" rel="noopener">{{ t.contacto.mapa }}</a>
     </div>
   </div>
 </section>
 {% endblock %}
 
 {% block barra %}
-<div class="barra" id="barra"><a class="boton boton--blanco" href="{{ t.agendar_url }}">{{ t.barra }}</a></div>
+<div class="barra" id="barra"><a class="boton boton--blanco" href="{{ t.agendar_url }}" data-abrir-asistente="agendar">{{ t.barra }}</a></div>
 {# Asistente del sitio, capa 1: texto estático, sin base de datos ni modelo. Va junto a la barra fija (hermano posterior, para
-   subirse sobre ella en el celular). Sin JavaScript sus opciones son enlaces a las secciones de la página. #}
+   subirse sobre ella en el celular). Sin JavaScript sus opciones son enlaces a páginas aparte con el mismo formulario. #}
 <aside class="asist" id="asistente" aria-label="{{ t.asistente.aria }}">
   <details class="asist__caja" open>
     <summary class="asist__cabeza" aria-label="{{ t.asistente.abrir }}"><span class="asist__punto" aria-hidden="true"></span><span>{{ t.asistente.titulo }}</span></summary>
