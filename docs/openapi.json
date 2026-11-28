@@ -7187,6 +7187,16 @@
               ],
               "title": "Caso"
             }
+          },
+          {
+            "name": "idioma",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "es",
+              "title": "Idioma"
+            }
           }
         ],
         "responses": {
@@ -7248,6 +7258,16 @@
                 }
               ],
               "title": "Caso"
+            }
+          },
+          {
+            "name": "idioma",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "es",
+              "title": "Idioma"
             }
           }
         ],

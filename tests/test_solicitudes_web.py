@@ -57,8 +57,8 @@ def test_evaluacion_virtual_guarda_columnas_y_fotos(client, conn):
                                                                      ("rx.pdf", "application/pdf", len(PDF))]
     assert bytes(adj[0]["datos"]) == PNG
     # El formulario de evaluación ofrece el campo de archivos; el de contacto no.
-    landing = client.get("/").text
-    assert 'enctype="multipart/form-data"' in landing and landing.count('name="fotos"') == 1
+    pagina = client.get("/evaluacion").text  # el landing ya no tiene formularios: la evaluación vive en su página y en el panel
+    assert 'enctype="multipart/form-data"' in pagina and pagina.count('name="fotos"') == 1
 
 
 @pytest.mark.parametrize("archivos, error", [

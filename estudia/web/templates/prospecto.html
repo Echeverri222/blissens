@@ -14,7 +14,7 @@
   <article class="cita">
     <div class="cita__top">
       <div>
-        <small class="muted cita__persona">{{ s.momento|local }}</small>
+        <small class="muted cita__persona">{{ s.momento|local|fecha_hora if not en else (s.momento|local).strftime('%b %d, %Y · %I:%M %p') }}</small>
         <strong class="cita__fecha">{{ interes_texto[s.interes][1 if en else 0] }}</strong>
       </div>
       <span class="estado-pill estado-pill--{{ 'confirmada' if s.gestionada else 'programada' }}">
