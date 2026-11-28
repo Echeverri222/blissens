@@ -40,7 +40,7 @@ def test_la_migracion_021_cambia_solo_lo_que_sigue_en_el_valor_anterior():
                           (pro["editado"], dia, desde, "17:00" if (dia == 4 and hasta == "17:30") else hasta))
         editado_antes = _horario(c, pro["editado"])
         c.commit()
-        assert migrate.run(url) == ["021_duraciones_y_horario.sql"]
+        assert migrate.run(url, hasta="021") == ["021_duraciones_y_horario.sql"]
         dur = {r["nombre"]: r["duracion_min"] for r in c.execute("select nombre, duracion_min from servicio")}
         assert dur == {"Valoración o revisión": 45, "Limpieza": 30}
         assert _horario(c, pro["por_defecto"]) == _semana(NUEVO)
