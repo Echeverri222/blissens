@@ -51,7 +51,7 @@ def test_agregar_un_menor_hereda_celular_y_registra_el_consentimiento_del_repres
     ({"nacimiento": ""}, "fecha de nacimiento"),
     ({"nacimiento": "2999-01-01"}, "Revisa la fecha"),
     ({"parentesco": "vecino"}, "parentesco"),
-    ({"doc": "4001"}, "tu propio documento"),
+    ({"doc": "4001"}, "su propio documento"),
 ])
 def test_datos_invalidos_no_crean_a_nadie(client, conn, cambio, mensaje):
     _, token = responsable(conn)
@@ -71,7 +71,7 @@ def test_vista_del_hogar_y_agendar_para_un_familiar(client, conn):
     hijo = conn.execute("select id from paciente where documento='5001'").fetchone()["id"]
 
     pagina = client.get(f"/p/{token}/agendar").text
-    assert "¿Para quién es la cita?" in pagina and "Carlos (tú)" in pagina
+    assert "¿Para quién es la cita?" in pagina and "Carlos (usted)" in pagina
 
     r = client.post(f"/p/{token}/agendar", data={"servicio": svc(conn), "profesional": pro, "para": hijo,
                                                   "inicio": at(3, "10:00").isoformat()})
@@ -88,7 +88,7 @@ def test_vista_del_hogar_y_agendar_para_un_familiar(client, conn):
     book(conn, pid, pro, at(4, "09:00"))
     conn.commit()
     pagina = client.get(f"/p/{token}").text
-    assert "Próximas citas de tu familia" in pagina and "Mateo" in pagina and "Tú" in pagina
+    assert "Próximas citas de su familia" in pagina and "Mateo" in pagina and "Usted" in pagina
     assert f"/cancelar/{ajena}" not in pagina
 
     # Fuera del hogar: 404 y no se agenda nada
@@ -142,7 +142,7 @@ def test_enlazar_a_un_paciente_existente_con_el_mismo_celular(client, conn):
     p = conn.execute("select * from paciente where id=%s", (pareja,)).fetchone()
     assert p["responsable_id"] == pid and p["parentesco"] == "pareja" and p["consentimiento_por"] is None
     r = agregar(client, token, doc="4002", nombres="Laura", nacimiento="1990-01-01", parentesco="pareja")
-    assert "ya estaba en tu familia" in unquote(r.headers["location"])
+    assert "ya estaba en su familia" in unquote(r.headers["location"])
 
 
 def test_con_otro_celular_no_se_revela_nada_y_queda_solicitud(client, conn):
@@ -165,12 +165,12 @@ def test_un_familiar_no_agrega_y_un_adulto_puede_dejar_de_compartir_pero_un_meno
     pareja = conn.execute("select id from paciente where documento='4002'").fetchone()["id"]
     t_hijo, t_pareja = links.make_token(hijo, conn=conn), links.make_token(pareja, conn=conn)
 
-    assert "Tu familia la gestiona Carlos" in client.get(f"/p/{t_pareja}/familia/agregar").text
+    assert "Su familia la gestiona Carlos" in client.get(f"/p/{t_pareja}/familia/agregar").text
     r = agregar(client, t_pareja, doc="5002", nombres="Sofía")
-    assert r.status_code == 422 and "Tu familia la gestiona Carlos" in r.text
+    assert r.status_code == 422 and "Su familia la gestiona Carlos" in r.text
 
     pagina = client.get(f"/p/{t_hijo}").text
-    assert "Carlos también ve y gestiona tus citas" in pagina and "Dejar de compartir" not in pagina
+    assert "Carlos también ve y gestiona sus citas" in pagina and "Dejar de compartir" not in pagina
     assert "Las citas de un menor" in unquote(client.post(f"/p/{t_hijo}/dejar-de-compartir").headers["location"])
 
     assert "Dejar de compartir" in client.get(f"/p/{t_pareja}").text
@@ -226,7 +226,7 @@ def test_limite_de_familiares(conn):
 
 
 def test_la_entrada_publica_orienta_a_quien_agenda_para_su_familia(client):
-    assert "Regístrate tú primero y agrégalos desde" in client.get("/agendar").text
+    assert "Regístrese usted primero y agréguelos desde" in client.get("/agendar").text
 
 
 @pytest.fixture(autouse=True)

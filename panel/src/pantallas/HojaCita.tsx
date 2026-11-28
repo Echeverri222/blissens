@@ -6,7 +6,7 @@ import type { CitaDetalle } from "@/api/tipos";
 import { fechaDe, fechaHora, fechaLarga, horaDe } from "@/lib/tiempo";
 import { ESTADOS } from "@/lib/estados";
 import { useSesion } from "@/sesion/Sesion";
-import { AreaTexto, Boton, Confirmar, EtiquetaEstado, Hoja, Seleccion } from "@/ui/controles";
+import { AreaTexto, Boton, Confirmar, EtiquetaEstado, Hoja } from "@/ui/controles";
 import { Aviso, Consulta } from "@/ui/vistas";
 import { SelectorEspacios } from "./Espacios";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
@@ -105,20 +105,24 @@ function Contenido({ c, alCerrar, alMover }: { c: CitaDetalle; alCerrar: () => v
 
 function FormCancelar({ id, alListo }: { id: number; alListo: () => void }) {
   const motivos = useMotivos();
-  const [motivo, setMotivo] = useState("");
+  const [motivo, setMotivo] = useState<number | null>(null);
   const [texto, setTexto] = useState("");
   const m = useAccion((v: { motivo: number; texto: string }) => api.citas.cancelar(id, v.motivo, v.texto), { ok: "Cita cancelada", alExito: alListo });
+  const elegido = motivos.data?.find((x) => x.id === motivo);
+  const otro = elegido?.etiqueta === "Otro";
   return (
     <div className="space-y-3 rounded-xl border border-linea bg-zinc-50 p-3">
       {m.error instanceof ApiError && <Aviso>{m.error.mensaje}</Aviso>}
-      <Seleccion etiqueta="Motivo de la cancelación" value={motivo} onChange={(e) => setMotivo(e.target.value)}>
-        <option value="">Elige un motivo</option>
-        {motivos.data?.map((x) => <option key={x.id} value={x.id}>{x.etiqueta}</option>)}
-      </Seleccion>
-      <AreaTexto etiqueta="Detalle (opcional)" value={texto} onChange={(e) => setTexto(e.target.value)} />
-      <Confirmar etiqueta="Cancelar la cita" variante="peligro" deshabilitado={!motivo || m.isPending}
+      {/* Un toque por motivo (solo los activos); "Otro" abre un campo para escribirlo. */}
+      <div role="group" aria-label="Motivo de la cancelación" className="flex flex-wrap gap-2">
+        {motivos.data?.map((x) => (
+          <Boton key={x.id} pequeno variante={x.id === motivo ? "primario" : "secundario"} aria-pressed={x.id === motivo} onClick={() => setMotivo(x.id)}>{x.etiqueta}</Boton>
+        ))}
+      </div>
+      {otro && <AreaTexto etiqueta="¿Cuál fue el motivo?" value={texto} onChange={(e) => setTexto(e.target.value)} />}
+      <Confirmar etiqueta="Cancelar la cita" variante="peligro" deshabilitado={motivo === null || m.isPending}
         pregunta="El cupo se libera y el paciente recibirá un mensaje para reagendar."
-        alConfirmar={() => m.mutate({ motivo: Number(motivo), texto })} />
+        alConfirmar={() => motivo !== null && m.mutate({ motivo, texto: otro ? texto : "" })} />
     </div>
   );
 }

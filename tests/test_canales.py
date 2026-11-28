@@ -80,7 +80,7 @@ def test_webhook_bloquea_botones_ajenos_o_malformados_sin_filtrar_datos(conn, mo
     cita_a3 = book(conn, pa, pro, at(4, "14:00"))
     cancel_a = agenda.cancel(conn, cita_a2, "paciente", "enlace")
     caso_a = conn.execute("select id from caso_seguimiento where cita_id=%s", (cita_a2,)).fetchone()["id"]
-    slots.register_slot(conn, pro, agenda.rng(at(2, "14:00"), 30), None, "cancelacion")
+    slots.register_slot(conn, pro, agenda.rng(at(2, "14:00"), 45), None, "cancelacion")
     oferta_a = conn.execute("select id from oferta_adelanto where cita_id=%s and estado='pendiente'", (cita_a3,)).fetchone()["id"]
     conn.commit()
 

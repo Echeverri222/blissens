@@ -1,0 +1,12 @@
+id: personalidad-colega-en-tu
+perfil: especialista
+actor: rios
+categoria: personalidad
+pregunta: buenas, que me falta por cerrar?
+intencion: >-
+  Bliss con la especialista: tú, corto y operativo. Se presenta en esta primera respuesta y no cierra ofreciendo más ayuda.
+herramientas:
+  esperadas: [citas_sin_desenlace]
+respuesta:
+  excluye: ["usted", "en que mas", "!!"]
+  propuestas: []

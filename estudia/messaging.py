@@ -79,16 +79,21 @@ def send(conn, patient_id: int, key: str, data: dict | None = None, *, direct: b
     now = clock.now(conn)
     data = {"nombre": _primer(p["nombres"]), "direccion": config.get(conn, "direccion"), **(data or {})}
     text, tipo, opts = render(conn, key, data, options)
-    estado, momento = "entregado", now
-    if not direct and not p["acepta_mensajes"]:
+    estado, momento, detalle = "entregado", now, None
+    from . import pacientes
+    if pacientes.bloquea_mensaje(p, direct):
+        estado, detalle = "omitido", "no_contactar"
+    elif not direct and not p["acepta_mensajes"]:
         estado = "omitido"
+    elif not pacientes.celular_usable(p):
+        estado, detalle = "omitido", "celular"  # sin número que sirva no hay a quién escribirle; tampoco cuenta como intento
     elif not direct and not window_open(conn, now):
         estado, momento = "diferido", next_opening(conn, now)
     et, ei = entity or (None, None)
     row = conn.execute(
         "insert into mensaje(paciente_id, direccion, plantilla, texto, tipo, botones, entidad_tipo, entidad_id, "
-        "estado_entrega, momento, canal) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
-        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento, canales.tipo_activo(conn)),
+        "estado_entrega, momento, canal, detalle) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento, canales.tipo_activo(conn), detalle),
     ).fetchone()
     if estado == "diferido":
         tasks.schedule(conn, "entregar_mensaje", momento, {"mensaje_id": row["id"]})
@@ -104,7 +109,7 @@ def lista_de_citas(conn, citas: list[dict], raiz_id: int, marcar: set[int] = fro
     for c in sorted(citas, key=lambda c: (c["rango"].lower, c["id"])):  # solo citas con hora
         r = conn.execute("select p.nombres, pr.nombre as profesional from paciente p, profesional pr "
                          "where p.id=%s and pr.id=%s", (c["paciente_id"], c["profesional_id"])).fetchone()
-        quien = "Tú" if c["paciente_id"] == raiz_id else (familia.primer_nombre(r) or "Tu familiar")
+        quien = "Usted" if c["paciente_id"] == raiz_id else (familia.primer_nombre(r) or "Su familiar")
         cuando = fmt.fecha_hora(c["rango"].lower.astimezone(clock.TZ)) if c["rango"] else fmt.fecha(c["dia"])
         lineas.append(f"• {quien}: {cuando}, con {r['profesional']}{' (sin confirmar)' if c['id'] in marcar else ''}")
     return "\n".join(lineas)
@@ -145,6 +150,9 @@ def receive(conn, patient_id: int, *, button_id: str | None = None, text: str | 
             else:
                 continue
             break
+    # Quien responde por WhatsApp tiene un celular que sirve (R8), sea cual fuera su estado.
+    conn.execute("update paciente set celular_estado='valido' where id = any(%s) and celular_estado <> 'valido' "
+                 "and celular is not null", (familia.hogar(conn, patient_id)[1],))
     mid = conn.execute(
         "insert into mensaje(paciente_id, direccion, canal, texto, respuesta, momento, gestionado, id_externo) "
         "values (%s,'entrante',%s,%s,%s,%s,%s,%s) returning id",

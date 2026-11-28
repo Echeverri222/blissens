@@ -13,20 +13,20 @@ from . import canales, clock, config, messaging, settings, tasks
 from .lifecycle import ALIVE
 
 _DIRECCION = re.compile(r"[^@\s,;<>\"()\[\]\\]+@[^@\s,;<>\"()\[\]\\]+\.[^@\s,;<>\"()\[\]\\]+")
-PIE = "Si no quieres recibir más correos nuestros, usa este enlace: {enlace_baja}"
+PIE = "Si no desea recibir más correos nuestros, use este enlace: {enlace_baja}"
 CORREOS = {
     "agendada": (
-        "Tu cita del {fecha} – {negocio}",
-        "Hola {nombre},\n\nTu cita quedó agendada.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
+        "Su cita del {fecha} – {negocio}",
+        "Hola, {nombre}.\n\nSu cita quedó agendada.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
         "  Lugar: {direccion}\n\nPara cambiarla o cancelarla: {enlace}\n\n" + PIE),
     "recordatorio": (
-        "Mañana es tu cita – {negocio}",
-        "Hola {nombre},\n\nMañana es tu cita.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
-        "  Lugar: {direccion}\n\nSi no puedes venir, cámbiala o cancélala aquí: {enlace}\n\n" + PIE),
+        "Mañana es su cita – {negocio}",
+        "Hola, {nombre}.\n\nMañana es su cita.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
+        "  Lugar: {direccion}\n\nSi no puede venir, cámbiela o cancélela aquí: {enlace}\n\n" + PIE),
     "cancelada": (
-        "Tu cita del {fecha} quedó cancelada – {negocio}",
-        "Hola {nombre},\n\nTu cita del {fecha} a las {hora} con {profesional} quedó cancelada.\n\n"
-        "Cuando quieras agendar de nuevo: {enlace}\n\n" + PIE),
+        "Su cita del {fecha} quedó cancelada – {negocio}",
+        "Hola, {nombre}.\n\nSu cita del {fecha} a las {hora} con {profesional} quedó cancelada.\n\n"
+        "Cuando quiera agendar de nuevo, puede hacerlo aquí: {enlace}\n\n" + PIE),
 }
 
 
@@ -107,7 +107,8 @@ def enviar(conn, paciente_id: int, tipo: str, cita_id: int, *, direct: bool = Fa
     # Nunca se envía en línea: el correo sale de la tarea, ya confirmada la cita (ni red dentro de la transacción de
     # agendar, ni correos de citas que luego se deshacen). `diferido` = pendiente de salir.
     estado, momento = "diferido", now
-    if not p["acepta_correo"] or adaptador is None:
+    from . import pacientes
+    if not p["acepta_correo"] or adaptador is None or pacientes.bloquea_mensaje(p, direct):
         estado = "omitido"
     elif not direct and not messaging.window_open(conn, now):
         momento = messaging.next_opening(conn, now)
@@ -148,8 +149,8 @@ def entregar_diferido(conn, mensaje_id: int, intento: int) -> None:
     m = conn.execute("select * from mensaje where id=%s and estado_entrega='diferido'", (mensaje_id,)).fetchone()
     if m is None:
         return
-    p = conn.execute("select acepta_correo, correo from paciente where id=%s", (m["paciente_id"],)).fetchone()
-    viva = True
+    p = conn.execute("select acepta_correo, correo, no_contactar from paciente where id=%s", (m["paciente_id"],)).fetchone()
+    viva = p["no_contactar"] is None
     if m["plantilla"] in ("correo_recordatorio", "correo_agendada"):
         c = conn.execute("select estado, rango from cita where id=%s", (m["entidad_id"],)).fetchone()
         viva = c is not None and c["estado"] in ALIVE

@@ -3,17 +3,17 @@ perfil: paciente
 actor: diego
 categoria: horario
 pregunta: hi! whats the address and what time do you close on friday?
-intencion: En inglés, la dirección y la hora de cierre del viernes (17:30).
+intencion: En inglés, la dirección y la hora de cierre del viernes (17:00).
 herramientas:
   esperadas: [datos_del_negocio]
   prohibidas: [pedir_contacto]
 contexto:
   - llamada: datos_del_negocio
     args: {}
-    incluye: ["Calle 10 # 43-20", "viernes", "17:30", '"dias_sin_atencion": ["sábado", "domingo"]']
+    incluye: ["Calle 10 # 43-20", "viernes", "17:00", '"dias_sin_atencion": ["sábado", "domingo"]']
 respuesta:
   incluye: ["Calle 10"]
-  incluye_alguno: ["5:30", "17:30"]
-  excluye: ["Solo puedo ayudarte"]
+  incluye_alguno: ["5:00", "17:00", "5 p"]
+  excluye: ["solo puedo ayudarle"]
   propuestas: []
 notas: Responde en el idioma de la persona. Pregunta en inglés que sí está dentro de los cuatro temas.

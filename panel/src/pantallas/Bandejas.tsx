@@ -3,12 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/cliente";
 import { CADA_MINUTO, useAccion, useConteoBandejas } from "@/api/consultas";
-import type { Contacto, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
+import type { CelularPorRevisar, Contacto, Semaforo as TipoSemaforo, ConteoBandejas, ResultadoGestion } from "@/api/tipos";
 import { totalLlamadas } from "@/lib/pendientes";
 import { digitosWhatsApp, esSolicitudWeb, separarNombre, tamanoLegible, tipoDeSolicitud } from "@/lib/solicitudes";
+import { pesos } from "@/lib/dinero";
 import { fechaDe, fechaHora } from "@/lib/tiempo";
 import { cn } from "@/lib/utils";
-import { AltoValor, Boton, Confirmar, Hoja, Tarjeta } from "@/ui/controles";
+import { AltoValor, Boton, Confirmar, Entrada, Hoja, Semaforo, Tarjeta } from "@/ui/controles";
 import { BuscarPaciente } from "./Agendar";
 import { BotonConfirmo, EnlacesContacto } from "./Llamar";
 import { Aviso, Cargando, Consulta, Vacio } from "@/ui/vistas";
@@ -20,6 +21,8 @@ const BANDEJAS: { clave: keyof ConteoBandejas; slug: string; texto: string; grup
   { clave: "sin_interpretar", slug: "sin-interpretar", texto: "Mensajes por responder", grupo: "Llamar", ayuda: "Mensajes que el paciente escribió y el sistema no supo interpretar. Respóndele por tu cuenta y márcalo como resuelto.", vacio: "No hay mensajes pendientes." },
   { clave: "contactos", slug: "contactos", texto: "Contactos y solicitudes", grupo: "Llamar", ayuda: "Solicitudes de contacto: personas del sitio web que piden información y quienes intentaron agendar con un documento ya registrado pero otro celular (esas se validan por teléfono).", vacio: "No hay solicitudes de contacto." },
   { clave: "dados_de_baja", slug: "dados-de-baja", texto: "Dados de baja", grupo: "Llamar", ayuda: "Citas próximas de pacientes que pidieron no recibir mensajes automáticos: confírmalas por teléfono.", vacio: "No hay citas próximas de pacientes dados de baja." },
+  { clave: "celulares_por_revisar", slug: "celulares-por-revisar", texto: "Celulares por revisar", grupo: "Llamar", ayuda: "Pacientes con cita próxima o seguimiento abierto cuyo celular falta, no es válido o no tiene WhatsApp: el sistema no les puede escribir. Corrige el número o contacta a su responsable.", vacio: "Todos los celulares están en orden." },
+  { clave: "planes", slug: "planes", texto: "Planes sin siguiente paso", grupo: "Llamar", ayuda: "Plan de tratamiento entregado hace más de 7 días, sin cita posterior con ese profesional ni abono desde entonces. Primero los pacientes de alto valor y luego el valor del plan. Llama para acompañarle en el siguiente paso.", vacio: "Todos los planes entregados tienen siguiente paso." },
   { clave: "sin_desenlace", slug: "sin-desenlace", texto: "Citas por cerrar", grupo: "Revisar", ayuda: "Citas pasadas que quedaron sin desenlace. Ciérralas para no dejar huecos en los datos.", vacio: "No hay citas pasadas sin cerrar." },
   { clave: "cupos_libres", slug: "cupos-libres", texto: "Cupos libres", grupo: "Revisar", ayuda: "Espacios liberados por cancelaciones que aún no se han ocupado, y a quién se ofrecieron.", vacio: "No hay cupos liberados pendientes." },
   { clave: "en_riesgo", slug: "en-riesgo", texto: "Pacientes en riesgo", grupo: "Revisar", ayuda: "Tratamientos activos sin cita futura y con más días que el umbral desde la última cita. Primero los pacientes de alto valor (internacionales y deportistas), después los de más días sin cita.", vacio: "Ningún paciente con tratamiento a medias está en riesgo." },
@@ -69,17 +72,18 @@ export function Bandejas() {
   );
 }
 
-type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; texto: ReactNode; acciones: ReactNode };
+type Pendiente = { id: string; urgencia: number; altoValor?: boolean; orden: string; etiqueta: string; slug: string; pacienteId?: number; celular?: string | null; semaforo?: TipoSemaforo | null; texto: ReactNode; acciones: ReactNode };
 
 /** Las llamadas de hoy, de lo más urgente a lo menos: necesita llamada, mensajes, contactos, sin confirmar, seguimientos y, al final, los dados de baja.
  *  Con la misma urgencia, primero los pacientes de alto valor (internacionales y deportistas). */
 function pendientes(d: {
   seguimientos?: Awaited<ReturnType<typeof api.bandejas.seguimientos>>; contactos?: Awaited<ReturnType<typeof api.bandejas.contactos>>;
   mensajes?: Awaited<ReturnType<typeof api.bandejas.sinInterpretar>>; noConfirmadas?: Awaited<ReturnType<typeof api.bandejas.noConfirmadas>>;
-  dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>;
+  dadosDeBaja?: Awaited<ReturnType<typeof api.bandejas.dadosDeBaja>>; celulares?: Awaited<ReturnType<typeof api.bandejas.celularesPorRevisar>>;
+  planes?: Awaited<ReturnType<typeof api.bandejas.planes>>;
 }): Pendiente[] {
   const f: Pendiente[] = [];
-  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.seguimientos ?? []) f.push({ id: `seg-${r.id}`, urgencia: r.escalado ? 0 : 4, altoValor: r.internacional || r.deportista, orden: r.abierto_en, etiqueta: r.escalado ? "Necesita llamada" : "Seguimiento", slug: "seguimientos", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesSeguimiento id={r.id} paciente={r.paciente} />,
     texto: <><b>{r.paciente}</b> <AltoValor internacional={r.internacional} deportista={r.deportista} />: {r.escalado ? "el sistema ya no pudo contactarle; llámale tú" : `seguimiento abierto de ${limpio(r.tipo)}`} ({r.intentos} intentos).</> });
   for (const r of d.mensajes ?? []) f.push({ id: `msj-${r.id}`, urgencia: 1, orden: r.momento, etiqueta: "Mensaje", slug: "sin-interpretar", pacienteId: r.paciente_id,
@@ -88,13 +92,49 @@ function pendientes(d: {
   for (const r of d.contactos ?? []) f.push({ id: `con-${r.id}`, urgencia: 2, orden: r.momento, etiqueta: esSolicitudWeb(r) ? "Solicitud web" : "Validar", slug: "contactos", celular: r.celular,
     acciones: <BotonGestionada id={r.id} />,
     texto: esSolicitudWeb(r) ? resumenWeb(r) : <>El documento <b>{r.documento}</b> intentó agendar desde otro celular ({r.celular}). Llama para validar.</> });
-  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.noConfirmadas ?? []) f.push({ id: `nc-${r.cita_id}`, urgencia: 3, orden: r.inicio, etiqueta: ESTADO_NC[r.estado], slug: "no-confirmadas", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Llama a <b>{r.paciente}</b>: su cita del {fechaHora(r.inicio)} {r.estado === "programada" ? "aún no responde al recordatorio" : "sigue sin confirmar"}.</> });
-  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular,
+  for (const r of d.dadosDeBaja ?? []) f.push({ id: `baja-${r.cita_id}`, urgencia: 5, orden: r.inicio, etiqueta: "Sin mensajes", slug: "dados-de-baja", pacienteId: r.paciente_id, celular: r.celular, semaforo: r.semaforo,
     acciones: <AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} />,
     texto: <>Confirma por teléfono a <b>{r.paciente}</b> su cita del {fechaHora(r.inicio)}: pidió no recibir mensajes.</> });
+  for (const r of d.celulares ?? []) f.push({ id: `cel-${r.paciente_id}`, urgencia: 3, orden: r.proxima_cita ?? "9", etiqueta: "Celular por revisar", slug: "celulares-por-revisar", pacienteId: r.paciente_id, celular: r.responsable_celular,
+    acciones: <AccionesCelular r={r} />,
+    texto: <><b>{r.paciente}</b>: {TEXTO_CELULAR[r.motivo] ?? "celular por revisar"}. <Responsable r={r} /></> });
+  for (const r of d.planes ?? []) f.push({ id: `plan-${r.tratamiento_id}`, urgencia: 6, altoValor: r.internacional || r.deportista, orden: r.plan_entregado_en, etiqueta: "Plan sin siguiente paso", slug: "planes", pacienteId: r.paciente_id, celular: r.celular,
+    acciones: <Link className={ENLACE} to={`/agendar?paciente=${r.paciente_id}`}>Agendar</Link>,
+    texto: <>Llama a <b>{r.paciente}</b> <AltoValor internacional={r.internacional} deportista={r.deportista} />: recibió su plan con {r.profesional} hace {r.dias_desde_entrega} días y no tiene cita ni abono.</> });
   return f.sort((a, b) => a.urgencia - b.urgencia || Number(!!b.altoValor) - Number(!!a.altoValor) || a.orden.localeCompare(b.orden));
+}
+
+const TEXTO_CELULAR: Record<string, string> = { sin_celular: "no tiene celular", invalido: "Celular no válido", sin_whatsapp: "su celular no tiene WhatsApp" };
+
+/** Si el paciente depende de un responsable con celular usable, la recepción llama a quien sí recibe los mensajes. */
+function Responsable({ r }: { r: CelularPorRevisar }) {
+  if (!r.responsable_id) return <>Corrige el número o llámale por otro medio.</>;
+  return <>Contactar a <Link className={ENLACE} to={`/pacientes/${r.responsable_id}`}>{r.responsable}</Link>{r.parentesco ? ` (${r.parentesco})` : ""}.</>;
+}
+
+function AccionesCelular({ r }: { r: CelularPorRevisar }) {
+  const [abierta, setAbierta] = useState(false);
+  const [celular, setCelular] = useState("");
+  const editar = useAccion((c: string) => api.pacientes.cambiarCelular(r.paciente_id, { celular: c }), { ok: "Celular actualizado", alExito: () => { setAbierta(false); setCelular(""); } });
+  const enChat = useAccion(() => api.pacientes.celularEnChat(r.paciente_id), { ok: "Celular marcado como válido" });
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Boton variante="secundario" pequeno onClick={() => setAbierta(true)}>Editar celular</Boton>
+      <Confirmar etiqueta="Ya está en un chat de WhatsApp" pequeno deshabilitado={enChat.isPending} si="Sí, ya está en un chat"
+        pregunta={<>¿<b className="text-tinta">{r.paciente}</b> ya está en un chat de WhatsApp con la clínica? El celular se marca como válido y se le vuelve a escribir.</>}
+        alConfirmar={() => enChat.mutate(undefined)} />
+      <Hoja abierta={abierta} alCerrar={() => setAbierta(false)} titulo="Editar celular" descripcion={`Nuevo celular de ${r.paciente}. Si comparte el número con su familia, se corrige para todos.`}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); editar.mutate(celular); }}>
+          {editar.error instanceof ApiError && <Aviso>{editar.error.mensaje}</Aviso>}
+          <Entrada etiqueta="Celular" inputMode="tel" value={celular} onChange={(e) => setCelular(e.target.value)} required />
+          <Boton type="submit" disabled={editar.isPending}>Guardar</Boton>
+        </form>
+      </Hoja>
+    </div>
+  );
 }
 
 const ESTADO_NC = { no_confirmada: "Sin confirmar", programada: "Sin respuesta aún" } as const;
@@ -161,12 +201,14 @@ function QueHacerHoy() {
     { queryKey: ["bandeja", "sin-interpretar"], queryFn: api.bandejas.sinInterpretar, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "no-confirmadas"], queryFn: api.bandejas.noConfirmadas, refetchInterval: CADA_MINUTO },
     { queryKey: ["bandeja", "dados-de-baja"], queryFn: api.bandejas.dadosDeBaja, refetchInterval: CADA_MINUTO },
+    { queryKey: ["bandeja", "celulares-por-revisar"], queryFn: api.bandejas.celularesPorRevisar, refetchInterval: CADA_MINUTO },
+    { queryKey: ["bandeja", "planes"], queryFn: api.bandejas.planes, refetchInterval: CADA_MINUTO },
   ] });
-  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja] = consultas;
+  const [seguimientos, contactos, mensajes, noConfirmadas, dadosDeBaja, celulares, planes] = consultas;
   const fallo = consultas.find((c) => c.error);
   if (fallo) return <Aviso>No pudimos cargar todo. <button className="underline" onClick={() => consultas.forEach((c) => void c.refetch())}>Reintentar</button></Aviso>;
   if (consultas.some((c) => c.isPending)) return <Cargando />;
-  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data });
+  const filas = pendientes({ seguimientos: seguimientos.data, contactos: contactos.data, mensajes: mensajes.data, noConfirmadas: noConfirmadas.data, dadosDeBaja: dadosDeBaja.data, celulares: celulares.data, planes: planes.data });
   const porCerrar = conteo.data?.sin_desenlace ?? 0;
   return (
     <div className="space-y-4">
@@ -178,6 +220,7 @@ function QueHacerHoy() {
               <Fila key={f.id}>
                 <span className={cn("w-32 shrink-0 rounded-full px-2 py-0.5 text-center text-xs font-medium", f.urgencia === 0 ? "bg-rose-100 text-rose-900" : f.urgencia <= 3 ? "bg-amber-100 text-amber-950" : "bg-zinc-200 text-zinc-900")}>{f.etiqueta}</span>
                 <span className="min-w-48 flex-1">{f.texto}</span>
+                <Semaforo semaforo={f.semaforo} />
                 <EnlacesContacto celular={f.celular} />
                 {f.pacienteId !== undefined && <Link className={ENLACE} to={`/pacientes/${f.pacienteId}`}>Ver paciente</Link>}
                 <div className="ml-auto flex flex-wrap items-center gap-1.5">{f.acciones}</div>
@@ -238,8 +281,8 @@ function Lista<T extends object>({ clave, fn, vacio, fila }: { clave: string; fn
 }
 
 const Fila = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-sm">{children}</div>;
-const Paciente = ({ id, nombre, celular }: { id: number; nombre: string; celular?: string | null }) => (
-  <div className="min-w-40 flex-1"><Link className={ENLACE} to={`/pacientes/${id}`}>{nombre}</Link>{celular && <p><EnlacesContacto celular={celular} /></p>}</div>
+const Paciente = ({ id, nombre, celular, semaforo }: { id: number; nombre: string; celular?: string | null; semaforo?: TipoSemaforo | null }) => (
+  <div className="min-w-40 flex-1"><Link className={ENLACE} to={`/pacientes/${id}`}>{nombre}</Link> <Semaforo semaforo={semaforo} />{celular && <p><EnlacesContacto celular={celular} /></p>}</div>
 );
 const limpio = (s: string) => s.replace(/_/g, " ");
 const CAUSAS: Record<string, string> = { cancelacion: "cancelación", cambio_fecha: "cambio de fecha" };
@@ -252,14 +295,14 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
   switch (slug) {
     case "no-confirmadas":
       return <Lista clave={slug} fn={api.bandejas.noConfirmadas} vacio={vacio} fila={(r) => (
-        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <div className="min-w-36"><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", r.estado === "no_confirmada" ? "bg-amber-100 text-amber-950" : "bg-sky-100 text-sky-950")}>{ESTADO_NC[r.estado]}</span>
             {r.recordatorio_enviado && <p className="text-tinta-suave">{r.recordatorio_en ? `Recordatorio enviado ${fechaHora(r.recordatorio_en)}` : "Recordatorio enviado"}</p>}</div>
           <span className="text-tinta-suave">{r.profesional}</span>
           <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
     case "seguimientos":
       return <>{aviso}<Lista clave={slug} fn={api.bandejas.seguimientos} vacio={vacio} fila={(r) => (
-        <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <AltoValor internacional={r.internacional} deportista={r.deportista} />
           <span>{limpio(r.tipo)}{r.escalado && <> <b className="rounded bg-rose-100 px-1.5 text-xs text-rose-900">Necesita llamada</b></>}</span>
           <span className="text-tinta-suave">{r.intentos} intentos · último: {limpio(r.ultimo ?? "pendiente")}</span>
@@ -270,6 +313,12 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
           <AltoValor internacional={r.internacional} deportista={r.deportista} /><span>Última cita: {r.ultima_cita}</span>
           <span>{r.dias_sin_cita} días sin cita</span><span className="text-tinta-suave">Mensaje de recuperación: {r.caso_id ? "enviado" : "aún no"}</span>
           <Link className={cn(ENLACE, "ml-auto")} to={`/agendar?paciente=${r.paciente_id}`}>Agendar</Link></Fila>)} />;
+    case "planes":
+      return <Lista clave={slug} fn={api.bandejas.planes} vacio={vacio} fila={(r) => (
+        <Fila key={r.tratamiento_id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+          <AltoValor internacional={r.internacional} deportista={r.deportista} /><span>{r.profesional}</span>
+          <span className="text-tinta-suave">Plan entregado hace {r.dias_desde_entrega} días</span>
+          {r.valor_plan != null && <span className="ml-auto font-medium">{pesos(r.valor_plan)}</span>}</Fila>)} />;
     case "cupos-libres":
       return <Lista clave={slug} fn={api.bandejas.cuposLibres} vacio={vacio} fila={(r) => (
         <Fila key={r.id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><span>{r.profesional}</span>
@@ -291,9 +340,16 @@ function Contenido({ slug, vacio }: { slug: string; vacio: string }) {
         <Fila key={r.id}>
           {esSolicitudWeb(r) ? <DetalleWeb r={r} /> : <><span className="w-32 font-medium">{r.documento}</span><span className="w-32">{r.celular}</span><span className="flex-1 text-tinta-suave">{r.nota}</span></>}
           <span className="text-tinta-suave">{fechaHora(r.momento)}</span><BotonGestionada id={r.id} /></Fila>)} />;
+    case "celulares-por-revisar":
+      return <Lista clave={slug} fn={api.bandejas.celularesPorRevisar} vacio={vacio} fila={(r) => (
+        <Fila key={r.paciente_id}><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+          <span className="min-w-40"><b className="rounded bg-amber-100 px-1.5 text-xs text-amber-950">{TEXTO_CELULAR[r.motivo] ?? r.motivo}</b>
+            {r.proxima_cita && <p className="text-tinta-suave">Cita: {fechaHora(r.proxima_cita)}</p>}</span>
+          <span className="flex-1"><Responsable r={r} />{r.responsable_celular && <> <EnlacesContacto celular={r.responsable_celular} /></>}</span>
+          <div className="ml-auto"><AccionesCelular r={r} /></div></Fila>)} />;
     default:
       return <Lista clave={slug} fn={api.bandejas.dadosDeBaja} vacio={vacio} fila={(r) => (
-        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} />
+        <Fila key={r.cita_id}><span className="w-36 font-medium">{fechaHora(r.inicio)}</span><Paciente id={r.paciente_id} nombre={r.paciente} celular={r.celular} semaforo={r.semaforo} />
           <div className="ml-auto"><AccionesCita citaId={r.cita_id} paciente={r.paciente} inicio={r.inicio} /></div></Fila>)} />;
   }
 }

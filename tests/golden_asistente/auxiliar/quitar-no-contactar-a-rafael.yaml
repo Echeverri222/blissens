@@ -1,0 +1,23 @@
+id: quitar-no-contactar-a-rafael
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: Rafael Osorio ya arreglo lo de la queja, quitale lo de no contactar
+intencion: Preparar quitar la marca "No contactar" de Rafael Osorio (queda por confirmar, no hecha).
+herramientas:
+  esperadas: [buscar_pacientes, proponer_quitar_no_contactar]
+  aceptables: [ficha_paciente]
+  prohibidas: [proponer_no_contactar]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Rafael Osorio"}
+    incluye: ["Rafael Osorio Vega", "queja"]
+  - llamada: proponer_quitar_no_contactar
+    args: {paciente_id: "{paciente.rafael}"}
+    incluye: ["quitar_no_contactar", "Rafael Osorio Vega"]
+respuesta:
+  incluye: ["Rafael"]
+  excluye: ["ya quedo", "ya le quite"]
+  propuestas: [quitar_no_contactar]
+notas: >-
+  Rafael está marcado con motivo queja. Mientras tenga la marca, el asistente no sugiere llamarle ni escribirle.

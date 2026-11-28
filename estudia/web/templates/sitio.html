@@ -179,7 +179,8 @@
     <div class="contacto-vias rev">
       <a class="boton" href="tel:{{ sitio.TELEFONO_TEL }}">{{ sitio.TELEFONO }}</a>
       <a class="boton boton--linea" href="https://wa.me/{{ sitio.TELEFONO_TEL[1:] }}" target="_blank" rel="noopener">{{ t.contacto.whatsapp }}</a>
-      <a class="boton boton--linea" href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a>
+      {% if whatsapp_url %}<a class="boton boton--linea" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ t.contacto.whatsapp_escribir }}</a>
+      {% endif %}<a class="boton boton--linea" href="mailto:{{ sitio.CORREO }}">{{ sitio.CORREO }}</a>
       <a class="boton boton--linea" href="{{ sitio.MAPA }}" target="_blank" rel="noopener">{{ t.contacto.mapa }}</a>
     </div>
   </div>
@@ -192,7 +193,7 @@
    subirse sobre ella en el celular). Sin JavaScript sus opciones son enlaces a páginas aparte con el mismo formulario. #}
 <aside class="asist" id="asistente" aria-label="{{ t.asistente.aria }}">
   <details class="asist__caja" open>
-    <summary class="asist__cabeza" aria-label="{{ t.asistente.abrir }}"><span class="asist__punto" aria-hidden="true"></span><span>{{ t.asistente.titulo }}</span></summary>
+    <summary class="asist__cabeza" aria-label="{{ t.asistente.abrir }}"><span class="asist__punto" aria-hidden="true"></span><span>{{ asistente_nombre }} · {{ t.asistente.titulo }}</span></summary>
     <div class="asist__cuerpo" id="asist-cuerpo" aria-live="polite">{% include "_asistente_inicio.html" %}</div>
   </details>
 </aside>

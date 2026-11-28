@@ -5,14 +5,14 @@ fotos:
     plantilla: cita_agendada
     estado: entregado
     momento: +0d 0h 0m
-    texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
-      en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+    texto: 'Hola, Ana. Su cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Le esperamos
+      en Blissens Odontología, Calle 00 # 00-00, Bogotá. Gracias por elegirnos.'
     botones: []
   - direccion: saliente
     plantilla: recordatorio_48h
     estado: entregado
     momento: +1d 2h 1m
-    texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirmas tu
+    texto: Hola, Ana. Le recordamos su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirma su
       asistencia?
     botones:
     - Sí, asistiré
@@ -28,16 +28,13 @@ fotos:
     plantilla: pedir_motivo
     estado: entregado
     momento: +1d 2h 1m
-    texto: Listo Ana, cancelamos tu cita del jueves 19 de noviembre. Para mejorar nuestro servicio, ¿nos cuentas el motivo?
-      Elige una opción.
+    texto: Listo, Ana. Cancelamos su cita del jueves 19 de noviembre. Para mejorar nuestro servicio, ¿nos cuenta el motivo?
+      Elija una opción.
     botones:
     - Salud
     - Trabajo o estudio
     - Viaje
-    - Transporte
     - Motivo económico
-    - Confusión de fecha
-    - Ya no la necesito
     - Otro
   citas:
   - estado: cancelada
@@ -58,14 +55,14 @@ mensajes:
   plantilla: cita_agendada
   estado: entregado
   momento: +0d 0h 0m
-  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
-    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  texto: 'Hola, Ana. Su cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Le esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. Gracias por elegirnos.'
   botones: []
 - direccion: saliente
   plantilla: recordatorio_48h
   estado: entregado
   momento: +1d 2h 1m
-  texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirmas tu asistencia?
+  texto: Hola, Ana. Le recordamos su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirma su asistencia?
   botones:
   - Sí, asistiré
   - No podré ir
@@ -80,16 +77,13 @@ mensajes:
   plantilla: pedir_motivo
   estado: entregado
   momento: +1d 2h 1m
-  texto: Listo Ana, cancelamos tu cita del jueves 19 de noviembre. Para mejorar nuestro servicio, ¿nos cuentas el motivo?
-    Elige una opción.
+  texto: Listo, Ana. Cancelamos su cita del jueves 19 de noviembre. Para mejorar nuestro servicio, ¿nos cuenta el motivo?
+    Elija una opción.
   botones:
   - Salud
   - Trabajo o estudio
   - Viaje
-  - Transporte
   - Motivo económico
-  - Confusión de fecha
-  - Ya no la necesito
   - Otro
 - direccion: entrante
   plantilla: null
@@ -101,7 +95,7 @@ mensajes:
   plantilla: cancelacion_recibida
   estado: entregado
   momento: +1d 2h 1m
-  texto: 'Gracias, Ana. Tu cita del jueves 19 de noviembre quedó cancelada. Cuando quieras retomarla, elige un nuevo espacio
+  texto: 'Gracias, Ana. Su cita del jueves 19 de noviembre quedó cancelada. Cuando quiera retomarla, elija un nuevo espacio
     aquí: http://localhost:8000/p/<token>/agendar?caso=1'
   botones:
   - Ahora no

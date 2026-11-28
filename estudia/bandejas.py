@@ -1,7 +1,7 @@
 """Bandejas de la auxiliar: listas de trabajo derivadas con consultas (no hay tabla de alertas)."""
 from datetime import date, datetime, time, timedelta
 
-from . import clock, recovery
+from . import clock, pacientes, recovery
 from .lifecycle import ALIVE
 
 
@@ -35,7 +35,7 @@ def no_confirmadas(conn):
         "select c.id, c.estado, lower(c.rango) as inicio, pr.nombre as profesional, p.id as paciente_id, "
         "p.nombres || ' ' || p.apellidos as paciente, p.celular, c.datos_origen from cita c "
         "join profesional pr on pr.id=c.profesional_id join paciente p on p.id=c.paciente_id "
-        "where c.rango is not null and lower(c.rango) > %s and p.acepta_mensajes "
+        "where c.rango is not null and lower(c.rango) > %s and p.acepta_mensajes and p.no_contactar is null "
         "and (c.estado='no_confirmada' or (c.estado='programada' and lower(c.rango) < %s))",
         (clock.now(conn), fin_de_manana(conn))).fetchall()
     out = []
@@ -64,7 +64,7 @@ def seguimientos(conn):
         "(select count(*) from intento i where i.caso_id=cs.id) as intentos, "
         "(select resultado from intento i where i.caso_id=cs.id order by numero desc limit 1) as ultimo "
         "from caso_seguimiento cs join paciente p on p.id=cs.paciente_id "
-        "where cs.estado='abierto' or (cs.estado='agotado' and cs.escalado) "
+        "where (cs.estado='abierto' or (cs.estado='agotado' and cs.escalado)) and p.no_contactar is null "
         "order by cs.escalado desc, (p.internacional or p.deportista) desc, cs.abierto_en").fetchall()
 
 
@@ -109,6 +109,25 @@ def contactos_pendientes(conn):
         "from solicitud_contacto s left join paciente p on p.id=s.paciente_id where not s.gestionada order by s.momento").fetchall()
 
 
+def celulares_por_revisar(conn):
+    """Pacientes con cita próxima viva o caso abierto cuyo celular no sirve (falta, no tiene forma válida o no es WhatsApp).
+    Si tienen un responsable con celular utilizable, viene para contactarlo a él (R8). No salen los «No contactar»."""
+    return conn.execute(
+        "select p.id as paciente_id, p.nombres || ' ' || p.apellidos as paciente, p.celular, p.celular_estado, "
+        "case when p.celular is null then 'sin_celular' else p.celular_estado end as motivo, "
+        "(select min(lower(c.rango)) from cita c where c.paciente_id=p.id and c.estado = any(%(alive)s) "
+        " and c.rango is not null and lower(c.rango) > %(now)s) as proxima_cita, "
+        "(select cs.id from caso_seguimiento cs where cs.paciente_id=p.id and cs.estado='abierto' order by cs.id limit 1) as caso_id, "
+        "r.id as responsable_id, r.nombres || ' ' || r.apellidos as responsable, p.parentesco, r.celular as responsable_celular "
+        "from paciente p left join paciente r on r.id = p.responsable_id and r.celular is not null "
+        "and r.celular_estado in ('sin_verificar','valido') "
+        "where p.etapa = 'paciente' and p.no_contactar is null and (p.celular is null or p.celular_estado in ('invalido','sin_whatsapp')) "
+        "and (exists (select 1 from cita c where c.paciente_id=p.id and c.estado = any(%(alive)s) and c.rango is not null "
+        "            and lower(c.rango) > %(now)s) "
+        "     or exists (select 1 from caso_seguimiento cs where cs.paciente_id=p.id and cs.estado='abierto')) "
+        "order by proxima_cita nulls last, p.id", {"alive": list(ALIVE), "now": clock.now(conn)}).fetchall()
+
+
 def dados_de_baja(conn):
     return conn.execute(
         "select c.id, lower(c.rango) as inicio, p.id as paciente_id, p.nombres || ' ' || p.apellidos as paciente, p.celular "
@@ -144,10 +163,12 @@ SEGMENTOS = ("internacional", "deportista")
 TOPE_BUSQUEDA = 50
 
 
-def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
+def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = (), con_fallecidos: bool = False, semaforo: str | None = None):
     """Pacientes cuyo nombre, apellido, documento o celular contienen CADA palabra de `q`, sin importar tildes ni mayúsculas:
     «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes). Con `segmentos` se queda con los
-    que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos."""
+    que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos. Los fallecidos no salen
+    (ni para agendar ni para el asistente) salvo con `con_fallecidos`: la ficha se consulta desde Pacientes. Cada fila trae su
+    `semaforo` (R5); con `semaforo` se queda con los de ese color."""
     palabras = _sin_tildes(q).split()[:6]
     segmentos = tuple(s for s in SEGMENTOS if s in segmentos)
     if not palabras and not segmentos:
@@ -156,9 +177,17 @@ def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
     condiciones = [f"({nombre} like %s or documento like %s or celular like %s or lower(correo) like %s)" for _ in palabras]
     if segmentos:
         condiciones.append("(" + " or ".join(segmentos) + ")")
+    if not con_fallecidos:
+        condiciones.append("no_contactar is distinct from 'fallecido'")
     args = [x for w in palabras for x in (f"%{w}%",) * 4]
-    return conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista from paciente "
-                        f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA}", args).fetchall()
+    filas = conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista, no_contactar from paciente "
+                         f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA if not semaforo else 2000}",
+                         args).fetchall()
+    colores = pacientes.semaforo(conn, [f["id"] for f in filas])
+    filas = [{**f, "semaforo": colores[f["id"]]} for f in filas]
+    if semaforo:
+        filas = [f for f in filas if f["semaforo"] == semaforo][:TOPE_BUSQUEDA]
+    return filas
 
 
 def patient_record(conn, patient_id: int) -> dict:

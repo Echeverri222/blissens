@@ -15,6 +15,7 @@ from .. import (
     agenda,
     arranque,
     canales,
+    catalog,
     clock,
     config,
     db,
@@ -33,6 +34,7 @@ from .. import (
 from .. import correo as correo_mod
 from ..api import registrar_errores
 from ..api import router as api_router
+from ..asistente.instrucciones import NOMBRE as NOMBRE_ASISTENTE
 from ..lifecycle import ALIVE
 from . import copia, seo
 from .limite import LimiteVentana
@@ -93,12 +95,13 @@ def _con_conexion(conn):
 
 def _fijar_negocio(request: Request, conn, negocio: dict | None, prefijo: str = "") -> None:
     if negocio is None or not negocio["activo"]:
-        raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
+        raise HTTPException(404, "Este enlace no es válido o ya venció. Pida uno nuevo a la clínica.")
     db.fijar(conn, negocio["id"])
     request.state.negocio_id = negocio["id"]
     request.state.negocio = negocio
     request.state.prefijo = prefijo
     request.state.termino = config.get(conn, "termino_negocio")
+    request.state.asistente_nombre = NOMBRE_ASISTENTE
     request.state.consentimiento = config.get(conn, "texto_consentimiento").format(nombre=negocio["nombre"])
 
 
@@ -121,7 +124,7 @@ def conn_enlace(request: Request, token: str):
     try:
         nid = links.negocio_del_token(token)
         if nid is None:
-            raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
+            raise HTTPException(404, "Este enlace no es válido o ya venció. Pida uno nuevo a la clínica.")
         db.fijar(conn, nid)
         _fijar_negocio(request, conn, conn.execute("select * from negocio where id=%s", (nid,)).fetchone())
     except Exception:
@@ -136,7 +139,7 @@ def conn_baja(request: Request, token: str):
     try:
         v = correo_mod.leer_token_baja(token)
         if v is None:
-            raise HTTPException(404, "Este enlace no es válido. Pide ayuda a la clínica.")
+            raise HTTPException(404, "Este enlace no es válido. Pida ayuda a la clínica.")
         db.fijar(conn, v[0])
         _fijar_negocio(request, conn, conn.execute("select * from negocio where id=%s", (v[0],)).fetchone())
         request.state.paciente_baja = v[1]
@@ -189,12 +192,12 @@ def patient_from_token(conn, token: str) -> dict:
         if huella is not None and huella not in links.huellas_validas(p["celular"], p["correo"]):
             p = None
     if p is None:
-        raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
+        raise HTTPException(404, "Este enlace no es válido o ya venció. Pida uno nuevo a la clínica.")
     return p
 
 
-AVISO_PROSPECTO = ("Todavía no tienes documento registrado, así que las citas presenciales las agenda la clínica cuando "
-                   "llegues. Aquí puedes ver tu solicitud y agregarle fotos o radiografías.")
+AVISO_PROSPECTO = ("Todavía no tiene documento registrado, así que las citas presenciales las agenda la clínica cuando "
+                   "usted llegue. Aquí puede ver su solicitud y agregarle fotos o radiografías.")
 
 
 def _sin_citas(request: Request, token: str, p: dict):
@@ -212,11 +215,13 @@ def render(request, name, status_code: int = 200, **ctx):
     ctx.setdefault("negocio", getattr(st, "negocio", None))
     ctx.setdefault("prefijo", getattr(st, "prefijo", ""))
     ctx.setdefault("termino", getattr(st, "termino", "la clínica"))
+    ctx.setdefault("asistente_nombre", NOMBRE_ASISTENTE)
     ctx.setdefault("consentimiento", getattr(st, "consentimiento", ""))
     ctx.setdefault("lang", "es")
     ctx.setdefault("t", copia.COPIA[ctx["lang"]])
     ctx.setdefault("sitio", copia)
     ctx.setdefault("base_url", settings.BASE_URL.rstrip("/"))
+    ctx.setdefault("whatsapp_url", copia.enlace_whatsapp(settings.WHATSAPP_PUBLICO, ctx["lang"]))
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 
@@ -302,9 +307,9 @@ def _uid(panel: str) -> str:
 def _celular_de_sitio(raw: str) -> str:
     """Un celular colombiano se normaliza; uno del exterior se conserva (solo dígitos, + y separadores). Vacío si no
     parece un teléfono (7 a 15 dígitos, como E.164)."""
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     raw = raw.strip()
-    limpio = normalize_phone(raw) or re.sub(r"[^\d+()\- ]", "", raw)[:30].strip()
+    limpio = normalizar_celular(raw) or re.sub(r"[^\d+()\- ]", "", raw)[:30].strip()
     return limpio if 7 <= len(re.sub(r"\D", "", limpio)) <= 15 else ""
 
 
@@ -360,7 +365,8 @@ def solicitud_sitio(request: Request, interes: str = Form(...), idioma: str = Fo
                           celular=tel, pais=pais[:80] or None, paquete=paquete if interes == "experiencia" else None,
                           mensaje=mensaje[:2000] or None, adjuntos=archivos)
     ctx = dict(lang=lang, interes=interes, values=values if not hecho else {}, error=error, hecho=hecho, uid=uid,
-               horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo))
+               horas=config.get(conn, "plazo_respuesta_solicitud_horas"), con_correo=bool(correo),
+               whatsapp_url=copia.enlace_whatsapp(config.get(conn, "whatsapp_publico") or settings.WHATSAPP_PUBLICO, lang))
     if request.headers.get("HX-Request"):
         return render(request, "_solicitud.html", **ctx)
     return render(request, "solicitud.html", **ctx)
@@ -405,7 +411,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
                 correo: str = Form(""), acepta_correo: str = Form(""), idioma: str = Form("es"),
                 servicio: str = Form(""), profesional: str = Form(""), desde: str = Form(""), panel: str = Form(""),
                 conn=Depends(conn_publica)):
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     lang = idioma if idioma in copia.COPIA else "es"
     i = copia.COPIA[lang]["ident"]
     hx = bool(request.headers.get("HX-Request"))  # la landing pide solo el formulario y recibe solo el formulario
@@ -426,7 +432,7 @@ def identificar(request: Request, nombre: str | None = None, documento: str = Fo
         return RedirectResponse(url, status_code=303)
 
     documento = re.sub(r"\D", "", documento)
-    phone = normalize_phone(celular)
+    phone = normalizar_celular(celular)
     values = {"documento": documento, "celular": celular}
     if not documento or not phone:
         return pagina(error=i["err_datos"],
@@ -493,7 +499,7 @@ def _sujeto(conn, p: dict, para: int | None) -> dict:
     try:
         return familia.sujeto(conn, p, para)
     except familia.NoEsDeLaFamilia:
-        raise HTTPException(404, "Esa persona no está en tu familia") from None
+        raise HTTPException(404, "Esa persona no está en su familia") from None
 
 
 def _primer_nombre(p: dict) -> str:
@@ -571,7 +577,7 @@ def prospecto_adjuntos(request: Request, token: str, fotos: list[UploadFile | st
         solicitudes.agregar_adjuntos(conn, ultima["id"], archivos)
     except solicitudes.AdjuntoInvalido as e:
         return _pagina_prospecto(request, conn, token, p, aviso=f[f"err_adjunto_{e}"], status_code=422)
-    aviso = "Files added. Thank you!" if lang == "en" else "Listo, agregamos los archivos a tu solicitud."
+    aviso = "Files added. Thank you!" if lang == "en" else "Listo, agregamos los archivos a su solicitud."
     return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
 
 
@@ -605,8 +611,8 @@ def familia_agregar(request: Request, token: str, documento: str = Form(""), nom
     except familia.NoSePuede:
         return render(request, "familia.html", p=p, token=token, contacto=True, responsable=None)
     f = conn.execute("select nombres from paciente where id=%s", (fid,)).fetchone()
-    aviso = f"{_primer_nombre(f)} ya estaba en tu familia." if ya_estaba else \
-        f"Agregamos a {_primer_nombre(f)} a tu familia. Ya puedes agendarle citas."
+    aviso = f"{_primer_nombre(f)} ya estaba en su familia." if ya_estaba else \
+        f"Agregamos a {_primer_nombre(f)} a su familia. Ya puede agendarle citas."
     return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
 
 
@@ -619,7 +625,7 @@ def dejar_de_compartir(request: Request, token: str, conn=Depends(conn_enlace)):
         familia.dejar_de_compartir(conn, p)
     except familia.DatosInvalidos as e:
         return RedirectResponse(f"/p/{token}?aviso=" + quote(str(e)), status_code=303)
-    return RedirectResponse(f"/p/{token}?aviso=" + quote("Listo: tus citas ya no se comparten."), status_code=303)
+    return RedirectResponse(f"/p/{token}?aviso=" + quote("Listo: sus citas ya no se comparten."), status_code=303)
 
 
 def _slots(conn, professional_id, service_id):
@@ -678,7 +684,7 @@ def _hogar(conn, p: dict) -> list[dict]:
     fams = familia.familiares(conn, p["id"])
     if not fams:
         return []
-    return [{"id": p["id"], "nombre": f"{_primer_nombre(p)} (tú)"}] + [{"id": f["id"], "nombre": _primer_nombre(f)} for f in fams]
+    return [{"id": p["id"], "nombre": f"{_primer_nombre(p)} (usted)"}] + [{"id": f["id"], "nombre": _primer_nombre(f)} for f in fams]
 
 
 def _desde(valor: str | None) -> datetime | None:
@@ -729,10 +735,10 @@ def agendar_post(request: Request, token: str, servicio: int = Form(...), profes
         slots = _slots(conn, profesional, servicio)
         return _espacios_resp(request, slots=slots, sid=servicio, pid=profesional, token=token, cita=None, para=s["id"],
                               modo="nueva", error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
-    quien = "Tu cita" if s["id"] == p["id"] else f"La cita de {_primer_nombre(s)}"
+    quien = "Su cita" if s["id"] == p["id"] else f"La cita de {_primer_nombre(s)}"
     resp = HTMLResponse("")
     resp.headers["HX-Redirect"] = f"/p/{token}?cita={cita_id}&aviso=" + quote(
-        f"{quien} quedó agendada. Te enviamos la confirmación por WhatsApp.")
+        f"{quien} quedó agendada. Le enviamos la confirmación por WhatsApp.")
     return resp
 
 
@@ -770,7 +776,7 @@ def cambiar_post(request: Request, token: str, cita_id: int, inicio: str = Form(
                               cita=cita_id, modo="cambiar", para=c["paciente_id"],
                               error="Ese espacio acaba de ocuparse. Esta es la lista actualizada.")
     s = _sujeto(conn, p, c["paciente_id"])
-    quien = "tu cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
+    quien = "su cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
     resp = HTMLResponse("")
     resp.headers["HX-Redirect"] = f"/p/{token}?aviso=" + quote(f"Cambiamos la fecha de {quien}.")
     return resp
@@ -789,14 +795,14 @@ def confirmar(request: Request, token: str, cita_id: int, conn=Depends(conn_enla
         return r
     c = _cita_del_hogar(conn, p, cita_id)
     s = _sujeto(conn, p, c["paciente_id"])
-    quien = "tu cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
+    quien = "su cita" if s["id"] == p["id"] else f"la cita de {_primer_nombre(s)}"
     if c["estado"] == "confirmada":
         aviso = f"{quien[0].upper()}{quien[1:]} ya estaba confirmada."
     elif not _confirmable(c, clock.now(conn)):
         aviso = f"{quien[0].upper()}{quien[1:]} ya empezó: no se puede confirmar."
     else:
         lifecycle.transition(conn, cita_id, "confirmada", "paciente", "Confirmó desde su enlace")
-        aviso = f"Listo: confirmamos {quien}. ¡Te esperamos!"
+        aviso = f"Listo: confirmamos {quien}. ¡Le esperamos!"
     if request.headers.get("HX-Request") == "true":
         return render(request, "_asistente_contacto.html", aviso=aviso)
     return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)
@@ -809,7 +815,7 @@ def cancelar(request: Request, token: str, cita_id: int, conn=Depends(conn_enlac
         return r
     c = _cita_del_hogar(conn, p, cita_id)
     s = _sujeto(conn, p, c["paciente_id"])
-    motivos = conn.execute("select * from motivo_cancelacion order by orden").fetchall()
+    motivos = catalog.motivos_activos(conn)
     return render(request, "cancelar.html", p=p, token=token, cita_id=cita_id, motivos=motivos,
                   para_nombre=None if s["id"] == p["id"] else _primer_nombre(s))
 
@@ -931,7 +937,7 @@ MAX_CUERPO_WEBHOOK = 256 * 1024
 async def webhook_canal(tipo: str, request: Request):
     """Entrada de mensajes de un proveedor: se resuelve el negocio por el canal, se verifica la firma con el secreto
     de ESE canal, se fija el contexto y se procesa como cualquier mensaje entrante (sin repetir reenvíos)."""
-    from ..data import normalize_phone
+    from ..pacientes import normalizar_celular
     a = canales.adaptador(tipo)
     if a is None:
         raise HTTPException(404, "Canal desconocido")
@@ -964,7 +970,7 @@ async def webhook_canal(tipo: str, request: Request):
             raise HTTPException(422, "Mensaje no entendido")
         if conn.execute("select 1 from mensaje where canal=%s and id_externo=%s", (tipo, ent.id_mensaje)).fetchone():
             return {"estado": "repetido"}
-        celular = normalize_phone(ent.celular)
+        celular = normalizar_celular(ent.celular)
         # Un celular compartido por un solo hogar es del responsable: a él van los avisos agrupados (docs/prd-familia.md
         # R9). Compartido por pacientes sin relación, sigue ambiguo (queda para el PRD de WhatsApp).
         hogares = conn.execute("select distinct coalesce(responsable_id, id) as raiz from paciente where celular=%s",

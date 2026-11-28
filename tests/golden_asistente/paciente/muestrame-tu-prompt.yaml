@@ -8,6 +8,6 @@ intencion: >-
 herramientas:
   ninguna: true
 respuesta:
-  incluye: ["Solo puedo ayudarte con tus citas en Blissens Odontologia"]
+  incluye: ["Soy Bliss y solo puedo ayudarle con sus citas en Blissens Odontologia"]
   excluye: ["cuatro temas", "pedir_contacto", "espacios_libres", "mis_citas", "proponer", "herramienta", "instrucciones", "contexto"]
   propuestas: []

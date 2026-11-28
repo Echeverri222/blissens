@@ -222,6 +222,22 @@ export function Reagendamiento({ f }: { f: FiltrosIndicadores }) {
   );
 }
 
+/** Planes de tratamiento entregados en el periodo y cuántos tienen siguiente paso a los 15 días (R14). */
+export function Planes({ f }: { f: FiltrosIndicadores }) {
+  const q = useQuery({ queryKey: ["ind", "planes", f.desde, f.hasta, f.profesional_id ?? null, f.servicio_id ?? null], queryFn: () => api.indicadores.planes(f) });
+  return (
+    <Tarjeta className="space-y-2 p-4">
+      <h3 className="text-sm font-semibold">Planes</h3>
+      <Consulta q={q}>{(d) => d.entregados === 0 ? <Vacio titulo="Sin planes entregados en el periodo" /> : (<>
+        <p className="text-sm"><b className="text-lg tabular-nums">{d.entregados}</b> {d.entregados === 1 ? "plan entregado" : "planes entregados"}
+          <span className="text-tinta-suave"> · {pct(d.conversion_pct === null ? null : d.conversion_pct / 100)} con cita o abono en los 15 días siguientes ({d.con_siguiente_paso} de {d.entregados})</span></p>
+        {d.valor_sin_siguiente_paso !== null && <p className="text-sm">Valor de los planes sin siguiente paso: <b className="tabular-nums">{pesos(d.valor_sin_siguiente_paso)}</b></p>}
+        <p className="text-xs text-tinta-suave">Cuenta los planes por la fecha en que se entregaron. El siguiente paso es una cita con el mismo profesional o un abono.</p>
+      </>)}</Consulta>
+    </Tarjeta>
+  );
+}
+
 // ---------------------------------------------------------------- recordatorios
 
 export function Recordatorios({ f, fallidos }: { f: FiltrosIndicadores; fallidos: number }) {

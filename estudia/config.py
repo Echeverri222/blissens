@@ -5,13 +5,16 @@ from datetime import time
 DEFAULTS = {
     "recordatorios_horas": [48, 24],
     "umbral_tardia_horas": 24,
-    "cadencia_seguimiento_dias": [0, 3, 7, 15],
+    "cadencia_seguimiento_dias": [3, 7, 15],
+    "cadencia_plan_dias": [3, 7],       # plan entregado (R14): acompañamiento a los 3 y 7 días
     "dias_hasta_agotar": 7,
     "vigencia_oferta_min": 30,
     "antelacion_minima_cupo_horas": 2,
     "max_ofertas_por_cupo": 5,
     "max_ofertas_paciente_semana": 2,
     "dias_riesgo": 30,
+    "dias_perdido": 60,                 # semáforo (R5): sin cita viva y sin venir en tantos días = «perdido»
+    "umbral_cambios_fecha": 3,          # semáforo (R5): tantos cambios de fecha en 12 meses = amarillo
     "horizonte_dias": 60,
     "antelacion_minima_agendar_horas": 2,
     "paso_min": 30,
@@ -24,6 +27,7 @@ DEFAULTS = {
     "texto_consentimiento": "Autorizo a {nombre} a tratar mis datos personales para gestionar mis citas y enviarme mensajes\n"
                             "      sobre ellas (Ley 1581 de 2012). Puedo pedir la baja respondiendo BAJA.",
     "consentimiento_version": "1",
+    "version_plantillas": 2,            # catálogo de plantillas que tiene el negocio (2 = en usted, R9)
     "demo_mode": True,
     "reloj_desfase_seg": 0,
     "ultimo_diario": None,
@@ -53,6 +57,9 @@ DEFAULTS = {
     # cuántas horas se le promete respuesta a quien la envía.
     "correo_avisos_solicitudes": None,
     "plazo_respuesta_solicitud_horas": 24,
+    # Número de WhatsApp de la clínica para el enlace «Escríbanos por WhatsApp» del sitio (R22); None = no se muestra.
+    # La landing no abre la base: allí se lee de WHATSAPP_PUBLICO (entorno); la confirmación de solicitud usa esta clave.
+    "whatsapp_publico": None,
 }
 
 

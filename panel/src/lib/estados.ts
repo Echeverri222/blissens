@@ -1,4 +1,18 @@
-import type { CitaAgenda, Estado } from "@/api/tipos";
+import type { CitaAgenda, ColorSemaforo, Estado, MotivoNoContactar, Semaforo } from "@/api/tipos";
+
+export const MOTIVOS_NO_CONTACTAR: Record<MotivoNoContactar, string> = {
+  queja: "Queja activa", cobro: "Cobro jurídico", fallecido: "Fallecido", otro: "Otro motivo",
+};
+
+// El semáforo (R5) siempre lleva texto: el color solo no basta.
+export const SEMAFOROS: Record<Semaforo, { texto: string; ayuda: string; punto: string; clases: string }> = {
+  verde: { texto: "Al día", ayuda: "Sin pendientes con su agenda", punto: "bg-emerald-600", clases: "bg-emerald-100 text-emerald-900" },
+  amarillo: { texto: "Atención", ayuda: "Cambió tres veces la fecha o su cita próxima sigue sin confirmar", punto: "bg-amber-500", clases: "bg-amber-100 text-amber-950" },
+  rojo: { texto: "Sin reagendar", ayuda: "Su última cita fue una cancelación o inasistencia y no tiene otra", punto: "bg-rose-600", clases: "bg-rose-100 text-rose-900" },
+  perdido: { texto: "Perdido", ayuda: "Sin cita viva y más de 60 días sin venir", punto: "bg-zinc-500", clases: "bg-zinc-200 text-zinc-900" },
+  prospecto: { texto: "Prospecto", ayuda: "Escribió desde el sitio web y aún no tiene documento", punto: "bg-sky-500", clases: "bg-sky-100 text-sky-950" },
+};
+export const COLORES_SEMAFORO: ColorSemaforo[] = ["verde", "amarillo", "rojo", "perdido"];
 
 // Cada estado tiene color, texto y forma (icono) propios: nunca se comunica solo con color.
 export const ESTADOS: Record<Estado, { texto: string; clases: string; borde: string; icono: string }> = {

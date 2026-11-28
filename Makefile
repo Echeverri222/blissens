@@ -2,7 +2,7 @@ SHELL := /bin/bash
 -include .env
 export
 
-.PHONY: golden-asistente golden-asistente-vivo asistente-charla golden-update respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar cierre db-up stop usuario api-esquema panel panel-deps e2e
+.PHONY: golden-asistente golden-asistente-vivo asistente-charla golden-update respaldo restaurar-ensayo migrar-ensayo ensayo-supabase negocio migrar lint setup dev test seed reset importar importar-anonimo cierre db-up stop usuario api-esquema panel panel-deps e2e
 
 db-up:
 	docker compose up -d --wait db
@@ -67,6 +67,10 @@ reset: db-up
 
 importar: db-up
 	uv run python -m estudia.data importar
+
+# Datos reales con la forma de siempre pero sin nadie reconocible (solo local; para la demo). Añade ARGS=--anonimo-profesionales
+importar-anonimo: db-up
+	uv run python -m estudia.data importar --anonimo $(ARGS)
 
 cierre: db-up
 	uv run python -m estudia.indicators

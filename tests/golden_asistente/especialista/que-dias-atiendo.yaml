@@ -3,18 +3,18 @@ perfil: especialista
 actor: rios
 categoria: horario
 pregunta: que dias y en que horario atiendo?
-intencion: El horario semanal de la Dra. Ríos, de lunes a viernes, 07:30–12:00 y 13:00–17:30.
+intencion: El horario semanal de la Dra. Ríos, de lunes a viernes, 08:00–12:00 y 13:00–17:00.
 herramientas:
   esperadas: [mi_horario]
   prohibidas: [datos_del_negocio]
 contexto:
   - llamada: mi_horario
     args: {}
-    incluye: ["lunes", "viernes", "07:30", "12:00", "13:00", "17:30"]
+    incluye: ["lunes", "viernes", "08:00", "12:00", "13:00", "17:00"]
     excluye: ["sábado", "domingo"]
 respuesta:
   incluye: ["lunes", "viernes"]
-  incluye_alguno: ["7:30", "07:30", "7 y media"]
+  incluye_alguno: ["8:00", "08:00", "8 a. m.", "8 de la mañana"]
   excluye: ["sábado", "domingo"]
   propuestas: []
 notas: >-

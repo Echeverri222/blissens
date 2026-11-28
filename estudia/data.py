@@ -3,6 +3,7 @@ import json
 import random
 import re
 import sys
+import unicodedata
 from datetime import date, datetime, time, timedelta
 
 import psycopg
@@ -10,6 +11,7 @@ from faker import Faker
 
 from . import agenda, catalog, clock, config, db, followup, indicators, lifecycle, settings, usuarios
 from .agenda import rng
+from .pacientes import normalizar_celular
 
 TABLES = ["acceso", "hecho_diario_profesional", "hecho_diario", "solicitud_adjunto", "solicitud_contacto", "tarea_programada", "mensaje",
           "oferta_adelanto", "cupo_liberado", "intento", "caso_seguimiento", "cancelacion", "historial_estado",
@@ -122,7 +124,7 @@ def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
         """Busca un espacio libre ese día dentro del horario de atención."""
         if day.weekday() > 4:
             return None
-        windows = [(time(7, 30), time(12, 0)), (time(13, 0), time(17, 30))]
+        windows = [(time(8, 0), time(12, 0)), (time(13, 0), time(17, 0))]
         cands = []
         for w0, w1 in windows:
             cur = _at(day, w0)
@@ -336,9 +338,9 @@ def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
             cancellation(cid, start, "whatsapp", round((start - now).total_seconds() / 3600, 1), now - timedelta(hours=5))
             conn.execute("insert into cupo_liberado(profesional_id, rango, cita_origen_id, causa, creado_en) "
                          "values (%s,%s,%s,'cancelacion',%s)", (pro, rng(start, svc["duracion_min"]), cid, now))
-            caso = followup.open_case(conn, "cancelacion", pid, cita_id=cid, send_first=False)
+            caso = followup.open_case(conn, "cancelacion", pid, cita_id=cid)
             if caso:
-                followup.send_attempt(conn, caso, "cancelacion_recibida")
+                followup.acusar_cancelacion(conn, caso)
     # Casos agotados y escalados (de hace semanas).
     for pid in rnd.sample(pat_ids, 3):
         caso = conn.execute(
@@ -386,14 +388,39 @@ def seed(conn, seed_value: int = 42, patients: int = 420) -> dict:
 
 # ---------------------------------------------------------------- Importación de Excel
 
-ESTADOS = {
-    "atendido": "atendida", "cambio de fecha": "reprogramada", "anulado": "cancelada",
-    "anulado por pcte. via whatsapp": "cancelada", "no asiste": "no_asistio",
-    "confirmado por teléfono": "confirmada", "confirmado por email": "confirmada",
-    "confirmado whatsapp": "confirmada", "confirmado por whatsapp": "confirmada",
-    "no confirmado": "programada", "notificado": "programada", "notif. automática": "programada",
-    "notif. fallida": "programada",
+def _norm(texto) -> str:
+    """Clave de comparación: minúsculas, sin tildes ni puntuación y con los espacios colapsados."""
+    t = unicodedata.normalize("NFKD", str(texto or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", t)).strip()
+
+
+# Estado del software de la clínica (clave normalizada) -> (estado de la cita, quién canceló si es una cancelación).
+# «Anulado» lo anula la clínica; «anulado por pte./pcte. vía WhatsApp» lo anula el paciente.
+_ESTADOS_ORIGEN = {
+    "atendido": ("atendida", None), "cambio de fecha": ("reprogramada", None),
+    "anulado": ("cancelada", "clinica"),
+    "anulado por pte via whatsapp": ("cancelada", "whatsapp"), "anulado por pcte via whatsapp": ("cancelada", "whatsapp"),
+    "no asiste": ("no_asistio", None),
+    "confirmado por telefono": ("confirmada", None), "confirmado por email": ("confirmada", None),
+    "confirmado whatsapp": ("confirmada", None), "confirmado por whatsapp": ("confirmada", None),
+    "confirmado por pte via whatsapp": ("confirmada", None), "confirmado por pcte via whatsapp": ("confirmada", None),
+    "confirmado": ("confirmada", None),
+    "no confirmado": ("programada", None), "notificado": ("programada", None), "notif automatica": ("programada", None),
+    "notif fallida": ("programada", None),
 }
+ESTADOS = _ESTADOS_ORIGEN
+
+
+def estado_de(texto) -> tuple[str, str | None] | None:
+    """(estado, canal de cancelación) del texto del software, o None si no se reconoce."""
+    k = _norm(texto)
+    if k in _ESTADOS_ORIGEN:
+        return _ESTADOS_ORIGEN[k]
+    palabras = set(k.split())
+    if "anulado" in palabras and "whatsapp" in palabras and palabras & {"pte", "pcte", "paciente"}:
+        return "cancelada", "whatsapp"
+    return None
+
 
 KEYWORDS = [  # (palabras clave, nombre de servicio)
     (("limpieza", "profilaxis", "detartraje"), "Limpieza"),
@@ -408,16 +435,8 @@ KEYWORDS = [  # (palabras clave, nombre de servicio)
 
 
 def normalize_phone(raw) -> str | None:
-    if raw is None:
-        return None
-    digits = "".join(ch for ch in str(raw) if ch.isdigit())
-    if digits.endswith("0") and "." in str(raw):  # '3001234567.0'
-        digits = "".join(ch for ch in str(raw).split(".")[0] if ch.isdigit())
-    if len(digits) == 10 and digits.startswith("3"):
-        return "+57" + digits
-    if len(digits) == 12 and digits.startswith("57") and digits[2] == "3":
-        return "+" + digits
-    return None
+    """Alias de `pacientes.normalizar_celular` (el normalizador único) para quien aún lo importe de aquí."""
+    return normalizar_celular(raw)
 
 
 def infer_service(comment, services_by_name) -> str:
@@ -455,8 +474,21 @@ def segmentos_de(*textos) -> dict[str, bool]:
     return {marca: any(re.search(rf"\b{w}", t) for w in palabras) for marca, palabras in SEGMENTOS}
 
 
-def importar(conn, folder=None) -> dict:
-    """Importa agenda y estados desde una carpeta local ignorada por git. Idempotente; no dispara mensajes ni casos."""
+ANONIMO_AVISO = "Datos anonimizados: no los publiques igual; son solo para la demo local."
+
+
+def _edad_a_fecha(nacimiento: date, hoy: date) -> date:
+    """Una fecha de nacimiento (1 de julio) que conserva la edad que tiene hoy la persona."""
+    edad = hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))
+    return date(hoy.year - edad - ((hoy.month, hoy.day) < (7, 1)), 7, 1)
+
+
+def importar(conn, folder=None, anonimo: bool = False, anonimo_profesionales: bool = False) -> dict:
+    """Importa agenda y estados desde una carpeta local ignorada por git. Idempotente; no dispara mensajes ni casos.
+
+    Con `anonimo` (R23) los pacientes salen como «Paciente001…», sin apellido, documento ni correo; el celular pasa a un
+    número falso del simulador, la fecha de nacimiento conserva solo la edad y todas las fechas se corren un número fijo
+    de semanas (que solo vive en memoria). No se guarda el texto original del estado."""
     import pandas as pd
 
     folder = folder or settings.DATOS_REALES_DIR
@@ -477,7 +509,16 @@ def importar(conn, folder=None) -> dict:
     def col_opcional(df, prefix):
         return next((c for c in df.columns if c.lower().startswith(prefix.lower())), None)
 
-    c_segmento = [c for c in (col_opcional(ag, "Tipo Paciente"),) if c]  # «Convenio» es la aseguradora: no dice el segmento
+    # «Convenio» es la aseguradora: no dice el segmento. El comentario de la cita (p. ej. «Deportista») se lee en memoria
+    # para marcar el segmento y nunca se guarda: puede traer notas clínicas.
+    c_segmento = [c for c in (col_opcional(ag, "Tipo Paciente"), col_opcional(ag, "Comentario")) if c]
+    c_antiguedad = col_opcional(est, "Antigüedad")
+    hoy = clock.now(conn).date()
+    desfase = timedelta(weeks=random.SystemRandom().choice([w for w in range(-26, 27) if w])) if anonimo else timedelta(0)
+    numeros: dict[str, dict[str, int]] = {"paciente": {}, "cita": {}, "tratamiento": {}, "profesional": {}}
+
+    def numero(clase: str, clave: str) -> int:
+        return numeros[clase].setdefault(clave, len(numeros[clase]) + 1)
 
     c_cita_e, c_cita_a = col(est, "# Cita"), col(ag, "# Cita")
     ag["_k"] = ag[c_cita_a].map(_id)
@@ -494,7 +535,8 @@ def importar(conn, folder=None) -> dict:
             "on conflict (negocio_id, nombre) do update set nombre='Otro' returning id").fetchone()["id"]
 
     pros: dict[str, int] = {}
-    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0, "segmentados": 0}
+    stats = {"citas": 0, "pacientes": 0, "sin_hora": 0, "estado_desconocido": 0, "segmentados": 0, "por_depurar": 0,
+             "celulares_invalidos": 0}
     seen_patients = set()
     for _, r in est.iterrows():
         cid_ext = _id(r[c_cita_e])
@@ -504,6 +546,9 @@ def importar(conn, folder=None) -> dict:
         # Profesional
         pname = " ".join(filter(None, [_s(r.get(col(est, "Nombre Profesional"))),
                                          _s(r.get(col(est, "Apellidos Profesional")))])) or "Sin asignar"
+        if anonimo_profesionales:
+            pname = f"Especialista {chr(64 + numero('profesional', pname))}" if numero("profesional", pname) <= 26 \
+                else f"Especialista {numero('profesional', pname)}"
         if pname not in pros:
             row = conn.execute(
                 "insert into profesional(nombre, especialidad, external_id) values (%s,%s,%s) "
@@ -524,20 +569,35 @@ def importar(conn, folder=None) -> dict:
                     birth = d if d.year > 1920 else None
                 except Exception:
                     birth = None
-            phone = normalize_phone(a[col(ag, "Celular")]) if a is not None else None
+            crudo = _s(a[col(ag, "Celular")]) if a is not None else None
+            phone = normalizar_celular(crudo)
+            invalido = bool(crudo) and phone is None  # el número no se guarda: solo queda marcado y contado
+            correo = _s(a[col(ag, "E-Mail")]) if a is not None else None
+            nombres, apellidos = _s(r[col(est, "Nombre Paciente")]) or "", _s(r[col(est, "Apellidos Paciente")]) or ""
+            ext = pext
+            if anonimo:
+                n = numero("paciente", pext)
+                nombres, apellidos, doc, correo, ext = f"Paciente{n:03d}", "", None, None, f"anon-{n:03d}"
+                phone = f"+57300000{n % 10000:04d}" if phone else None
+                birth = _edad_a_fecha(birth, hoy) if birth else None
             cur = conn.execute(
                 "insert into paciente(external_id, nombres, apellidos, documento, celular, correo, fecha_nacimiento, "
-                "consentimiento_en) values (%s,%s,%s,%s,%s,%s,%s,null) on conflict (negocio_id, external_id) do nothing returning id",
-                (pext, _s(r[col(est, "Nombre Paciente")]) or "", _s(r[col(est, "Apellidos Paciente")]) or "",
-                 doc, phone, _s(a[col(ag, "E-Mail")]) if a is not None else None, birth))
+                "consentimiento_en, celular_estado) values (%s,%s,%s,%s,%s,%s,%s,null,%s) "
+                "on conflict (negocio_id, external_id) do nothing returning id",
+                (ext, nombres, apellidos, doc, phone, correo, birth, "invalido" if invalido else "sin_verificar"))
             if cur.fetchone():
                 stats["pacientes"] += 1
+                stats["celulares_invalidos"] += invalido
             seen_patients.add(pext)
         elif a is not None:  # completa datos que faltaban en citas anteriores del mismo paciente
-            phone = normalize_phone(a[col(ag, "Celular")])
+            phone = normalizar_celular(a[col(ag, "Celular")])
             if phone:
-                conn.execute("update paciente set celular=%s where external_id=%s and celular is null", (phone, pext))
-        pat = conn.execute("select id from paciente where external_id=%s", (pext,)).fetchone()["id"]
+                if anonimo:
+                    phone = f"+57300000{numero('paciente', pext) % 10000:04d}"
+                conn.execute("update paciente set celular=%s where external_id=%s and celular is null",
+                             (phone, f"anon-{numero('paciente', pext):03d}" if anonimo else pext))
+        pat = conn.execute("select id from paciente where external_id=%s",
+                           (f"anon-{numero('paciente', pext):03d}" if anonimo else pext,)).fetchone()["id"]
         marcas = segmentos_de(*(a[c] for c in c_segmento)) if a is not None else {}
         if any(marcas.values()):  # solo suma marcas (y confirma las del sitio en inglés); lo que decidió la recepción no se toca
             if conn.execute(
@@ -556,14 +616,14 @@ def importar(conn, folder=None) -> dict:
             tid = conn.execute(
                 "insert into tratamiento(paciente_id, profesional_id, tipo, external_id) values (%s,%s,%s,%s) "
                 "on conflict (negocio_id, external_id) do update set tipo=excluded.tipo returning id",
-                (pat, pro, tipo, f"trat:{text_}")).fetchone()["id"]
+                (pat, pro, tipo, f"trat:{numero('tratamiento', text_) if anonimo else text_}")).fetchone()["id"]
         # Cita
-        estado_o = (_s(r[col(est, "Estado actual")]) or "").lower()
-        estado = ESTADOS.get(estado_o)
-        if estado is None:
+        estado_texto = _s(r[col(est, "Estado actual")]) or ""
+        reconocido = estado_de(estado_texto)
+        if reconocido is None:
             stats["estado_desconocido"] += 1
-            estado = "programada"
-        dia = pd.to_datetime(r[col(est, "Fecha Cita")]).date()
+        estado, canal_cancelacion = reconocido or ("programada", None)
+        dia = pd.to_datetime(r[col(est, "Fecha Cita")]).date() + desfase
         rango, servicio = None, "Otro"
         if a is not None:
             servicio = infer_service(a.get(col(ag, "Comentario")), services)
@@ -573,10 +633,18 @@ def importar(conn, folder=None) -> dict:
                 s, e = _at(dia, t0), _at(dia, t1)
                 if e > s:
                     rango = rng(s, int((e - s).total_seconds() // 60))
+        if servicio == "Otro" and _norm(_s(r.get(col(est, "Especialidad")))) == "ro":
+            servicio = "Valoración o revisión"  # «RO» es Revisión Odontológica si el comentario no dice otro servicio
         if rango is None:
             stats["sin_hora"] += 1
         datos = {c: str(r[c]) for c in yes_no if _s(r[c])}
-        params = (pat, pro, services[servicio], tid, dia, estado, datos and json.dumps(datos) or "{}", f"cita:{cid_ext}")
+        if not anonimo:
+            datos["estado_origen"] = estado_texto  # texto original, para auditar el mapeo
+        if c_antiguedad and _norm(_s(r.get(c_antiguedad))) == "no aplica":
+            datos["paciente_nuevo"] = True
+        por_depurar = estado in ("programada", "confirmada", "no_confirmada") and dia < hoy
+        ext_cita = f"cita:{numero('cita', cid_ext) if anonimo else cid_ext}"
+        params = (pat, pro, services[servicio], tid, dia, estado, json.dumps(datos), ext_cita)
         for attempt_range in ([rango, None] if rango else [None]):
             try:
                 with conn.transaction():
@@ -594,6 +662,14 @@ def importar(conn, folder=None) -> dict:
             conn.execute("insert into historial_estado(cita_id, estado_anterior, estado_nuevo, actor, detalle, momento) "
                          "values (%s,null,%s,'sistema','Importación de Excel',%s)", (row["id"], estado, clock.now(conn)))
             stats["citas"] += 1
+        if estado == "cancelada" and canal_cancelacion and not conn.execute(
+                "select 1 from cancelacion where cita_id=%s", (row["id"],)).fetchone():
+            # Sin motivo, y no abre caso de seguimiento: el importador nunca los abre. Lo que anuló la clínica queda
+            # con canal 'clinica' para que los indicadores no lo cuenten como cancelación del paciente.
+            conn.execute("insert into cancelacion(cita_id, motivo_id, canal, antelacion_horas, tardia, momento) "
+                         "values (%s,null,%s,0,false,%s)", (row["id"], canal_cancelacion, clock.now(conn)))
+        if por_depurar and row["nueva"]:
+            stats["por_depurar"] += 1
     return stats
 
 
@@ -629,9 +705,14 @@ def main() -> None:
         print(f"Base reconstruida desde cero: {n['paciente']} pacientes, {n['cita']} citas.")
         _print_users(n["usuarios"])
     elif cmd == "importar":
+        anonimo = "--anonimo" in sys.argv[2:]
+        if anonimo and settings.ENTORNO != "local":
+            raise SystemExit("'importar --anonimo' solo corre en el entorno local: escribe en la base de datos local.")
         with db.connect(negocio=_negocio()) as conn:
-            s = importar(conn)
+            s = importar(conn, anonimo=anonimo, anonimo_profesionales="--anonimo-profesionales" in sys.argv[2:])
         print("Importación terminada:", s)
+        if anonimo:
+            print(ANONIMO_AVISO)
     else:
         raise SystemExit(f"Comando desconocido: {cmd}")
 

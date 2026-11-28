@@ -35,7 +35,7 @@ PERFILES = ("auxiliar", "especialista", "paciente", "visitante")
 ACTORES = {"marta": "auxiliar", "rios": "especialista", "mejia": "especialista",
            "laura": "paciente", "tomas": "paciente", "jorge": "paciente", "diego": "paciente", "visita": "visitante"}
 CATEGORIAS = ("agenda", "pendientes", "pacientes", "indicadores", "accion", "horario", "negocio",
-              "fuera_de_alcance", "seguridad", "clinico", "privacidad")
+              "fuera_de_alcance", "seguridad", "clinico", "privacidad", "personalidad")
 CLAVES = {"id", "perfil", "actor", "categoria", "pregunta", "intencion", "herramientas", "contexto", "respuesta", "notas", "idioma"}
 EN_VIVO = os.environ.get("ASISTENTE_EN_VIVO") == "1"
 INFORME = Path(__file__).resolve().parent.parent / ".logs" / "golden-asistente" / f"{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
@@ -109,7 +109,7 @@ def test_estructura(ruta):
     assert set(r) <= {"incluye", "incluye_alguno", "excluye", "propuestas"}, r
     tipos = {"agendar", "cambiar_fecha", "cancelar", "confirmar", "confirmar_telefono", "desenlace", "bloqueo", "contacto",
              "eliminar_bloqueo", "crear_paciente", "segmentos", "gestion_seguimiento", "gestionar_mensaje", "gestionar_contacto",
-             "vincular_contacto", "revertir", "registro", "solicitud"}
+             "vincular_contacto", "revertir", "registro", "solicitud", "no_contactar", "quitar_no_contactar", "plan_entregado", "registrar_abono"}
     assert set(r.get("propuestas") or []) <= tipos, r.get("propuestas")
 
 

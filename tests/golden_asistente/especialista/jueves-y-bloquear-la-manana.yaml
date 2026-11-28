@@ -7,7 +7,7 @@ pregunta:
   - bloquéame tambien la mañana de ese dia, me voy todo el dia pal congreso
 intencion: >-
   El jueves de la Dra. Ríos: la valoración de Lucía de las 9:00 está cancelada y la tarde está bloqueada por el congreso.
-  Luego, bloquear la mañana del jueves (07:30–12:00): se puede, porque la única cita de esa franja está cancelada.
+  Luego, bloquear la mañana del jueves (08:00–12:00): se puede, porque la única cita de esa franja está cancelada.
 herramientas:
   esperadas: [proponer_bloqueo]
   una_de: [[mi_agenda, mi_horario]]
@@ -19,9 +19,9 @@ contexto:
     excluye: ["Diego", "Tomás"]
   - llamada: mi_horario
     args: {}
-    incluye: ["Congreso de odontología", "07:30"]
+    incluye: ["Congreso de odontología", "08:00"]
   - llamada: proponer_bloqueo
-    args: {inicio: "{fecha.jueves}T07:30:00", fin: "{fecha.jueves}T12:00:00", motivo: "Congreso de odontología"}
+    args: {inicio: "{fecha.jueves}T08:00:00", fin: "{fecha.jueves}T12:00:00", motivo: "Congreso de odontología"}
     incluye: ["Bloquear la agenda de Dra. Valentina Ríos", "Congreso"]
 respuesta:
   incluye: ["congreso"]

@@ -98,7 +98,7 @@ def test_landing_es_y_en_incluyen_json_ld_dentist_y_metadatos_sociales(client):
         assert clinica["address"]["addressCountry"] == "CO"
         servicios = [o["itemOffered"]["name"] for o in clinica["hasOfferCatalog"]["itemListElement"]]
         assert servicio_esperado in servicios
-        assert len(clinica["employee"]) == 3
+        assert len(clinica["employee"]) == 2
 
 
 def test_rutas_privadas_e_interiores_tienen_noindex_y_x_robots_tag(client, conn):

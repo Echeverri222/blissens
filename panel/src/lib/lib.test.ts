@@ -103,8 +103,8 @@ describe("solicitudes del sitio web", () => {
 
 describe("llamadas pendientes", () => {
   it("el total solo suma lo que se resuelve llamando", () => {
-    const conteo = { seguimientos: 2, contactos: 1, sin_interpretar: 3, no_confirmadas: 4, dados_de_baja: 1, sin_desenlace: 9, en_riesgo: 7, cupos_libres: 5 };
-    expect(totalLlamadas(conteo as never)).toBe(11);
+    const conteo = { seguimientos: 2, contactos: 1, sin_interpretar: 3, no_confirmadas: 4, dados_de_baja: 1, sin_desenlace: 9, en_riesgo: 7, cupos_libres: 5, celulares_por_revisar: 2, planes: 1 };
+    expect(totalLlamadas(conteo as never)).toBe(14);
   });
 });
 

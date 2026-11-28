@@ -13,10 +13,12 @@ def cancelled_case(conn):
     return pro, a, c, caso
 
 
-def test_cancellation_opens_one_case_with_first_attempt(conn):
+def test_cancellation_opens_one_case_and_acknowledges_without_counting_an_attempt(conn):
     pro, a, c, caso = cancelled_case(conn)
     assert caso["tipo"] == "cancelacion" and caso["estado"] == "abierto"
     assert len(outbox(conn, a, "cancelacion_recibida")) == 1
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 0  # el acuse no es un intento
+    assert not outbox(conn, a, "seguimiento_reasignacion")  # y no sale nada más al abrir
     assert followup.open_case(conn, "cancelacion", a, cita_id=c) is None  # solo un caso abierto por cita
 
 
@@ -31,7 +33,7 @@ def test_cadence_3_7_15_days_then_exhausted_and_escalated(conn):
     row = conn.execute("select estado, escalado from caso_seguimiento").fetchone()
     assert (row["estado"], row["escalado"]) == ("agotado", True)
     results = [r["resultado"] for r in conn.execute("select resultado from intento order by numero")]
-    assert results == ["sin_respuesta"] * 4
+    assert results == ["sin_respuesta"] * 3  # tres intentos: a los 3, 7 y 15 días
 
 
 def test_ahora_no_closes_case_without_more_attempts(conn):
@@ -41,7 +43,7 @@ def test_ahora_no_closes_case_without_more_attempts(conn):
     clock.freeze(caso["abierto_en"] + timedelta(days=4))
     tasks.cycle(conn)
     assert not outbox(conn, a, "seguimiento_reasignacion")
-    assert conn.execute("select resultado from intento").fetchone()["resultado"] == "rechazo"
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 0
 
 
 def test_booking_again_closes_case_as_reprogramado(conn):
@@ -52,7 +54,7 @@ def test_booking_again_closes_case_as_reprogramado(conn):
     row = conn.execute("select * from caso_seguimiento").fetchone()
     assert row["estado"] == "reprogramado" and row["cita_resultante_id"] == new
     assert status(conn, c) == "reprogramada"
-    assert [r["resultado"] for r in conn.execute("select resultado from intento order by numero")] == ["sin_respuesta", "acepto"]
+    assert [r["resultado"] for r in conn.execute("select resultado from intento order by numero")] == ["acepto"]
 
 
 def test_manual_attempt_by_phone(conn):
@@ -68,8 +70,36 @@ def test_no_show_opens_case(conn):
     c = book(conn, a, pro, at(0, "13:00"))
     clock.freeze(at(0, "15:00"))
     agenda.mark_outcome(conn, c, "no_asistio")
-    assert conn.execute("select tipo from caso_seguimiento").fetchone()["tipo"] == "inasistencia"
-    assert outbox(conn, a, "seguimiento_inasistencia")
+    caso = conn.execute("select * from caso_seguimiento").fetchone()
+    assert caso["tipo"] == "inasistencia"
+    assert not outbox(conn, a, "seguimiento_inasistencia")  # sin mensaje el día 0
+    clock.freeze(caso["abierto_en"] + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
+    assert len(outbox(conn, a, "seguimiento_inasistencia")) == 1  # el primero, a los 3 días
+
+
+def test_la_cadencia_puede_empezar_en_cualquier_dia_y_no_envia_nada_al_abrir(conn):
+    from estudia import config
+    config.set_(conn, "cadencia_seguimiento_dias", [2, 5])
+    pro, a, c, caso = cancelled_case(conn)
+    clock.freeze(caso["abierto_en"] + timedelta(days=2, minutes=1))
+    tasks.cycle(conn)
+    assert len(outbox(conn, a, "seguimiento_reasignacion")) == 1
+    assert followup.max_intentos(conn) == 2
+
+
+def test_los_intentos_manuales_cuentan_para_los_tres_y_cancelan_los_automaticos_que_faltan(conn):
+    pro, a, c, caso = cancelled_case(conn)
+    clock.freeze(caso["abierto_en"] + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)  # intento automatico 1
+    followup.register_manual(conn, caso["id"], "sin_respuesta", "Llamada sin contestar")  # 2
+    followup.register_manual(conn, caso["id"], "sin_respuesta", "Otra llamada")  # 3
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 3
+    assert conn.execute("select count(*) n from tarea_programada where tipo='intento_seguimiento' and estado='pendiente'").fetchone()["n"] == 0
+    clock.freeze(caso["abierto_en"] + timedelta(days=16))
+    tasks.cycle(conn)
+    assert len(outbox(conn, a, "seguimiento_reasignacion")) == 1  # no salió el de los 7 ni el de los 15 días
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 3
 
 
 def test_opt_out_stops_automatic_messages(conn):
@@ -118,3 +148,32 @@ def test_whatsapp_limits_are_enforced(conn):
     with pytest.raises(messaging.MessageError):
         messaging.validate("lista", [{"id": "1", "title": "x" * 25}])
     messaging.validate("lista", [{"id": str(i), "title": "x" * 24} for i in range(10)])
+
+
+def test_recuperacion_abre_con_volver_a_empezar_y_nombra_al_profesional(conn):
+    """R10: los tres textos de recuperación abren igual y nombran al profesional (título + nombre), sin servicio ni montos."""
+    pro, a, c, caso = cancelled_case(conn)
+    conn.execute("update profesional set titulo='Dra.', nombre='Ana Pérez' where id=%s", (pro,))
+    clock.freeze(caso["abierto_en"] + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
+    texto = outbox(conn, a, "seguimiento_reasignacion")[0]["texto"]
+    assert "Volver a empezar es más fácil acompañado: Dra. Ana Pérez le guarda un espacio." in texto
+    assert "Limpieza" not in texto and "$" not in texto
+    for clave in ("seguimiento_reasignacion", "seguimiento_inasistencia", "continuidad_tratamiento"):
+        from estudia import catalog
+        assert catalog.PLANTILLAS[clave][0].startswith("Hola, {nombre}. Volver a empezar es más fácil acompañado: {profesional}")
+        for prohibido in ("{servicio}", "{valor}", "diagn"):
+            assert prohibido not in catalog.PLANTILLAS[clave][0]
+
+
+def test_recuperacion_sin_titulo_usa_solo_el_nombre_y_el_tratamiento_aporta_su_profesional(conn):
+    pro, a = make_pro(conn, "Ana Pérez"), make_patient(conn)
+    trat = conn.execute("insert into tratamiento(paciente_id, profesional_id) values (%s,%s) returning id", (a, pro)).fetchone()["id"]
+    caso = followup.open_case(conn, "tratamiento_a_medias", a, tratamiento_id=trat)
+    abierto = conn.execute("select abierto_en from caso_seguimiento where id=%s", (caso,)).fetchone()["abierto_en"]
+    clock.freeze(abierto + timedelta(days=3, minutes=1))  # open_case no envía: el primer intento sale con la cadencia
+    tasks.cycle(conn)
+    texto = outbox(conn, a, "continuidad_tratamiento")[0]["texto"]
+    assert "acompañado: Ana Pérez le guarda un espacio" in texto
+    conn.execute("update profesional set titulo='Dr.' where id=%s", (pro,))
+    assert followup._profesional_del_caso(conn, conn.execute("select * from caso_seguimiento").fetchone()) == "Dr. Ana Pérez"

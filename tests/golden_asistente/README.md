@@ -19,7 +19,7 @@ distingue por herramienta, sino por lo que la respuesta debe decir.
 ## El mundo: martes 17 de noviembre de 2026, 10:30 (hora de Bogotá)
 
 Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín. Todos atienden de lunes a viernes,
-07:30–12:00 y 13:00–17:30.
+08:00–12:00 y 13:00–17:00.
 
 **Profesionales** (`{pro.x}`): `rios` Dra. Valentina Ríos, `mejia` Dr. Andrés Mejía, `torres` Dra. Camila Torres.
 
@@ -37,7 +37,8 @@ Negocio «Blissens Odontología», Calle 10 # 43-20, consultorio 301, Medellín.
 | `visita` | visitante | Visitante anónimo del sitio web (sin cuenta; el caso puede llevar `idioma: en`) |
 
 **Pacientes** (`{paciente.x}`): laura, tomas, jorge, paula (Paula Castro León, dada de baja de WhatsApp), diego, sara (Sara
-Morales Díaz), andres (Andrés Pineda Gil), lucia (Lucía Fernández Mora), mateo (Mateo Ruiz Cano).
+Morales Díaz), andres (Andrés Pineda Gil), lucia (Lucía Fernández Mora), mateo (Mateo Ruiz Cano), rafael (Rafael Osorio Vega,
+marcado «No contactar» por queja activa).
 
 **Citas** (`{cita.x}`):
 
@@ -78,7 +79,7 @@ id: quien-sigue
 perfil: especialista            # auxiliar | especialista | paciente (= carpeta)
 actor: rios                     # de la tabla de actores, con ese perfil
 categoria: agenda               # agenda pendientes pacientes indicadores accion horario negocio
-                                # fuera_de_alcance seguridad clinico privacidad
+                                # fuera_de_alcance seguridad clinico privacidad personalidad
 pregunta: ¿Quién sigue?         # o una lista de turnos, para conversaciones de varios mensajes
 intencion: La próxima cita de hoy de la Dra. Ríos (Tomás, 11:00, control de ortodoncia).
 herramientas:
@@ -101,7 +102,7 @@ respuesta:                      # solo en vivo; comparación sin tildes ni mayú
   excluye: ["Lucía"]
   propuestas: []                # tipos exactos: agendar cambiar_fecha cancelar confirmar confirmar_telefono desenlace bloqueo contacto
                                 # eliminar_bloqueo crear_paciente segmentos gestion_seguimiento gestionar_mensaje
-                                # gestionar_contacto vincular_contacto revertir
+                                # gestionar_contacto vincular_contacto revertir no_contactar quitar_no_contactar
 notas: Por qué este caso importa (opcional).
 ```
 

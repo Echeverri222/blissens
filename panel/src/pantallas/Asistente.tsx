@@ -49,6 +49,7 @@ const booleano = (p: Propuesta["parametros"], k: string): boolean => {
   return v;
 };
 const RESULTADOS = ["acepto", "rechazo", "sin_respuesta"] as const;
+const MOTIVOS = ["queja", "cobro", "fallecido", "otro"] as const;
 
 /** Cada tipo de propuesta se ejecuta con el endpoint que ya usa el panel; los parámetros se validan antes de enviarlos. */
 export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
@@ -56,7 +57,8 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
   try {
     switch (pr.tipo) {
       case "agendar":
-        return api.citas.agendar({ paciente_id: numero(p, "paciente_id"), profesional_id: numero(p, "profesional_id"), servicio_id: numero(p, "servicio_id"), inicio: texto(p, "inicio") });
+        return api.citas.agendar({ paciente_id: numero(p, "paciente_id"), profesional_id: numero(p, "profesional_id"), servicio_id: numero(p, "servicio_id"), inicio: texto(p, "inicio"),
+          ...(p.duracion_min !== undefined ? { duracion_min: numero(p, "duracion_min") } : {}) });
       case "cambiar_fecha": return api.citas.cambiarFecha(numero(p, "cita_id"), texto(p, "inicio"));
       case "cancelar": return api.citas.cancelar(numero(p, "cita_id"), numero(p, "motivo_id"), typeof p.texto === "string" ? p.texto : undefined);
       case "confirmar_telefono": return api.citas.confirmar(numero(p, "cita_id"));
@@ -79,6 +81,17 @@ export function ejecutarPropuesta(pr: Propuesta): Promise<unknown> {
       case "gestionar_contacto": return api.bandejas.gestionarContacto(numero(p, "solicitud_id"));
       case "vincular_contacto": return api.bandejas.vincularContacto(numero(p, "solicitud_id"), numero(p, "paciente_id"));
       case "revertir": return api.citas.revertir(numero(p, "historial_id"));
+      case "no_contactar": {
+        const m = MOTIVOS.find((x) => x === p.motivo);
+        if (!m) throw new Error("parámetro inválido: motivo");
+        return api.pacientes.marcarNoContactar(numero(p, "paciente_id"), { motivo: m, nota: typeof p.nota === "string" && p.nota ? p.nota : null });
+      }
+      case "quitar_no_contactar": return api.pacientes.quitarNoContactar(numero(p, "paciente_id"));
+      case "plan_entregado":
+        return api.pacientes.planEntregado(numero(p, "paciente_id"), numero(p, "tratamiento_id"), {
+          fecha: typeof p.fecha === "string" ? p.fecha : null, valor_plan: typeof p.valor_plan === "number" ? p.valor_plan : null });
+      case "registrar_abono":
+        return api.pacientes.registrarAbono(numero(p, "paciente_id"), numero(p, "tratamiento_id"), { fecha: typeof p.fecha === "string" ? p.fecha : null });
       // Lleva datos que no pasan por el modelo: lo crea el formulario de su tarjeta, no un botón de confirmar.
       case "crear_paciente": return Promise.reject(new Error("se crea desde el formulario"));
       default: return Promise.reject(new Error("tipo desconocido"));
@@ -182,6 +195,8 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
 
   if (estado.isPending || estado.isError || !estado.data.disponible) return null;
   const restantes = estado.data.mensajes_restantes;
+  const nombre = estado.data.nombre || "Bliss";
+  const subtitulo = estado.data.negocio ? `Asistente de ${estado.data.negocio}` : "Asistente";
 
   const enviar = (e?: FormEvent) => {
     e?.preventDefault();
@@ -213,7 +228,7 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
       </div>
     </div>
 
-    <div ref={lista} role="log" aria-live="polite" aria-label="Conversación con el asistente" className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+    <div ref={lista} role="log" aria-live="polite" aria-label={`Conversación con ${nombre}`} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
       {conv.mensajes.length === 0 && !envio.isPending && (
         <p className="text-sm text-tinta-suave">Pregúntame por la agenda, los pendientes o los pacientes, o pídeme preparar una acción.</p>
       )}
@@ -257,8 +272,8 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
     </form>
   </>);
   const boton = (props: object = {}) => (
-    <button aria-label="Asistente" {...props} className={cn("flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-zinc-100", acoplado && abierto && "bg-zinc-100")}>
-      <Sparkles className="size-5" aria-hidden /><span className="hidden sm:inline">Asistente</span>
+    <button aria-label={nombre} {...props} className={cn("flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-zinc-100", acoplado && abierto && "bg-zinc-100")}>
+      <Sparkles className="size-5" aria-hidden /><span className="hidden sm:inline">{nombre}</span>
     </button>
   );
 
@@ -268,9 +283,9 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
       {abierto && createPortal(
         // En <body>: dentro del encabezado (que tiene backdrop-blur) `fixed` quedaría atado a él y no a la ventana.
         // Sin fondo oscuro ni foco atrapado: se puede seguir usando el resto del panel con el asistente abierto.
-        <aside aria-label="Asistente" className="fixed inset-y-0 right-0 z-30 flex w-96 flex-col border-l border-linea bg-papel shadow-xl"
+        <aside aria-label={nombre} className="fixed inset-y-0 right-0 z-30 flex w-96 flex-col border-l border-linea bg-papel shadow-xl"
           onKeyDown={(e) => { if (e.key === "Escape" && e.currentTarget.contains(e.target as Node)) setAbierto(false); }}>
-          {cuerpo(<h2 className="text-lg font-semibold">Asistente</h2>, <p className="text-xs text-tinta-suave">{AVISO}</p>,
+          {cuerpo(<h2 className="text-lg font-semibold">{nombre}</h2>, <p className="text-xs text-tinta-suave">{subtitulo}. {AVISO}</p>,
             <button aria-label="Cerrar" onClick={() => setAbierto(false)} className="rounded-md p-1 hover:bg-zinc-100"><X className="size-5" /></button>)}
         </aside>, document.body,
       )}
@@ -284,8 +299,8 @@ export function Asistente({ acoplado = false, abierto, alCambiar: setAbierto }: 
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content onOpenAutoFocus={(e) => { e.preventDefault(); entrada.current?.focus(); }}
           className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-papel shadow-2xl md:max-w-md">
-          {cuerpo(<Dialog.Title className="text-lg font-semibold">Asistente</Dialog.Title>,
-            <Dialog.Description className="text-xs text-tinta-suave">{AVISO}</Dialog.Description>,
+          {cuerpo(<Dialog.Title className="text-lg font-semibold">{nombre}</Dialog.Title>,
+            <Dialog.Description className="text-xs text-tinta-suave">{subtitulo}. {AVISO}</Dialog.Description>,
             <Dialog.Close aria-label="Cerrar" className="rounded-md p-1 hover:bg-zinc-100"><X className="size-5" /></Dialog.Close>)}
         </Dialog.Content>
       </Dialog.Portal>

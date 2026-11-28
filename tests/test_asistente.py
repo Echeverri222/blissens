@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from estudia import clock, usuarios
+from estudia import clock, pacientes, usuarios
 from estudia.asistente import CATALOGO, Actor, definiciones_api, ejecutar, herramientas_de
 from estudia.asistente.herramientas import MAX_FILAS_BANDEJA
 from estudia.asistente.mcp import crear_servidor
@@ -59,6 +59,10 @@ MATRIZ = {
     "proponer_gestionar_contacto": ("", "", "P", "asistente:propuesta", ""),
     "proponer_vincular_contacto": ("", "", "P", "asistente:propuesta", ""),
     "proponer_revertir": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_no_contactar": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_quitar_no_contactar": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_plan_entregado": ("", "", "P", "asistente:propuesta", ""),
+    "proponer_registrar_abono": ("", "", "P", "asistente:propuesta", ""),
     "info_clinica": ("", "", "", None, "L"),
     "proponer_registro": ("", "", "", None, "P"),
     "proponer_solicitud": ("", "", "", None, "P"),
@@ -263,7 +267,7 @@ def test_lecturas_espacios_libres_son_horas_futuras_y_como_mucho_doce(mundo):
 def test_lecturas_datos_del_negocio_y_servicios(mundo):
     r = ok(ej(mundo.a_ana, "datos_del_negocio"))
     assert r["nombre"] and r["direccion"] and r["horario"][0] == {"dia": "lunes", "franjas": [
-        {"desde": "07:30", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:30"}]}  # el cierre del mediodía se ve
+        {"desde": "08:00", "hasta": "12:00"}, {"desde": "13:00", "hasta": "17:00"}]}  # el cierre del mediodía se ve
     assert len(r["horario"]) == 5 and r["dias_sin_atencion"] == ["sábado", "domingo"]
     assert {p["id"] for p in r["profesionales"]} == {mundo.pro1, mundo.pro2}
     assert ok(ej(mundo.a_ana, "servicios"))["servicios"]
@@ -279,7 +283,7 @@ def test_lecturas_la_agenda_del_especialista_es_la_suya_y_la_de_la_auxiliar_es_d
     assert {c["id"] for c in ok(ej(mundo.a_aux, "agenda", desde=d, profesional_id=mundo.pro2))["citas"]} == {mundo.c_luis}
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, profesional_id=999999)) == "no_existe"
     assert codigo(ej(mundo.a_aux, "agenda", desde=d, hasta="2027-12-31")) == "datos_invalidos"
-    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "07:30", "hasta": "12:00"}
+    assert ok(ej(mundo.a_esp1, "mi_horario"))["franjas"][0] == {"dia": "lunes", "desde": "08:00", "hasta": "12:00"}
 
 
 def test_lecturas_de_la_auxiliar_pacientes_bandejas_e_indicadores(mundo, conn):
@@ -320,6 +324,7 @@ def test_lecturas_espacios_libres_para_cambiar_una_cita_usan_su_servicio_y_profe
 def test_lecturas_motivos_de_cancelacion_para_la_auxiliar(mundo):
     m = ok(ej(mundo.a_aux, "motivos_cancelacion"))["motivos"]
     assert m and set(m[0]) == {"id", "etiqueta"} and mundo.motivo in {x["id"] for x in m}
+    assert [x["etiqueta"] for x in m] == ["Salud", "Trabajo o estudio", "Viaje", "Motivo económico", "Otro"]  # solo los activos
 
 
 def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):
@@ -330,8 +335,8 @@ def test_lecturas_mi_dia_y_citas_sin_desenlace_son_del_especialista(mundo):
     assert mundo.c_luis not in {c["id"] for c in d["citas"]}
     assert all(h["desde"] >= at(2, "10:10").isoformat() for h in d["huecos_libres"])
     huecos = [(h["desde"], h["hasta"]) for h in d["huecos_libres"]]
-    assert (at(2, "10:30").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana y Sofía
-    assert (at(2, "11:30").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
+    assert (at(2, "10:45").isoformat(), at(2, "11:00").isoformat()) in huecos  # entre Ana (valoración de 45 min) y Sofía
+    assert (at(2, "11:45").isoformat(), at(2, "12:00").isoformat()) in huecos  # de Sofía al almuerzo
     assert [c["id"] for c in ok(ej(mundo.a_esp1, "citas_sin_desenlace"))["filas"]] == [mundo.c_ana]
     assert [c["id"] for c in ok(ej(mundo.a_esp2, "citas_sin_desenlace"))["filas"]] == [mundo.c_luis]
     otro = ok(ej(mundo.a_esp2, "mi_dia"))
@@ -366,6 +371,21 @@ def test_propuestas_del_paciente_tienen_la_forma_y_los_parametros_de_los_formula
     assert cf["tipo"] == "confirmar" and cf["parametros"] == {"cita_id": mundo.c_hija} and "Sofía" in cf["resumen"]
     co = ok(ej(mundo.a_ana, "pedir_contacto"))["propuesta"]
     assert co["tipo"] == "contacto" and co["parametros"] == {}
+
+
+def test_proponer_agendar_de_la_auxiliar_acepta_duracion_y_la_valida(mundo):
+    h1 = espacio(mundo, mundo.a_aux, profesional_id=mundo.pro1)
+    p = ok(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+              inicio=h1, duracion_min=60))["propuesta"]
+    assert p["parametros"]["duracion_min"] == 60 and "(60 min)" in p["resumen"]
+    for mala in (50, 10, 300):  # fuera de paso o fuera de rango
+        assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc,
+                         profesional_id=mundo.pro1, inicio=h1, duracion_min=mala)) == "datos_invalidos", mala
+    # una duración que no cabe en el espacio: el espacio ya no sirve
+    assert codigo(ej(mundo.a_aux, "proponer_agendar", paciente_id=mundo.luis, servicio_id=mundo.svc, profesional_id=mundo.pro1,
+                     inicio=at(2, "11:30").isoformat(), duracion_min=240)) == "espacio_ocupado"
+    # el paciente no puede cambiar la duración: su modelo no la trae
+    assert codigo(ej(mundo.a_ana, "proponer_agendar", servicio_id=mundo.svc, inicio=h1, duracion_min=60)) == "datos_invalidos"
 
 
 def test_propuestas_de_la_auxiliar_tienen_la_forma_y_los_parametros_de_los_endpoints(mundo):
@@ -531,6 +551,7 @@ def test_p2_ninguna_propuesta_escribe_en_la_base(mundo, conn):
         (mundo.a_aux, "proponer_gestionar_mensaje", dict(mensaje_id=x.mensaje)),
         (mundo.a_aux, "proponer_gestionar_contacto", dict(solicitud_id=x.solicitud)),
         (mundo.a_aux, "proponer_vincular_contacto", dict(solicitud_id=x.solicitud, paciente_id=mundo.luis)),
+        (mundo.a_aux, "proponer_no_contactar", dict(paciente_id=mundo.luis, motivo="cobro", nota="Cartera")),
     ]
     antes = conteos(conn)
     otras = _estado_de_recepcion(conn)
@@ -891,3 +912,64 @@ def test_visitante_ninguna_salida_lleva_datos_personales_ni_escribe(mundo, conn)
         assert dato not in texto
     assert conteos(conn) == antes
     assert accesos(conn) == []
+
+
+# ------------------------------------------------------------------ R5 a R8 del PRD de respuestas de la clínica
+
+def test_r26_la_ficha_y_la_busqueda_traen_semaforo_no_contactar_y_estado_del_celular(mundo, conn):
+    f = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["paciente"]
+    assert f["semaforo"] == "verde" and f["celular_estado"] == "sin_verificar" and f["tiene_celular"] is True
+    assert "celular" not in f and f["no_contactar"] is None
+    fila = ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"][0]
+    assert fila["semaforo"] == "verde" and "no_contactar" not in fila
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis", semaforo="rojo"))["pacientes"] == []
+    assert [x["id"] for x in ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis", semaforo="verde"))["pacientes"]] == [mundo.luis]
+    pacientes.no_contactar(conn, mundo.luis, "cobro", None, None)
+    conn.commit()
+    f = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["paciente"]
+    assert f["no_contactar"] == "cobro"
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"][0]["no_contactar"] == "cobro"
+    pacientes.no_contactar(conn, mundo.luis, "fallecido", None, None)
+    conn.commit()
+    assert ok(ej(mundo.a_aux, "buscar_pacientes", q="Luis"))["pacientes"] == []  # los fallecidos no salen
+
+
+def test_r26_intentos_usados_de_tres_en_la_ficha_y_en_la_bandeja_de_seguimientos(mundo, conn):
+    x = _pendientes_de_recepcion(mundo, conn)
+    conn.execute("insert into intento(caso_id, numero, canal, resultado, momento) values (%s, 1, 'automatico', null, %s)", (x.caso, NOW))
+    conn.commit()
+    caso = ok(ej(mundo.a_aux, "ficha_paciente", paciente_id=mundo.luis))["casos_abiertos"][0]
+    assert (caso["intentos"], caso["intentos_max"]) == (1, 3)
+    fila = ok(ej(mundo.a_aux, "bandeja", bandeja="seguimientos"))["filas"][0]
+    assert (fila["intentos"], fila["intentos_max"], fila["semaforo"]) == (1, 3, "verde")
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="sin_respuesta"))["propuesta"]
+    assert "último" not in p["resumen"]
+    conn.execute("insert into intento(caso_id, numero, canal, resultado, momento) values (%s, 2, 'manual', 'sin_respuesta', %s)", (x.caso, NOW))
+    conn.commit()
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="sin_respuesta"))["propuesta"]
+    assert "intento 3 de 3" in p["resumen"] and "último" in p["resumen"]
+    p = ok(ej(mundo.a_aux, "proponer_gestion_seguimiento", caso_id=x.caso, resultado="acepto"))["propuesta"]
+    assert "último" not in p["resumen"]
+
+
+def test_r26_bandeja_celulares_por_revisar_sin_numeros_completos(mundo, conn):
+    conn.execute("update paciente set celular_estado='invalido' where id=%s", (mundo.luis,))
+    conn.commit()
+    r = ok(ej(mundo.a_aux, "bandeja", bandeja="celulares_por_revisar"))
+    assert [f["paciente_id"] for f in r["filas"]] == [mundo.luis] and r["filas"][0]["motivo"] == "invalido"
+    assert r["filas"][0]["celular_ultimos4"] == "2233"
+    assert "573001112233" not in str(r) and "celular" not in r["filas"][0]
+
+
+def test_r26_proponer_no_contactar_y_quitarlo(mundo, conn):
+    p = ok(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=mundo.luis, motivo="queja", nota="Reclamo abierto"))["propuesta"]
+    assert p["tipo"] == "no_contactar" and p["parametros"] == {"paciente_id": mundo.luis, "motivo": "queja", "nota": "Reclamo abierto"}
+    assert "Luis" in p["resumen"] and "No contactar" in p["resumen"]
+    assert codigo(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=999999, motivo="otro")) == "no_existe"
+    assert codigo(ej(mundo.a_aux, "proponer_no_contactar", paciente_id=mundo.luis, motivo="caprichos")) == "datos_invalidos"
+    assert codigo(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=mundo.luis)) == "accion_no_permitida"
+    pacientes.no_contactar(conn, mundo.luis, "queja", None, None)
+    conn.commit()
+    p = ok(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=mundo.luis))["propuesta"]
+    assert p["tipo"] == "quitar_no_contactar" and p["parametros"] == {"paciente_id": mundo.luis}
+    assert codigo(ej(mundo.a_aux, "proponer_quitar_no_contactar", paciente_id=999999)) == "no_existe"

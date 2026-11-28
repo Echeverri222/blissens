@@ -1,0 +1,24 @@
+id: no-contactar-a-lucia-por-cobro
+perfil: auxiliar
+actor: marta
+categoria: accion
+pregunta: a Lucía Fernández ya no le escribamos mas, esta en cobro juridico
+intencion: Preparar la marca "No contactar" de Lucía con motivo cobro (queda por confirmar, no hecha).
+herramientas:
+  esperadas: [proponer_no_contactar]
+  una_de: [[buscar_pacientes, ficha_paciente]]
+  prohibidas: [proponer_cancelar]
+contexto:
+  - llamada: buscar_pacientes
+    args: {q: "Lucía Fernández"}
+    incluye: ["Lucía Fernández Mora", "semaforo"]
+  - llamada: proponer_no_contactar
+    args: {paciente_id: "{paciente.lucia}", motivo: cobro}
+    incluye: ["no_contactar", "Lucía Fernández Mora", "cobro"]
+respuesta:
+  incluye: ["Lucía"]
+  excluye: ["ya quedo marcada", "ya la marque"]
+  propuestas: [no_contactar]
+notas: >-
+  La marca la confirma la persona. El motivo sale de lo que dijo la auxiliar (cobro jurídico); si no lo hubiera dicho, el
+  asistente lo pregunta antes de preparar la propuesta.

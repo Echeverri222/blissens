@@ -46,7 +46,7 @@ A diferencia de sitios de clínica desconectados de un calendario externo genér
 
 ## Evidence on Hand
 
-- Activos de marca y fotografía en `estudia/web/static/sitio/` (`logo-1024x110.png`, `Bg-1.png`, `New-Team.jpg`, `BLISSENSE-1.png`, `Services.png`, `Primium-460x460.png`, `Standerd-460x460.png`, `Basic-460x460.png`, `image-8.png`, `image-9.png`, `image-10.png`).
+- Activos de marca y fotografía en `estudia/web/static/sitio/` (`logo-1024x110.png`, `Bg-1.png`, `New-Team.jpg`, `BLISSENSE-1.png`, `Services.png`, `Primium-460x460.png`, `Standerd-460x460.png`, `Basic-460x460.png`, `image-8.png`, `image-9.png`).
 - Copy editorial ES/EN en `estudia/web/copia.py`.
 - PRDs de referencia en `docs/prd-sitio-publico.md`, `docs/prd-panel-auxiliar.md`, `docs/prd-familia.md`, `docs/prd-indicadores.md` y `docs/prd-indicadores-fase2.md`.
 - Glosario de dominio en `GLOSSARY.md`.

@@ -27,7 +27,7 @@ from .. import clock, config, db, familia, fmt, logs, settings
 from .actor import Actor
 from .catalogo import definiciones_api
 from .despachador import ejecutar
-from .instrucciones import INSTRUCCIONES, contexto, respuesta_fija
+from .instrucciones import INSTRUCCIONES, NOMBRE, contexto, respuesta_fija
 
 TIEMPO_MAXIMO_S = 45.0  # lo que puede tardar un mensaje completo, con todas sus llamadas al modelo y a las herramientas
 BETA_FALLBACKS = "server-side-fallback-2026-07-01"
@@ -142,13 +142,15 @@ def _encendido(conn, actor: Actor) -> bool:
 
 
 def estado(actor: Actor) -> dict:
-    """`{disponible, perfil, mensajes_restantes}`. Abre y cierra su propia conexión."""
+    """`{disponible, perfil, mensajes_restantes, nombre, negocio}`. Abre y cierra su propia conexión."""
     aj = _ajustes(actor)
     conn = _conexion(actor)
     try:
         tope = int(config.get(conn, aj.clave_dia))
         return {"disponible": _encendido(conn, actor), "perfil": actor.perfil,
-                "mensajes_restantes": max(0, tope - _mensajes_hoy(conn, actor, _hogar(conn, actor)))}
+                "mensajes_restantes": max(0, tope - _mensajes_hoy(conn, actor, _hogar(conn, actor))),
+                "nombre": NOMBRE,
+                "negocio": conn.execute("select nombre from negocio where id=%s", (actor.negocio_id,)).fetchone()["nombre"]}
     finally:
         conn.close()
 
@@ -316,7 +318,7 @@ def _contexto(conn, actor: Actor, idioma: str | None = None) -> str:
     else:
         persona = familia.primer_nombre(actor.usuario.get("nombre"))
     ahora = clock.now(conn)
-    return contexto(negocio, persona, f"{fmt.DIAS[ahora.weekday()]} {ahora:%Y-%m-%d %H:%M} (hora del negocio)", idioma)
+    return contexto(negocio, persona, f"{fmt.DIAS[ahora.weekday()]} {ahora:%Y-%m-%d %H:%M} (hora del negocio)", idioma, NOMBRE)
 
 
 # Lo que viaja ya consultado con cada mensaje, en <precargado>: responde lo más común ("¿quién sigue?", "¿a qué hora es mi

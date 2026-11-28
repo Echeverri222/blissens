@@ -2,9 +2,9 @@
 // `ApiError` con `codigo` y `mensaje`, y expone funciones tipadas por recurso.
 import type { CitaEnConflicto } from "./tipos";
 import type {
-  Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
+  Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, MotivoAdmin, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
-  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
+  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, NoContactar, NoContactarOut, CelularPorRevisar, PlanSinPaso, PlanOut, PlanEntregado, Abono, PlanesIndicador, ColorSemaforo, NuevoCelular, CelularOut, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
@@ -66,6 +66,9 @@ export const api = {
     activar: (id: number) => post<UsuarioAdmin>(`/admin/usuarios/${id}/activar`),
     claveTemporal: (id: number) => post<UsuarioConClave>(`/admin/usuarios/${id}/clave-temporal`),
     valorServicio: (id: number, valor: number | null) => pedir<Servicio>("PUT", `/admin/servicios/${id}`, { cuerpo: { valor } }),
+    tituloProfesional: (id: number, titulo: string) => pedir<Profesional>("PUT", `/admin/profesionales/${id}`, { cuerpo: { titulo } }),
+    motivos: () => get<MotivoAdmin[]>("/admin/motivos-cancelacion"),
+    fijarMotivos: (activos: number[]) => pedir<MotivoAdmin[]>("PUT", "/admin/motivos-cancelacion", { cuerpo: { activos } }),
     metas: () => get<Record<string, Record<string, number>>>("/admin/metas"),
     fijarMetas: (m: Metas) => pedir<Record<string, Record<string, number>>>("PUT", "/admin/metas", { cuerpo: m }),
   },
@@ -80,13 +83,13 @@ export const api = {
   },
   citas: {
     detalle: (id: number) => get<CitaDetalle>(`/citas/${id}`),
-    agendar: (d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string }) => post<{ cita_id: number }>("/citas", d),
+    agendar: (d: { paciente_id: number; profesional_id: number; servicio_id: number; inicio: string; duracion_min?: number }) => post<{ cita_id: number }>("/citas", d),
     cancelar: (id: number, motivo_id: number, texto?: string) => post<{ ok: boolean }>(`/citas/${id}/cancelar`, { motivo_id, texto: texto || null }),
     cambiarFecha: (id: number, inicio: string) => post<{ cita_id: number }>(`/citas/${id}/cambiar-fecha`, { inicio }),
     confirmar: (id: number) => post<{ ok: boolean }>(`/citas/${id}/confirmar`),
     desenlace: (id: number, desenlace: Desenlace) => post<{ ok: boolean }>(`/citas/${id}/desenlace`, { desenlace }),
-    espacios: (profesionalId: number, servicioId: number, dias = 21) =>
-      get<Espacios>("/espacios", { profesional_id: profesionalId, servicio_id: servicioId, dias }),
+    espacios: (profesionalId: number, servicioId: number, dias = 21, duracionMin?: number) =>
+      get<Espacios>("/espacios", { profesional_id: profesionalId, servicio_id: servicioId, dias, ...(duracionMin ? { duracion_min: duracionMin } : {}) }),
     revertir: (historialId: number) => post<{ historial_id: number }>(`/historial/${historialId}/revertir`),
   },
   bloqueos: {
@@ -95,10 +98,16 @@ export const api = {
     eliminar: (id: number) => pedir<{ ok: boolean }>("DELETE", `/bloqueos/${id}`),
   },
   pacientes: {
-    buscar: (q: string, segmento?: Segmento) => get<PacienteResumen[]>("/pacientes", { q, segmento }),
+    buscar: (q: string, segmento?: Segmento, fallecidos?: boolean, semaforo?: ColorSemaforo) => get<PacienteResumen[]>("/pacientes", { q, segmento, fallecidos: fallecidos ? "true" : undefined, semaforo }),
     crear: (p: NuevoPaciente) => post<{ paciente_id: number }>("/pacientes", p),
     ficha: (id: number) => get<FichaCompleta>(`/pacientes/${id}`),
     identificar: (id: number, d: Identificacion) => pedir<PacienteIdentificado>("PUT", `/pacientes/${id}/identificacion`, { cuerpo: d }),
+    marcarNoContactar: (id: number, d: NoContactar) => pedir<NoContactarOut>("PUT", `/pacientes/${id}/no-contactar`, { cuerpo: d }),
+    quitarNoContactar: (id: number) => pedir<NoContactarOut>("DELETE", `/pacientes/${id}/no-contactar`),
+    cambiarCelular: (id: number, d: NuevoCelular) => pedir<CelularOut>("PUT", `/pacientes/${id}/celular`, { cuerpo: d }),
+    celularEnChat: (id: number) => post<CelularOut>(`/pacientes/${id}/celular/en-chat`, {}),
+    planEntregado: (id: number, tratamientoId: number, d: PlanEntregado) => pedir<PlanOut>("PUT", `/pacientes/${id}/tratamientos/${tratamientoId}/plan-entregado`, { cuerpo: d }),
+    registrarAbono: (id: number, tratamientoId: number, d: Abono) => pedir<PlanOut>("PUT", `/pacientes/${id}/tratamientos/${tratamientoId}/abono`, { cuerpo: d }),
     segmentos: (id: number, s: Segmentos) => pedir<SegmentosOut>("PUT", `/pacientes/${id}/segmentos`, { cuerpo: s }),
   },
   bandejas: {
@@ -112,6 +121,8 @@ export const api = {
     sinInterpretar: () => get<SinInterpretar[]>("/bandejas/sin-interpretar"),
     contactos: () => get<Contacto[]>("/bandejas/contactos"),
     dadosDeBaja: () => get<Baja[]>("/bandejas/dados-de-baja"),
+    celularesPorRevisar: () => get<CelularPorRevisar[]>("/bandejas/celulares-por-revisar"),
+    planes: () => get<PlanSinPaso[]>("/bandejas/planes"),
     gestionSeguimiento: (id: number, resultado: ResultadoGestion, detalle?: string) =>
       post<{ ok: boolean }>(`/seguimientos/${id}/gestion`, { resultado, detalle: detalle ?? "" }),
     gestionarMensaje: (id: number) => post<{ ok: boolean }>(`/mensajes/${id}/gestionar`),
@@ -129,6 +140,7 @@ export const api = {
     tiempoEntreCitas: (f: FiltrosIndicadores) => get<TiempoEntreCitas>("/indicadores/tiempo-entre-citas", f),
     faltasRepetidas: (f: FiltrosIndicadores) => get<FaltaRepetida[]>("/indicadores/faltas-repetidas", f),
     citasPerdidas: (f: FiltrosIndicadores) => get<CitaPerdida[]>("/indicadores/citas-perdidas", f),
+    planes: (f: FiltrosIndicadores) => get<PlanesIndicador>("/indicadores/planes", f),
     recordatorios: (f: FiltrosIndicadores) => get<Recordatorios>("/indicadores/recordatorios", f),
     pendientes: (f: FiltrosIndicadores) => get<Pendientes>("/indicadores/pendientes", f),
     reagendamiento: (f: FiltrosIndicadores) => get<Reagendamiento>("/indicadores/reagendamiento", f),

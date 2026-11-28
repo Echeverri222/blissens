@@ -3,24 +3,24 @@ mensajes:
   plantilla: cita_agendada
   estado: entregado
   momento: +0d 0h 0m
-  texto: '¡Hola Ana! Tu cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Te esperamos
-    en Blissens Odontología, Calle 00 # 00-00, Bogotá. ¡Gracias por elegirnos!'
+  texto: 'Hola, Ana. Su cita quedó agendada para el jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. Le esperamos
+    en Blissens Odontología, Calle 00 # 00-00, Bogotá. Gracias por elegirnos.'
   botones: []
 - direccion: saliente
   plantilla: correo_agendada
   estado: omitido
   momento: +0d 0h 0m
-  texto: "Hola Ana,\n\nTu cita quedó agendada.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n\
+  texto: "Hola, Ana.\n\nSu cita quedó agendada.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n\
     \  Lugar: Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nPara cambiarla o cancelarla: http://localhost:8000/p/<token>\n\
-    \nSi no quieres recibir más correos nuestros, usa este enlace: http://localhost:8000/correo/baja/<token>"
+    \nSi no desea recibir más correos nuestros, use este enlace: http://localhost:8000/correo/baja/<token>"
   botones: []
   canal: correo
-  asunto: Tu cita del jueves 19 de noviembre – Blissens Odontología
+  asunto: Su cita del jueves 19 de noviembre – Blissens Odontología
 - direccion: saliente
   plantilla: recordatorio_48h
   estado: entregado
   momento: +2d 2h 1m
-  texto: Hola Ana, te recordamos tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirmas tu asistencia?
+  texto: Hola, Ana. Le recordamos su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba. ¿Nos confirma su asistencia?
   botones:
   - Sí, asistiré
   - No podré ir
@@ -29,18 +29,18 @@ mensajes:
   plantilla: correo_recordatorio
   estado: omitido
   momento: +2d 2h 1m
-  texto: "Hola Ana,\n\nMañana es tu cita.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n  Lugar:\
-    \ Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nSi no puedes venir, cámbiala o cancélala aquí: http://localhost:8000/p/<token>\n\
-    \nSi no quieres recibir más correos nuestros, usa este enlace: http://localhost:8000/correo/baja/<token>"
+  texto: "Hola, Ana.\n\nMañana es su cita.\n\n  Día: jueves 19 de noviembre\n  Hora: 10:00 a. m.\n  Con: Dra. Prueba\n  Lugar:\
+    \ Blissens Odontología, Calle 00 # 00-00, Bogotá\n\nSi no puede venir, cámbiela o cancélela aquí: http://localhost:8000/p/<token>\n\
+    \nSi no desea recibir más correos nuestros, use este enlace: http://localhost:8000/correo/baja/<token>"
   botones: []
   canal: correo
-  asunto: Mañana es tu cita – Blissens Odontología
+  asunto: Mañana es su cita – Blissens Odontología
 - direccion: saliente
   plantilla: segundo_intento
   estado: entregado
   momento: +2d 2h 1m
-  texto: Hola Ana, aún no hemos recibido tu confirmación para la cita del jueves 19 de noviembre a las 10:00 a. m. con Dra.
-    Prueba. ¿Puedes responder con un toque?
+  texto: Hola, Ana. Aún no hemos recibido su confirmación para la cita del jueves 19 de noviembre a las 10:00 a. m. con Dra.
+    Prueba. ¿Puede responder con un toque?
   botones:
   - Sí, asistiré
   - No podré ir
@@ -49,7 +49,7 @@ mensajes:
   plantilla: cancelacion_recibida
   estado: entregado
   momento: +2d 2h 1m
-  texto: 'Gracias, Ana. Tu cita del jueves 19 de noviembre quedó cancelada. Cuando quieras retomarla, elige un nuevo espacio
+  texto: 'Gracias, Ana. Su cita del jueves 19 de noviembre quedó cancelada. Cuando quiera retomarla, elija un nuevo espacio
     aquí: http://localhost:8000/p/<token>/agendar?caso=1'
   botones:
   - Ahora no
@@ -57,19 +57,19 @@ mensajes:
   plantilla: correo_cancelada
   estado: omitido
   momento: +2d 2h 1m
-  texto: 'Hola Ana,
+  texto: 'Hola, Ana.
 
 
-    Tu cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba quedó cancelada.
+    Su cita del jueves 19 de noviembre a las 10:00 a. m. con Dra. Prueba quedó cancelada.
 
 
-    Cuando quieras agendar de nuevo: http://localhost:8000/p/<token>/agendar
+    Cuando quiera agendar de nuevo, puede hacerlo aquí: http://localhost:8000/p/<token>/agendar
 
 
-    Si no quieres recibir más correos nuestros, usa este enlace: http://localhost:8000/correo/baja/<token>'
+    Si no desea recibir más correos nuestros, use este enlace: http://localhost:8000/correo/baja/<token>'
   botones: []
   canal: correo
-  asunto: Tu cita del jueves 19 de noviembre quedó cancelada – Blissens Odontología
+  asunto: Su cita del jueves 19 de noviembre quedó cancelada – Blissens Odontología
 citas:
 - estado: cancelada
   inicio: +3d 2h 0m

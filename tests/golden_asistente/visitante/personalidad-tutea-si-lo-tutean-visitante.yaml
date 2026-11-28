@@ -1,0 +1,15 @@
+id: personalidad-tutea-si-lo-tutean-visitante
+perfil: visitante
+actor: visita
+categoria: personalidad
+pregunta:
+  - hola
+  - donde quedan? y a que hora abren?
+intencion: >-
+  Quien escribe tutea a Bliss: ella también lo tutea en la dirección y el horario, sin volver a presentarse en el segundo
+  turno.
+herramientas:
+  esperadas: [datos_del_negocio]
+respuesta:
+  incluye: ["Calle 10"]
+  excluye: ["soy Bliss", "usted"]

@@ -3,8 +3,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Ban, CalendarClock, CircleCheck, CircleHelp, CheckCheck, Repeat, Star, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ESTADOS } from "@/lib/estados";
-import type { Estado } from "@/api/tipos";
+import { ESTADOS, MOTIVOS_NO_CONTACTAR, SEMAFOROS } from "@/lib/estados";
+import type { Estado, MotivoNoContactar, Semaforo as TipoSemaforo } from "@/api/tipos";
 
 type Variante = "primario" | "secundario" | "fantasma" | "peligro";
 const VARIANTES: Record<Variante, string> = {
@@ -92,6 +92,16 @@ export function Prospecto({ etapa, className }: { etapa?: string; className?: st
   return (
     <span title="Escribió desde el sitio web y aún no tiene documento" className={cn("inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-950", className)}>Prospecto</span>
   );
+}
+
+/** El estado del paciente (R5): punto de color más su texto. «No contactar» muestra su motivo en lugar del color. */
+export function Semaforo({ semaforo, noContactar, className }: { semaforo?: TipoSemaforo | null; noContactar?: MotivoNoContactar | null; className?: string }) {
+  if (noContactar) {
+    return <span title="La clínica no le escribe ni le llama" className={cn("inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-900", className)}><Ban className="size-3" aria-hidden />No contactar: {MOTIVOS_NO_CONTACTAR[noContactar]}</span>;
+  }
+  if (!semaforo) return null;
+  const s = SEMAFOROS[semaforo];
+  return <span title={s.ayuda} className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium", s.clases, className)}><span aria-hidden className={cn("size-2 rounded-full", s.punto)} />{s.texto}</span>;
 }
 
 /** Hoja de detalle: panel lateral sobre la vista actual (pantalla completa en celular). */

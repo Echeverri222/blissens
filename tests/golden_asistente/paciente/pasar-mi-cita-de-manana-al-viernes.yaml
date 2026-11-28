@@ -21,7 +21,7 @@ contexto:
     excluye: ["10:00 a. m."]
   - llamada: proponer_cambiar_fecha
     args: {cita_id: "{cita.laura_manana}", inicio: "{fecha.viernes}T08:00:00-05:00"}
-    incluye: ["Cambiar tu cita", "Valoración", "viernes 20 de noviembre a las 8:00 a. m."]
+    incluye: ["Cambiar su cita", "Valoración", "viernes 20 de noviembre a las 8:00 a. m."]
 respuesta:
   incluye: ["viernes"]
   incluye_alguno: ["8:00", "8 a", "8am", "ocho"]

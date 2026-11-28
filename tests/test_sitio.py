@@ -23,7 +23,7 @@ def client(conn):
 def test_root_is_spanish_landing_and_en_is_english(client):
     es = client.get("/")
     assert es.status_code == 200 and '<html lang="es"' in es.text
-    assert "SONRÍE Y MIRA" not in es.text and "Sonríe y mira" in es.text and "Vivo en Medellín" in es.text
+    assert "SONRÍA Y MIRE" not in es.text and "Sonría y mire" in es.text and "Vivo en Medellín" in es.text
     en = client.get("/en")
     assert en.status_code == 200 and '<html lang="en"' in en.text
     assert "I live abroad" in en.text and "Our team" in en.text
@@ -89,7 +89,7 @@ def test_panel_and_booking_still_work(client):
     p = client.get("/panel")
     assert p.status_code in (200, 307, 302) or (p.status_code == 503 and "make panel" in p.text)
     r = client.get("/agendar")
-    assert r.status_code == 200 and "Agenda tu cita" in r.text and 'name="documento"' in r.text
+    assert r.status_code == 200 and "Agende su cita" in r.text and 'name="documento"' in r.text
 
 
 def test_experience_form_creates_contact_request(client, conn):
@@ -206,3 +206,16 @@ def test_entrada_no_confia_en_cualquier_proxy():
     sh = (Path(__file__).parent.parent / "scripts" / "entrada.sh").read_text(encoding="utf-8")
     assert "--forwarded-allow-ips='*'" not in sh and "TRUSTED_PROXIES" in sh
     assert settings.TRUSTED_PROXIES != "*"
+
+
+def test_whatsapp_y_redes_ocultos_sin_configurar(client, monkeypatch):
+    from estudia import settings
+    from estudia.web import copia
+    html = client.get("/").text
+    assert "wa.me/?text" not in html and "Escríbanos por WhatsApp" not in html and "Síguenos" not in html
+    assert "Laura" not in html
+    monkeypatch.setattr(settings, "WHATSAPP_PUBLICO", "+57 300 111 2233")
+    monkeypatch.setitem(copia.REDES, "Instagram", "https://example.com/blissens")
+    html = client.get("/").text
+    assert "https://wa.me/573001112233?text=Hola%2C%20vengo%20del%20sitio%20web" in html and "Escríbanos por WhatsApp" in html
+    assert 'href="https://example.com/blissens" rel="noopener noreferrer"' in html and "Facebook" not in html.split("pie__redes")[1][:200]

@@ -61,7 +61,7 @@ def _paciente(conn, token: str) -> dict:
     from .app import patient_from_token
     p = patient_from_token(conn, token)
     if p["etapa"] == "prospecto":  # sin documento no hay citas que gestionar con el asistente: la clínica lo contacta
-        raise HTTPException(404, "Este enlace no es válido o ya venció. Pide uno nuevo a la clínica.")
+        raise HTTPException(404, "Este enlace no es válido o ya venció. Pida uno nuevo a la clínica.")
     return p
 
 
@@ -222,7 +222,7 @@ def consentir(request: Request, token: str, accion: str = Form(...), conn=Depend
         return RedirectResponse(f"/p/{token}/asistente", status_code=303)
     if accion == "retirar":
         if consentimiento.retirar(conn, p):
-            return RedirectResponse(f"/p/{token}?aviso=" + quote("Listo: el asistente ya no tiene tu autorización."), status_code=303)
+            return RedirectResponse(f"/p/{token}?aviso=" + quote("Listo: el asistente ya no tiene su autorización."), status_code=303)
         return RedirectResponse(f"/p/{token}/asistente", status_code=303)
     if accion == "rechazar":
         return RedirectResponse(f"/p/{token}", status_code=303)
@@ -241,11 +241,11 @@ def contacto(request: Request, token: str, conn=Depends(_conn_enlace)):
                            (p["documento"], NOTA_CONTACTO, ahora - timedelta(days=1))).fetchone()["n"]
     termino = request.state.termino
     if abiertas or del_dia >= CONTACTOS_POR_DIA:
-        aviso = f"Ya le avisamos a {termino}. Te contactará pronto."
+        aviso = f"Ya le avisamos a {termino}. Le contactará pronto."
     else:
         conn.execute("insert into solicitud_contacto(documento, celular, nota, momento) values (%s,%s,%s,%s)",
                      (p["documento"], p["celular"], NOTA_CONTACTO, ahora))
-        aviso = f"Listo: le avisamos a {termino} para que te contacte."
+        aviso = f"Listo: le avisamos a {termino} para que se comunique con usted."
     if _hx(request):
         return _render(request, "_asistente_contacto.html", aviso=aviso)
     return RedirectResponse(f"/p/{token}?aviso=" + quote(aviso), status_code=303)

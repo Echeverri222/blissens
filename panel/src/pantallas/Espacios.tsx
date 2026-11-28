@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 import { Consulta, Vacio } from "@/ui/vistas";
 
 /** Espacios disponibles que entrega la API, agrupados por día. El panel no decide qué está libre. */
-export function SelectorEspacios({ profesionalId, servicioId, valor, alCambiar }: {
-  profesionalId: number | null; servicioId: number | null; valor: string | null; alCambiar: (inicio: string | null) => void;
+export function SelectorEspacios({ profesionalId, servicioId, duracionMin, valor, alCambiar }: {
+  profesionalId: number | null; servicioId: number | null; duracionMin?: number; valor: string | null; alCambiar: (inicio: string | null) => void;
 }) {
-  const q = useEspacios(profesionalId, servicioId);
+  const q = useEspacios(profesionalId, servicioId, duracionMin);
   const horas = q.data?.dias.flatMap((d) => d.horas) ?? [];
   const sigue = valor === null || horas.includes(valor);
   useEffect(() => { if (q.data && !sigue) alCambiar(null); }, [q.data, sigue, alCambiar]);

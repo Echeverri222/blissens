@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from .. import agenda, clock, config, horario, permisos, usuarios
+from .. import agenda, catalog, clock, config, horario, permisos, usuarios
 from ..web.limite import LimiteVentana
 from . import schemas as sc
 from .comun import (
@@ -116,7 +116,7 @@ def cambiar_clave(datos: sc.CambioClave, request: Request, conn=Depends(get_conn
 
 @router.get("/profesionales", tags=["Catálogos"], summary="Profesionales activos", response_model=list[sc.ProfesionalOut])
 def profesionales(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, nombre, especialidad from profesional where activo order by id").fetchall()
+    return conn.execute("select id, nombre, especialidad, titulo from profesional where activo order by id").fetchall()
 
 
 @router.get("/servicios", tags=["Catálogos"], summary="Servicios", response_model=list[sc.ServicioOut])
@@ -126,7 +126,7 @@ def servicios(conn=Depends(get_conn), u=Depends(usuario_actual)):
 
 @router.get("/motivos-cancelacion", tags=["Catálogos"], summary="Motivos de cancelación", response_model=list[sc.MotivoOut])
 def motivos(conn=Depends(get_conn), u=Depends(usuario_actual)):
-    return conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()
+    return catalog.motivos_activos(conn)
 
 
 # ----------------------------------------------------------------- agenda
@@ -212,7 +212,7 @@ def agendar(datos: sc.NuevaCita, conn=Depends(get_conn), u=Depends(auxiliar)):
     if not conn.execute("select 1 from servicio where id=%s", (datos.servicio_id,)).fetchone():
         raise permisos.NoExiste("No existe ese servicio")
     cid = agenda.book(conn, datos.paciente_id, datos.profesional_id, datos.servicio_id, a_bogota(datos.inicio),
-                      "auxiliar", "auxiliar", user_id=u["id"])
+                      "auxiliar", "auxiliar", user_id=u["id"], duracion_min=datos.duracion_min)
     return sc.CitaCreada(cita_id=cid)
 
 
@@ -253,12 +253,13 @@ def desenlace(cita_id: int, datos: sc.Desenlace, conn=Depends(get_conn), u=Depen
 
 
 @router.get("/espacios", tags=["Citas"], summary="Espacios disponibles (auxiliar)", response_model=sc.EspaciosOut)
-def espacios(profesional_id: int, servicio_id: int, dias: int = Query(21, ge=1, le=90), conn=Depends(get_conn),
-             u=Depends(auxiliar)):
+def espacios(profesional_id: int, servicio_id: int, dias: int = Query(21, ge=1, le=90),
+             duracion_min: int | None = Query(None, ge=15, le=240, description="Duración de la cita si no es la del servicio."),
+             conn=Depends(get_conn), u=Depends(auxiliar)):
     _existe_profesional(conn, profesional_id)
     if not conn.execute("select 1 from servicio where id=%s", (servicio_id,)).fetchone():
         raise permisos.NoExiste("No existe ese servicio")
-    por_dia = agenda.available_slots(conn, profesional_id, servicio_id, days=dias)
+    por_dia = agenda.available_slots(conn, profesional_id, servicio_id, days=dias, duracion_min=duracion_min)
     return sc.EspaciosOut(profesional_id=profesional_id, servicio_id=servicio_id,
                           dias=[{"fecha": d, "horas": h} for d, h in por_dia.items()])
 

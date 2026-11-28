@@ -10,8 +10,9 @@ from typing import Literal
 from psycopg.types.range import Range
 from pydantic import Field
 
-from .. import agenda, bandejas, clock, config, familia, fmt, horario, indicators, permisos
+from .. import agenda, bandejas, catalog, clock, config, familia, fmt, followup, horario, indicators, pacientes, permisos, planes
 from ..lifecycle import ALIVE
+from ..pacientes import DatosInvalidos
 from .actor import Actor
 from .base import LECTURA, PROPUESTA, Entrada, ErrorHerramienta, herramienta
 
@@ -258,7 +259,7 @@ def datos_del_negocio(conn, actor, a) -> dict:
 
 @herramienta("motivos_cancelacion", "Los motivos de cancelación con su id (`proponer_cancelar` pide uno).", SinEntrada, AUX, LECTURA)
 def motivos_cancelacion(conn, actor, a) -> dict:
-    return {"motivos": conn.execute("select id, etiqueta from motivo_cancelacion order by orden").fetchall()}
+    return {"motivos": catalog.motivos_activos(conn)}
 
 
 # ----------------------------------------------------------------- agenda y citas del equipo
@@ -400,14 +401,17 @@ def citas_sin_desenlace(conn, actor, a) -> dict:
 
 class BuscarPacientes(Entrada):
     q: str = Field(min_length=1, max_length=80, description="Parte del nombre, apellido, documento o celular.")
+    semaforo: Literal["verde", "amarillo", "rojo", "perdido"] | None = Field(
+        None, description="Solo los pacientes de ese color (el semáforo de la ficha).")
 
 
-@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento, celular o correo. Máximo 10: id, nombre, últimos 4 dígitos del documento y etapa (`prospecto`: escribió desde el sitio y aún no tiene documento; `paciente`).",
+@herramienta("buscar_pacientes", "Busca pacientes por nombre, documento, celular o correo. Máximo 10: id, nombre, últimos 4 dígitos del documento, etapa (`prospecto`: escribió desde el sitio y aún no tiene documento; `paciente`), semáforo (`verde`, `amarillo`, `rojo`, `perdido` o `prospecto`) y `no_contactar` si lo tiene marcado. Los fallecidos no salen.",
              BuscarPacientes, AUX, LECTURA, auditoria="buscar_paciente")
 def buscar_pacientes(conn, actor, a: BuscarPacientes) -> dict:
-    filas = bandejas.find_patients(conn, a.q)
-    return {"pacientes": [{"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"]),
-                           "etapa": f["etapa"]} for f in filas[:10]], "hay_mas": len(filas) > 10}
+    filas = bandejas.find_patients(conn, a.q, semaforo=a.semaforo)
+    return {"pacientes": [_compacta({"id": f["id"], "nombre": _nombre(f), "documento_ultimos4": _ultimos4(f["documento"]),
+                                     "etapa": f["etapa"], "semaforo": f["semaforo"], "no_contactar": f["no_contactar"]})
+                          for f in filas[:10]], "hay_mas": len(filas) > 10}
 
 
 class PacienteId(Entrada):
@@ -415,7 +419,7 @@ class PacienteId(Entrada):
 
 
 @herramienta("ficha_paciente", "Resumen de un paciente: nombre, últimos 4 del documento, etapa (prospecto o paciente), consentimientos, sus últimas 20 citas, "
-             "casos de seguimiento abiertos y sus últimos 10 mensajes. Sin teléfono, correo ni fecha de nacimiento.",
+             "casos de seguimiento abiertos (con los intentos usados de los que se hacen) y sus últimos 10 mensajes. También el semáforo (`verde`, `amarillo`, `rojo`, `perdido` o `prospecto`), `no_contactar` con su motivo si está marcado y `celular_estado` (`valido`, `sin_verificar`, `invalido` o `sin_whatsapp`; nunca el número). Sin teléfono, correo ni fecha de nacimiento.",
              PacienteId, AUX, LECTURA, auditoria="ver_ficha")
 def ficha_paciente(conn, actor, a: PacienteId) -> dict:
     if not conn.execute("select 1 from paciente where id=%s", (a.paciente_id,)).fetchone():
@@ -425,11 +429,20 @@ def ficha_paciente(conn, actor, a: PacienteId) -> dict:
     estados = {c["id"]: c["estado"] for c in r["citas"]}
     return {
         "paciente": {"id": p["id"], "nombre": _nombre(p), "documento_ultimos4": _ultimos4(p["documento"]),
-                     "etapa": p["etapa"], "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"]},
+                     "etapa": p["etapa"], "acepta_mensajes": p["acepta_mensajes"], "acepta_correo": p["acepta_correo"],
+                     "semaforo": pacientes.semaforo(conn, [p["id"]])[p["id"]],
+                     "no_contactar": p["no_contactar"], "celular_estado": p["celular_estado"],
+                     "tiene_celular": bool(p["celular"])},
         "citas": [{"id": c["id"], "estado": c["estado"], "dia": c["dia"], "inicio": _inicio(c), "servicio": c["servicio"],
                    "profesional": c["profesional"]} for c in r["citas"][:20]],
+        # Plan entregado, último abono y siguiente paso (cita viva con ese profesional); nunca el valor del plan.
+        "tratamientos": [_compacta({"id": t["id"], "profesional": t["profesional"], "estado": t["estado"],
+                                    "plan_entregado_en": t["plan_entregado_en"], "ultimo_abono_en": t["ultimo_abono_en"],
+                                    "siguiente_cita": t["proxima_cita"]})
+                         for t in planes.tratamientos_de(conn, a.paciente_id)],
         "casos_abiertos": [{"id": c["id"], "tipo": c["tipo"], "escalado": c["escalado"], "abierto_en": c["abierto_en"],
-                            "intentos": len(c["intentos"] or [])} for c in r["casos"] if c["estado"] == "abierto"],
+                            "intentos": len(c["intentos"] or []), "intentos_max": followup.max_intentos(conn, c["tipo"])}
+                           for c in r["casos"] if c["estado"] == "abierto"],
         # Los últimos movimientos de estado, con su id para `proponer_revertir` (la ficha del panel muestra el mismo botón).
         "historial": [{"id": h["id"], "cita_id": h["cita_id"], "momento": h["momento"], "de": h["estado_anterior"],
                        "a": h["estado_nuevo"], "revertido": h["revertido"],
@@ -449,16 +462,20 @@ BANDEJAS = {
     "no_confirmadas": bandejas.no_confirmadas, "seguimientos": bandejas.seguimientos, "en_riesgo": bandejas.en_riesgo,
     "cupos_libres": bandejas.cupos_libres, "sin_desenlace": bandejas.sin_desenlace, "sin_interpretar": bandejas.sin_interpretar,
     "contactos": bandejas.contactos_pendientes, "dados_de_baja": bandejas.dados_de_baja,
+    "celulares_por_revisar": bandejas.celulares_por_revisar, "planes": planes.sin_siguiente_paso,
 }
 
 
 class Bandeja(Entrada):
     bandeja: Literal["no_confirmadas", "seguimientos", "en_riesgo", "cupos_libres", "sin_desenlace", "sin_interpretar",
-                     "contactos", "dados_de_baja"] = Field(description="Cuál lista de trabajo de recepción.")
+                     "contactos", "dados_de_baja", "celulares_por_revisar", "planes"] = Field(description="Cuál lista de trabajo de recepción.")
 
 
 @herramienta("bandeja", f"Una lista de trabajo de recepción, en orden de prioridad (las {MAX_FILAS_BANDEJA} primeras y el total): citas sin confirmar, seguimientos, pacientes en riesgo, "
-             "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto o pacientes dados de baja.",
+             "cupos libres, citas sin desenlace, mensajes sin interpretar, solicitudes de contacto, pacientes dados de baja o celulares por revisar "
+             "(pacientes con cita o seguimiento cuyo celular falta o no sirve; si tienen un responsable con celular utilizable, la fila lo trae) "
+             "o planes sin siguiente paso (plan entregado hace más de 7 días, sin cita posterior ni abono). "
+             "Las filas de pacientes traen su semáforo; los seguimientos, los intentos usados y el máximo.",
              Bandeja, AUX, LECTURA)
 def bandeja(conn, actor, a: Bandeja) -> dict:
     filas = BANDEJAS[a.bandeja](conn)
@@ -466,6 +483,17 @@ def bandeja(conn, actor, a: Bandeja) -> dict:
         filas = [_contacto(conn, f) for f in filas]
     elif a.bandeja == "dados_de_baja":  # a quién hay que llamar: el número completo está en el panel, aquí sus últimos 4
         filas = [{**f, "celular_ultimos4": _ultimos4(f["celular"])} for f in filas]
+    elif a.bandeja == "celulares_por_revisar":
+        filas = [{**{k: v for k, v in f.items() if k != "responsable_celular"}, "celular_ultimos4": _ultimos4(f["celular"]),
+                  "responsable_celular_ultimos4": _ultimos4(f["responsable_celular"])} for f in filas]
+    if a.bandeja in ("no_confirmadas", "seguimientos", "dados_de_baja"):
+        colores = pacientes.semaforo(conn, [f["paciente_id"] for f in filas])
+        filas = [{**f, "semaforo": colores.get(f["paciente_id"])} for f in filas]
+    elif a.bandeja == "planes":  # el valor del plan es solo del panel: ni siquiera la recepción lo ve por el asistente
+        filas = [{k: v for k, v in f.items() if k != "valor_plan"} for f in filas]
+    if a.bandeja == "seguimientos":
+        tope = followup.max_intentos(conn)
+        filas = [{**f, "intentos_max": tope} for f in filas]
     return {"bandeja": a.bandeja, **_limitar([_compacta(f) for f in filas], MAX_FILAS_BANDEJA)}
 
 
@@ -532,10 +560,10 @@ def indicadores(conn, actor, a: Indicadores) -> dict:
 # Una propuesta describe lo que la persona confirma; el cliente la ejecuta con el endpoint o formulario que ya existe,
 # con sus propias validaciones. Aquí solo se valida, sin escribir, lo que se puede ver ahora.
 
-def _espacio_libre(conn, profesional_id: int | None, servicio_id: int, inicio: datetime) -> None:
+def _espacio_libre(conn, profesional_id: int | None, servicio_id: int, inicio: datetime, duracion_min: int | None = None) -> None:
     ahora = clock.now(conn)
     if profesional_id:
-        libre = inicio in agenda.day_slots(conn, profesional_id, servicio_id, inicio.date(), ahora)
+        libre = inicio in agenda.day_slots(conn, profesional_id, servicio_id, inicio.date(), ahora, duracion_min)
     else:
         try:
             agenda.assign_professional(conn, servicio_id, inicio)  # solo lee; SlotTaken si nadie lo tiene
@@ -565,7 +593,7 @@ def _cita_del_hogar(conn, actor: Actor, cita_id: int) -> tuple[dict, dict]:
 
 
 def _de_quien(p: dict, c: dict) -> str:
-    return "tu cita" if c["paciente_id"] == p["id"] else f"la cita de {familia.primer_nombre(c['paciente'])}"
+    return "su cita" if c["paciente_id"] == p["id"] else f"la cita de {familia.primer_nombre(c['paciente'])}"
 
 
 def _cita_del_equipo(conn, actor: Actor, cita_id: int, accion: str) -> dict:
@@ -593,6 +621,8 @@ class AgendarEquipo(Entrada):
     servicio_id: int = Field(ge=1)
     profesional_id: int = Field(ge=1)
     inicio: datetime = Field(description="Inicio de la cita, ISO 8601 (hora de Bogotá). Debe salir de `espacios_libres`.")
+    duracion_min: int | None = Field(None, ge=15, le=240, description="Minutos de esta cita (15 a 240, de 15 en 15) si no es "
+                                     "la del servicio. Sin él, la del servicio.")
 
 
 @herramienta("proponer_agendar", "Prepara agendar una cita. No agenda: la persona debe confirmar. Antes revisa el espacio con `espacios_libres`.",
@@ -614,11 +644,18 @@ def proponer_agendar(conn, actor, a) -> dict:
         raise permisos.NoExiste("No existe ese paciente")
     srv = _servicio(conn, a.servicio_id, False)
     pro = _profesional(conn, a.profesional_id)
-    _espacio_libre(conn, pro["id"], srv["id"], inicio)
+    try:
+        agenda.validar_duracion(a.duracion_min)
+    except DatosInvalidos as e:
+        raise ErrorHerramienta("datos_invalidos", str(e)) from None
+    _espacio_libre(conn, pro["id"], srv["id"], inicio, a.duracion_min)
     # El cuerpo de `POST /citas`.
-    return _propuesta("agendar", {"paciente_id": p["id"], "profesional_id": pro["id"], "servicio_id": srv["id"],
-                                  "inicio": _iso(inicio)},
-                      f"Agendar {srv['nombre']} para {_nombre(p)} el {_cuando(inicio)} con {pro['nombre']}.")
+    parametros = {"paciente_id": p["id"], "profesional_id": pro["id"], "servicio_id": srv["id"], "inicio": _iso(inicio)}
+    duracion = f" ({a.duracion_min} min)" if a.duracion_min else ""
+    if a.duracion_min:
+        parametros["duracion_min"] = a.duracion_min
+    return _propuesta("agendar", parametros,
+                      f"Agendar {srv['nombre']}{duracion} para {_nombre(p)} el {_cuando(inicio)} con {pro['nombre']}.")
 
 
 class CambiarFecha(Entrada):
@@ -679,7 +716,7 @@ def proponer_confirmar(conn, actor, a: CancelarPaciente) -> dict:
         raise ErrorHerramienta("accion_no_permitida", "Esa cita ya empezó o no tiene hora: no se puede confirmar.")
     # `POST /p/{token}/confirmar/{cita_id}`: el mismo paso que el botón «Sí, asistiré» del recordatorio.
     return _propuesta("confirmar", {"cita_id": c["id"]},
-                      f"Confirmar que asistirás a {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}."
+                      f"Confirmar que asistirá a {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}."
                       if c["paciente_id"] == p["id"] else
                       f"Confirmar {_de_quien(p, c)} de {c['servicio']} del {_cuando(_inicio(c))}.")
 
@@ -788,6 +825,87 @@ def proponer_segmentos(conn, actor, a: SegmentosPaciente) -> dict:
                       f"Dejar a {_nombre(p)} como " + (" y ".join(marcas) if marcas else "sin marcas de alto valor") + ".")
 
 
+class PlanEntregadoPaciente(PacienteId):
+    tratamiento_id: int = Field(ge=1, description="Id del tratamiento (de `ficha_paciente.tratamientos`).")
+    fecha: date | None = Field(None, description="Día en que se entregó el plan; sin él, hoy.")
+    valor_plan: int | None = Field(None, ge=0, description="Valor del plan en pesos, solo si la persona lo dijo.")
+
+
+def _tratamiento_de(conn, a) -> dict:
+    t = conn.execute("select t.id, t.plan_entregado_en, p.id as paciente_id, p.nombres, p.apellidos, p.etapa, p.no_contactar "
+                     "from tratamiento t join paciente p on p.id=t.paciente_id where t.id=%s and t.paciente_id=%s",
+                     (a.tratamiento_id, a.paciente_id)).fetchone()
+    if t is None:
+        raise permisos.NoExiste("No existe ese tratamiento")
+    if t["etapa"] == "prospecto":
+        raise ErrorHerramienta("accion_no_permitida", "Un prospecto no tiene plan de tratamiento.")
+    return t
+
+
+@herramienta("proponer_plan_entregado", "Prepara registrar que se entregó el plan de tratamiento (fecha y valor opcionales): abre su "
+             "seguimiento de acompañamiento a los 3 y 7 días, sin montos. No lo registra: la persona debe confirmar.",
+             PlanEntregadoPaciente, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_plan_entregado(conn, actor, a: PlanEntregadoPaciente) -> dict:
+    t = _tratamiento_de(conn, a)
+    params = {"paciente_id": t["paciente_id"], "tratamiento_id": t["id"]}
+    if a.fecha:
+        params["fecha"] = a.fecha.isoformat()
+    if a.valor_plan is not None:
+        params["valor_plan"] = a.valor_plan
+    return _propuesta("plan_entregado", params,  # `PUT /pacientes/{id}/tratamientos/{id}/plan-entregado`
+                      f"Registrar que a {_nombre(t)} se le entregó el plan de tratamiento"
+                      + (f" el {fmt.fecha(a.fecha)}" if a.fecha else " hoy") + ". La clínica le escribirá a los 3 y 7 días"
+                      + (" (el valor queda solo en el panel)." if a.valor_plan is not None else "."))
+
+
+class AbonoPaciente(PacienteId):
+    tratamiento_id: int = Field(ge=1, description="Id del tratamiento (de `ficha_paciente.tratamientos`).")
+    fecha: date | None = Field(None, description="Día del abono; sin él, hoy.")
+
+
+@herramienta("proponer_registrar_abono", "Prepara registrar un abono al plan de tratamiento (solo la fecha, sin monto). "
+             "No lo registra: la persona debe confirmar.", AbonoPaciente, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_registrar_abono(conn, actor, a: AbonoPaciente) -> dict:
+    t = _tratamiento_de(conn, a)
+    params = {"paciente_id": t["paciente_id"], "tratamiento_id": t["id"]}
+    if a.fecha:
+        params["fecha"] = a.fecha.isoformat()
+    return _propuesta("registrar_abono", params,  # `PUT /pacientes/{id}/tratamientos/{id}/abono`
+                      f"Registrar un abono de {_nombre(t)} al plan de tratamiento" + (f" el {fmt.fecha(a.fecha)}." if a.fecha else " hoy."))
+
+
+class NoContactarPaciente(Entrada):
+    paciente_id: int = Field(ge=1, description="Id del paciente (de `buscar_pacientes`).")
+    motivo: Literal["queja", "cobro", "fallecido", "otro"] = Field(
+        description="`queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`.")
+    nota: str = Field("", max_length=200, description="Nota corta, sin datos clínicos.")
+
+
+@herramienta("proponer_no_contactar", "Prepara marcar a un paciente como «No contactar»: la clínica deja de escribirle y de llamarle "
+             "(sus seguimientos abiertos se anulan). No lo marca: la persona debe confirmar.", NoContactarPaciente, ("auxiliar",),
+             PROPUESTA, auditoria="asistente:propuesta")
+def proponer_no_contactar(conn, actor, a: NoContactarPaciente) -> dict:
+    p = conn.execute("select id, nombres, apellidos, no_contactar from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    nota = a.nota.strip()
+    return _propuesta("no_contactar", {"paciente_id": p["id"], "motivo": a.motivo, "nota": nota},  # `PUT /pacientes/{id}/no-contactar`
+                      f"Marcar a {_nombre(p)} como «No contactar» ({pacientes.ETIQUETA_NO_CONTACTAR[a.motivo].lower()})"
+                      + (f": {nota}." if nota else ".") + " Dejará de recibir mensajes y llamadas de la clínica.")
+
+
+@herramienta("proponer_quitar_no_contactar", "Prepara quitar la marca «No contactar» de un paciente. No la quita: la persona debe confirmar.",
+             PacienteId, ("auxiliar",), PROPUESTA, auditoria="asistente:propuesta")
+def proponer_quitar_no_contactar(conn, actor, a: PacienteId) -> dict:
+    p = conn.execute("select id, nombres, apellidos, no_contactar from paciente where id=%s", (a.paciente_id,)).fetchone()
+    if p is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    if p["no_contactar"] is None:
+        raise ErrorHerramienta("accion_no_permitida", "Ese paciente no está marcado como «No contactar».")
+    return _propuesta("quitar_no_contactar", {"paciente_id": p["id"]},  # `DELETE /pacientes/{id}/no-contactar`
+                      f"Quitar la marca «No contactar» a {_nombre(p)}: ya se le podrá contactar.")
+
+
 class GestionSeguimiento(Entrada):
     caso_id: int = Field(ge=1, description="Id del caso (de `bandeja` seguimientos o de `ficha_paciente`).")
     resultado: Literal["acepto", "rechazo", "sin_respuesta"] = Field(description="Cómo terminó la llamada.")
@@ -801,16 +919,21 @@ RESULTADOS = {"acepto": "aceptó", "rechazo": "no quiso", "sin_respuesta": "no c
              "no contestó. No la registra: la persona debe confirmar.", GestionSeguimiento, ("auxiliar",), PROPUESTA,
              auditoria="asistente:propuesta")
 def proponer_gestion_seguimiento(conn, actor, a: GestionSeguimiento) -> dict:
-    c = conn.execute("select cs.id, cs.estado, cs.tipo, p.nombres, p.apellidos from caso_seguimiento cs "
-                     "join paciente p on p.id=cs.paciente_id where cs.id=%s", (a.caso_id,)).fetchone()
+    c = conn.execute("select cs.id, cs.estado, cs.tipo, p.nombres, p.apellidos, "
+                     "(select count(*) from intento i where i.caso_id=cs.id) as intentos "
+                     "from caso_seguimiento cs join paciente p on p.id=cs.paciente_id where cs.id=%s", (a.caso_id,)).fetchone()
     if c is None:
         raise permisos.NoExiste("No existe ese seguimiento")
     if c["estado"] not in ("abierto", "agotado"):
         raise ErrorHerramienta("accion_no_permitida", "Ese seguimiento ya está cerrado.")
     detalle = a.detalle.strip()
+    tope = followup.max_intentos(conn)
+    # Un «no contestó» es un intento más; el tercero (el último) deja el caso para la gestión de la clínica.
+    ultimo = a.resultado == "sin_respuesta" and c["intentos"] + 1 >= tope
     return _propuesta("gestion_seguimiento", {"caso_id": c["id"], "resultado": a.resultado, "detalle": detalle},
                       f"Registrar que {_nombre(c)} {RESULTADOS[a.resultado]} en el seguimiento ({c['tipo']})"
-                      + (f": {detalle}." if detalle else "."))
+                      + (f": {detalle}." if detalle else ".")
+                      + (f" Es el intento {min(c['intentos'] + 1, tope)} de {tope}: el último; ya no se le escribirá por este caso." if ultimo else ""))
 
 
 class MensajeId(Entrada):
@@ -894,7 +1017,7 @@ def pedir_contacto(conn, actor, a) -> dict:
     _paciente(conn, actor)
     termino = config.get(conn, "termino_negocio")
     # `POST /p/{token}/contacto` (PRD §7): no necesita campos.
-    return _propuesta("contacto", {}, f"Pedir que {termino} te contacte.")
+    return _propuesta("contacto", {}, f"Pedir que {termino} se comunique con usted.")
 
 
 # ----------------------------------------------------------------- sitio público (perfil visitante)
@@ -939,7 +1062,7 @@ def proponer_registro(conn, actor, a: ProponerRegistro) -> dict:
     # Los parámetros de `GET /p/{token}/nueva`; 0 es «sin elegir». `desde` es hora local sin zona.
     par = {"servicio": srv["id"] if srv else 0, "profesional": pro["id"] if pro else 0,
            "desde": inicio.strftime("%Y-%m-%dT%H:%M") if inicio else ""}
-    resumen = ("Identifícate para agendar" + (f" {srv['nombre']}" if srv else "") + (f" el {_cuando(inicio)}" if inicio else "")
+    resumen = ("Identifíquese para agendar" + (f" {srv['nombre']}" if srv else "") + (f" el {_cuando(inicio)}" if inicio else "")
                + (f" con {pro['nombre']}" if pro else "") + ".")
     return _propuesta("registro", par, resumen)
 
@@ -954,5 +1077,5 @@ class ProponerSolicitud(Entrada):
              ProponerSolicitud, VIS, PROPUESTA)
 def proponer_solicitud(conn, actor, a: ProponerSolicitud) -> dict:
     resumen = {"evaluacion_virtual": "Pedir una evaluación virtual.", "experiencia": "Pedir información de una experiencia.",
-               "contacto": "Pedir que la clínica te contacte."}[a.interes]
+               "contacto": "Pedir que la clínica se comunique con usted."}[a.interes]
     return _propuesta("solicitud", {"interes": a.interes}, resumen)

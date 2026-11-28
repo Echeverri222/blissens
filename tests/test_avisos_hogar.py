@@ -26,7 +26,8 @@ def del_hogar(conn, ids, plantilla_like):
 
 
 def citas_seguidas(conn, pro, gente, dia=3):
-    return [book(conn, p, pro, at(dia, h), notify=False) for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=False)]
+    # Limpieza (30 min) y no valoración (45): las tres citas van seguidas, de media hora en media hora.
+    return [book(conn, p, pro, at(dia, h), "Limpieza", notify=False) for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=False)]
 
 
 def test_un_solo_recordatorio_de_48h_para_todo_el_hogar_y_un_toque_confirma_todas(conn):
@@ -42,7 +43,7 @@ def test_un_solo_recordatorio_de_48h_para_todo_el_hogar_y_un_toque_confirma_toda
     assert len(recordatorios) == 1
     m = recordatorios[0]
     assert m["paciente_id"] == gente[0] and m["plantilla"] == "recordatorio_48h_hogar"
-    assert "Hola Carlos" in m["texto"] and "• Tú:" in m["texto"] and "• Mateo:" in m["texto"] and "• Sofía:" in m["texto"]
+    assert "Hola, Carlos" in m["texto"] and "• Usted:" in m["texto"] and "• Mateo:" in m["texto"] and "• Sofía:" in m["texto"]
     assert [b["title"] for b in m["botones"]] == ["Sí, asistiremos", "Cambiar o cancelar"]
 
     press(conn, gente[0], m["botones"][0]["id"])
@@ -71,7 +72,7 @@ def test_a_las_24h_un_solo_segundo_intento_que_marca_las_que_faltan(conn):
     assert len(m) == 1 and m[0]["plantilla"] == "segundo_intento_hogar"
     assert not del_hogar(conn, gente, "recordatorio_24h%")
     lineas = m[0]["texto"].splitlines()
-    assert any(x.startswith("• Tú:") and "sin confirmar" not in x for x in lineas)
+    assert any(x.startswith("• Usted:") and "sin confirmar" not in x for x in lineas)
     assert any(x.startswith("• Mateo:") and "(sin confirmar)" in x for x in lineas)
     assert status(conn, mateo_cita) == status(conn, sofia_cita) == "no_confirmada"
     assert m[0]["botones"][0]["id"] == f"confh:si:{mateo_cita}-{sofia_cita}"
@@ -128,7 +129,7 @@ def test_las_citas_agendadas_seguidas_salen_en_un_solo_mensaje(conn):
     pro = make_pro(conn)
     gente = hogar(conn)
     for p, h in zip(gente, ("09:00", "09:30", "10:00"), strict=True):
-        agenda.book(conn, p, pro, svc(conn), at(3, h), "paciente", "paciente")
+        agenda.book(conn, p, pro, svc(conn, "Limpieza"), at(3, h), "paciente", "paciente")
         clock.freeze(clock.now(conn) + timedelta(minutes=2))  # entre una y otra, menos que la espera
         tasks.cycle(conn)
     assert not del_hogar(conn, gente, "cita_agendada%")  # todavía agendando: nada sale
@@ -154,8 +155,11 @@ def test_un_solo_seguimiento_al_dia_por_hogar(conn):
     citas = citas_seguidas(conn, pro, gente)
     for c in citas:
         agenda.cancel(conn, c, "paciente", "web")
-    seguimiento = del_hogar(conn, gente, "%")
-    seguimiento = [m for m in seguimiento if m["plantilla"] in ("cancelacion_recibida", "seguimiento_reasignacion")]
+    assert len(del_hogar(conn, gente, "cancelacion_recibida")) == 3  # el acuse responde a cada acción: no cuenta como seguimiento
+    assert conn.execute("select count(*) n from intento").fetchone()["n"] == 0
+    clock.freeze(clock.now(conn) + timedelta(days=3, minutes=1))
+    tasks.cycle(conn)
+    seguimiento = [m for m in del_hogar(conn, gente, "%") if m["plantilla"] == "seguimiento_reasignacion"]
     assert len(seguimiento) == 1
     casos = conn.execute("select count(*) n from caso_seguimiento where estado='abierto'").fetchone()["n"]
     assert casos == 3  # los casos siguen abiertos: sus próximos intentos saldrán, de a uno
@@ -166,7 +170,7 @@ def test_un_solo_seguimiento_al_dia_por_hogar(conn):
     clock.freeze(clock.now(conn) + timedelta(hours=3))
     tasks.cycle(conn)
     otra_vez = [m for m in del_hogar(conn, gente, "%") if m["plantilla"] == "seguimiento_reasignacion"]
-    assert len(otra_vez) == 1  # al día siguiente, el de una sola persona más
+    assert len(otra_vez) == 2  # al día siguiente, el de una sola persona más
 
 
 def test_una_sola_oferta_de_adelanto_pendiente_por_hogar(conn):
@@ -176,8 +180,8 @@ def test_una_sola_oferta_de_adelanto_pendiente_por_hogar(conn):
     book(conn, carlos, pro, at(3, "10:00"), notify=False)
     book(conn, mateo, pro, at(4, "10:00"), notify=False)
     book(conn, otro, pro, at(2, "10:00"), notify=False)
-    slots.register_slot(conn, pro, agenda.rng(at(0, "14:00"), 30), None, "cancelacion")
-    slots.register_slot(conn, pro, agenda.rng(at(0, "15:00"), 30), None, "cancelacion")
+    slots.register_slot(conn, pro, agenda.rng(at(0, "14:00"), 45), None, "cancelacion")
+    slots.register_slot(conn, pro, agenda.rng(at(0, "15:00"), 45), None, "cancelacion")
     hogar_ofertas = del_hogar(conn, (carlos, mateo), "oferta_adelanto")
     assert len(hogar_ofertas) == 1 and hogar_ofertas[0]["paciente_id"] == mateo  # la cita más lejana, primero
     assert len(outbox(conn, otro, "oferta_adelanto")) == 1

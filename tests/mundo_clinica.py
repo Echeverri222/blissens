@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from estudia import agenda, clock, config, horario, indicators, usuarios
+from estudia import agenda, clock, config, horario, indicators, pacientes, usuarios
 from estudia.asistente import Actor
 
 from .conftest import NOW, make_patient, make_pro, svc
@@ -37,6 +37,7 @@ PACIENTES = {
     "andres": ("Andrés", "Pineda Gil", "71234567", "+573104440006", True),
     "lucia": ("Lucía", "Fernández Mora", "39876543", "+573104440007", True),
     "mateo": ("Mateo", "Ruiz Cano", "1017654321", "+573104440008", True),
+    "rafael": ("Rafael", "Osorio Vega", "98765432", "+573104440009", True),  # marcado «No contactar» (queja activa)
 }
 
 SERVICIOS = {"valoracion": "Valoración o revisión", "limpieza": "Limpieza", "ortodoncia": "Control de ortodoncia o alineadores",
@@ -100,6 +101,7 @@ class Mundo:
     mensaje: dict[str, int] = field(default_factory=dict)
     solicitud: dict[str, int] = field(default_factory=dict)
     historial: dict[str, int] = field(default_factory=dict)
+    tratamiento: dict[str, int] = field(default_factory=dict)
     actores: dict[str, Actor] = field(default_factory=dict)
 
     def resolver(self, x):
@@ -155,6 +157,12 @@ def construir(conn) -> Mundo:
         w.paciente[k] = make_patient(conn, nombres, apellidos, doc=doc, celular=cel, acepta=acepta)
     conn.execute("update paciente set responsable_id=%s, parentesco='hijo', fecha_nacimiento='2014-03-09' where id=%s",
                  (w.paciente["laura"], w.paciente["tomas"]))
+
+    # Andrés tiene un tratamiento activo con la Dra. Ríos, sin plan entregado todavía (R14).
+    w.tratamiento["andres"] = conn.execute("insert into tratamiento(paciente_id, profesional_id, sesiones_previstas) values "
+                                           "(%s,%s,6) returning id", (w.paciente["andres"], w.pro["rios"])).fetchone()["id"]
+
+    pacientes.no_contactar(conn, w.paciente["rafael"], "queja", "Queja abierta por un cobro", None)
 
     for k, valor in VALORES.items():
         conn.execute("update servicio set valor=%s where id=%s", (valor, w.servicio[k]))

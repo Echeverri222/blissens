@@ -14,8 +14,8 @@ Quién consiente por quién:
 """
 from .. import clock, familia, privacidad
 
-TEXTO = ("El asistente usa un servicio de inteligencia artificial de un tercero para responder sobre tus citas. Para eso se le "
-         "envían tu nombre y los datos de tus citas. Puedes seguir usando esta página sin el asistente.")
+TEXTO = ("El asistente usa un servicio de inteligencia artificial de un tercero para responder sobre sus citas. Para eso se le "
+         "envían su nombre y los datos de sus citas. Puede seguir usando esta página sin el asistente.")
 
 
 def estado(conn, paciente: dict) -> dict:
