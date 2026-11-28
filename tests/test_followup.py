@@ -169,7 +169,10 @@ def test_recuperacion_abre_con_volver_a_empezar_y_nombra_al_profesional(conn):
 def test_recuperacion_sin_titulo_usa_solo_el_nombre_y_el_tratamiento_aporta_su_profesional(conn):
     pro, a = make_pro(conn, "Ana Pérez"), make_patient(conn)
     trat = conn.execute("insert into tratamiento(paciente_id, profesional_id) values (%s,%s) returning id", (a, pro)).fetchone()["id"]
-    followup.open_case(conn, "tratamiento_a_medias", a, tratamiento_id=trat)
+    caso = followup.open_case(conn, "tratamiento_a_medias", a, tratamiento_id=trat)
+    abierto = conn.execute("select abierto_en from caso_seguimiento where id=%s", (caso,)).fetchone()["abierto_en"]
+    clock.freeze(abierto + timedelta(days=3, minutes=1))  # open_case no envía: el primer intento sale con la cadencia
+    tasks.cycle(conn)
     texto = outbox(conn, a, "continuidad_tratamiento")[0]["texto"]
     assert "acompañado: Ana Pérez le guarda un espacio" in texto
     conn.execute("update profesional set titulo='Dr.' where id=%s", (pro,))
