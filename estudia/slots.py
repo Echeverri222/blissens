@@ -42,7 +42,7 @@ def candidates(conn, cupo) -> list[dict]:
           and lower(c.rango) > lower(%(rango)s)
           and s.admite_adelanto
           and s.duracion_min <= %(slot_min)s
-          and p.acepta_mensajes
+          and p.acepta_mensajes and p.no_contactar is null
           and c.paciente_id is distinct from (select o.paciente_id from cita o where o.id = %(origen)s)
           -- Una oferta pendiente a la vez por hogar (el celular es compartido) y el tope semanal también es del hogar.
           and not exists (select 1 from oferta_adelanto o join cita c2 on c2.id = o.cita_id

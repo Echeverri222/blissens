@@ -99,8 +99,9 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
   const [buscado, setBuscado] = useState(inicial?.texto.trim() ?? "");
   const [segmento, setSegmento] = useState<Segmento | null>(null);
   const [nuevo, setNuevo] = useState(false);
+  const [fallecidos, setFallecidos] = useState(false);
   const activo = buscado.length > 0 || segmento !== null;
-  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined), enabled: activo });
+  const q = useQuery({ queryKey: ["pacientes", "buscar", buscado, segmento, fallecidos], queryFn: () => api.pacientes.buscar(buscado, segmento ?? undefined, fallecidos), enabled: activo });
   const nombre = (p: PacienteResumen) => `${p.nombres} ${p.apellidos}`.trim();
   return (
     <div className="space-y-3">
@@ -114,6 +115,7 @@ export function BuscarPaciente({ alElegir, conFiltros = false, inicial }: {
             <button key={f.texto} type="button" aria-pressed={segmento === f.valor} onClick={() => setSegmento(f.valor)}
               className={cn("rounded-full border px-3 py-1 text-sm font-medium", segmento === f.valor ? "border-marca bg-marca text-white" : "border-linea bg-papel hover:bg-zinc-50")}>{f.texto}</button>
           ))}
+          <Casilla etiqueta="Incluir fallecidos" checked={fallecidos} onChange={(e) => setFallecidos(e.target.checked)} />
         </div>
       )}
       {activo && (

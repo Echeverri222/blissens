@@ -121,6 +121,8 @@ def book(conn, patient_id: int, professional_id: int | None, service_id: int, st
 
     if conn.execute("select 1 from paciente where id=%s and etapa='prospecto'", (patient_id,)).fetchone():
         raise DatosInvalidos("Es un prospecto: primero hay que registrar su documento para agendarle una cita presencial")
+    if conn.execute("select 1 from paciente where id=%s and no_contactar='fallecido'", (patient_id,)).fetchone():
+        raise DatosInvalidos("No se le puede agendar: la ficha está marcada como fallecido")
     now = clock.now(conn)
     start = start.astimezone(clock.TZ)
     if professional_id is None:

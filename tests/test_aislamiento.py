@@ -227,12 +227,12 @@ def test_migraciones_subir_bajar_y_comparar_esquema():
         assert migrate.run(url) and migrate.verificar(url) == []
         assert not migrate.run(url)  # al día
         with pytest.raises(migrate.SinReversa):
-            migrate.bajar(url, 14)  # deshace de la 020 a la 007; la 007 contrae y es irreversible
+            migrate.bajar(url, 15)  # deshace de la 022 a la 007; la 007 contrae y es irreversible
         assert migrate.run(url) == ["008_canal_idempotencia.sql", "009_cerrar_api_de_datos.sql",
                                     "010_funciones_auxiliares_privadas.sql", "011_correo.sql", "012_familia.sql",
                                     "013_valor_servicio.sql", "014_resolucion_pendientes.sql", "015_asistente.sql",
                                     "016_segmentos.sql", "017_familia_fk_negocio.sql", "018_solicitud_web.sql",
-                                    "019_asistente_visitante.sql", "020_prospecto.sql"]
+                                    "019_asistente_visitante.sql", "020_prospecto.sql", "022_contacto_paciente.sql"]
         # una migración ya aplicada y modificada hace fallar
         c = db.connect_admin(url)
         c.execute("update migracion set huella='x' where nombre='003_negocio.sql'")

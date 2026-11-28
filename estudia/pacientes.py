@@ -106,3 +106,50 @@ def completar_documento(conn, paciente_id: int, documento: str, celular: str | N
     return conn.execute(
         "update paciente set documento=%s, celular=%s, etapa='paciente' where id=%s "
         "returning id, etapa, documento, celular", (documento, phone, paciente_id)).fetchone()
+
+
+# ----------------------------------------------------------------- no contactar (docs/prd-respuestas-clinica.md, R6)
+
+MOTIVOS_NO_CONTACTAR = ("queja", "cobro", "fallecido", "otro")
+ETIQUETA_NO_CONTACTAR = {"queja": "Queja activa", "cobro": "Cobro jurídico", "fallecido": "Fallecido", "otro": "No contactar"}
+# Fragmento para las consultas que arman listas de trabajo o envíos automáticos (alias `p` de `paciente`).
+SQL_CONTACTABLE = "p.no_contactar is null"
+SQL_NO_FALLECIDO = "p.no_contactar is distinct from 'fallecido'"
+
+
+def contactable(conn, paciente_id: int) -> bool:
+    """¿Se le puede escribir o llamar por iniciativa de la clínica? Gancho para recuperación, controles, planes y ofertas."""
+    r = conn.execute("select no_contactar from paciente where id=%s", (paciente_id,)).fetchone()
+    return r is not None and r["no_contactar"] is None
+
+
+def bloquea_mensaje(p: dict, directo: bool) -> bool:
+    """`fallecido` no recibe nada; con otra marca solo salen las respuestas directas a lo que la persona acaba de hacer."""
+    motivo = p.get("no_contactar")
+    return motivo == "fallecido" or (motivo is not None and not directo)
+
+
+def celular_usable(p: dict) -> bool:
+    return bool(p.get("celular")) and p.get("celular_estado", "sin_verificar") in ("sin_verificar", "valido")
+
+
+def no_contactar(conn, paciente_id: int, motivo: str, nota: str | None, usuario_id: int | None) -> dict | None:
+    """Marca al paciente como "No contactar". Cierra como `anulado` sus casos de seguimiento abiertos. None si no existe."""
+    if motivo not in MOTIVOS_NO_CONTACTAR:
+        raise DatosInvalidos("Elige un motivo válido")
+    nota = (nota or "").strip()[:200] or None
+    now = clock.now(conn)
+    r = conn.execute(
+        "update paciente set no_contactar=%s, no_contactar_en=%s, no_contactar_por=%s, no_contactar_nota=%s where id=%s "
+        "returning id, no_contactar, no_contactar_en, no_contactar_nota", (motivo, now, usuario_id, nota, paciente_id)).fetchone()
+    if r is None:
+        return None
+    conn.execute("update caso_seguimiento set estado='anulado', cerrado_en=%s, cerrado_por=%s "
+                 "where paciente_id=%s and estado='abierto'", (now, usuario_id, paciente_id))
+    return r
+
+
+def quitar_no_contactar(conn, paciente_id: int) -> dict | None:
+    return conn.execute(
+        "update paciente set no_contactar=null, no_contactar_en=null, no_contactar_por=null, no_contactar_nota=null "
+        "where id=%s returning id, no_contactar, no_contactar_en, no_contactar_nota", (paciente_id,)).fetchone()

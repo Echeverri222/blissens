@@ -33,10 +33,11 @@ router = APIRouter(dependencies=[Depends(solo_json)])
                         f"{bandejas.TOPE_BUSQUEDA}, en orden de apellidos.",
             response_model=list[sc.PacienteResumen], dependencies=[auditar("buscar_paciente")])
 def buscar(q: str | None = Query(None, min_length=1), segmento: list[sc.Segmento] = Query([]),
+           fallecidos: bool = Query(False, description="Incluye a los marcados como fallecidos (por defecto no salen)."),
            conn=Depends(get_conn), u=Depends(auxiliar)):
     if not q and not segmento:
         raise ApiError(422, "falta_filtro", "Escribe un nombre, documento o celular, o elige un segmento")
-    return bandejas.find_patients(conn, q or "", tuple(segmento))
+    return bandejas.find_patients(conn, q or "", tuple(segmento), fallecidos)
 
 
 @router.post("/pacientes", tags=["Pacientes"], summary="Crear un paciente (con consentimiento)",
@@ -77,6 +78,29 @@ def correo_paciente(paciente_id: int, datos: sc.ConsentimientoCorreo, conn=Depen
             dependencies=[auditar("editar_segmentos")])
 def segmentos_paciente(paciente_id: int, datos: sc.Segmentos, conn=Depends(get_conn), u=Depends(auxiliar)):
     r = pacientes.marcar_segmentos(conn, paciente_id, datos.internacional, datos.deportista, u["id"])
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
+@router.put("/pacientes/{paciente_id}/no-contactar", tags=["Pacientes"], response_model=sc.NoContactarOut,
+            summary="Marcar al paciente como «No contactar»",
+            description="La clínica deja de escribirle y de llamarle por iniciativa propia (cobro, queja, fallecido u otro motivo): "
+                        "no salen mensajes automáticos, se cierran como anulados sus seguimientos abiertos y desaparece de "
+                        "las listas de trabajo. Las respuestas directas a lo que la persona haga sí salen, salvo con `fallecido`, "
+                        "que lo bloquea todo y lo oculta de las búsquedas para agendar.",
+            dependencies=[auditar("marcar_no_contactar")])
+def marcar_no_contactar(paciente_id: int, datos: sc.NoContactar, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.no_contactar(conn, paciente_id, datos.motivo, datos.nota, u["id"])
+    if r is None:
+        raise permisos.NoExiste("No existe ese paciente")
+    return r
+
+
+@router.delete("/pacientes/{paciente_id}/no-contactar", tags=["Pacientes"], response_model=sc.NoContactarOut,
+               summary="Quitar la marca «No contactar»", dependencies=[auditar("quitar_no_contactar")])
+def quitar_no_contactar(paciente_id: int, conn=Depends(get_conn), u=Depends(auxiliar)):
+    r = pacientes.quitar_no_contactar(conn, paciente_id)
     if r is None:
         raise permisos.NoExiste("No existe ese paciente")
     return r

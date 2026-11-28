@@ -79,16 +79,21 @@ def send(conn, patient_id: int, key: str, data: dict | None = None, *, direct: b
     now = clock.now(conn)
     data = {"nombre": _primer(p["nombres"]), "direccion": config.get(conn, "direccion"), **(data or {})}
     text, tipo, opts = render(conn, key, data, options)
-    estado, momento = "entregado", now
-    if not direct and not p["acepta_mensajes"]:
+    estado, momento, detalle = "entregado", now, None
+    from . import pacientes
+    if pacientes.bloquea_mensaje(p, direct):
+        estado, detalle = "omitido", "no_contactar"
+    elif not direct and not p["acepta_mensajes"]:
         estado = "omitido"
+    elif not pacientes.celular_usable(p):
+        estado, detalle = "omitido", "celular"  # sin número que sirva no hay a quién escribirle; tampoco cuenta como intento
     elif not direct and not window_open(conn, now):
         estado, momento = "diferido", next_opening(conn, now)
     et, ei = entity or (None, None)
     row = conn.execute(
         "insert into mensaje(paciente_id, direccion, plantilla, texto, tipo, botones, entidad_tipo, entidad_id, "
-        "estado_entrega, momento, canal) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
-        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento, canales.tipo_activo(conn)),
+        "estado_entrega, momento, canal, detalle) values (%s,'saliente',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (patient_id, key, text, tipo, json.dumps(opts), et, ei, estado, momento, canales.tipo_activo(conn), detalle),
     ).fetchone()
     if estado == "diferido":
         tasks.schedule(conn, "entregar_mensaje", momento, {"mensaje_id": row["id"]})

@@ -20,6 +20,9 @@ RETRY_TEMPLATE = {
 def open_case(conn, kind: str, patient_id: int, *, cita_id: int | None = None, tratamiento_id: int | None = None,
               send_first: bool = True) -> int | None:
     """Abre un caso. Solo hay uno abierto por cita o tratamiento de origen; devuelve None si ya existía."""
+    from . import pacientes
+    if not pacientes.contactable(conn, patient_id):
+        return None  # «No contactar» (R6): no se abre caso
     now = clock.now(conn)
     try:
         with conn.transaction():

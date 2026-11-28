@@ -4,7 +4,7 @@ import type { CitaEnConflicto } from "./tipos";
 import type {
   Agenda, Baja, Bloqueo, Cierre, CitaDetalle, Contacto, ConteoBandejas, Desenlace, Profesional, Servicio, Motivo, Horario,
   EnRiesgo, Espacios, FichaCompleta, FiltrosIndicadores, FilaDimension, MotivoIndicador, NoConfirmada, NuevoBloqueo,
-  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
+  Identificacion, NuevoPaciente, PacienteIdentificado, PacienteResumen, NoContactar, NoContactarOut, Segmento, Segmentos, SegmentosOut, PuntoTendencia, Resumen, ResultadoGestion, Seguimiento, Sesion, SinDesenlace,
   SinInterpretar, Sistema, FaltaRepetida, CitaPerdida, Recordatorios, CeldaDiaHora, ResumenDia, TiempoEntreCitas, CupoLibre, NuevoUsuario, UsuarioAdmin, UsuarioConClave, Rol, Metas, Pendientes, Reagendamiento, AsistenteEstado, AsistenteRespuesta,
 } from "./tipos";
 
@@ -95,10 +95,12 @@ export const api = {
     eliminar: (id: number) => pedir<{ ok: boolean }>("DELETE", `/bloqueos/${id}`),
   },
   pacientes: {
-    buscar: (q: string, segmento?: Segmento) => get<PacienteResumen[]>("/pacientes", { q, segmento }),
+    buscar: (q: string, segmento?: Segmento, fallecidos?: boolean) => get<PacienteResumen[]>("/pacientes", { q, segmento, fallecidos: fallecidos ? "true" : undefined }),
     crear: (p: NuevoPaciente) => post<{ paciente_id: number }>("/pacientes", p),
     ficha: (id: number) => get<FichaCompleta>(`/pacientes/${id}`),
     identificar: (id: number, d: Identificacion) => pedir<PacienteIdentificado>("PUT", `/pacientes/${id}/identificacion`, { cuerpo: d }),
+    marcarNoContactar: (id: number, d: NoContactar) => pedir<NoContactarOut>("PUT", `/pacientes/${id}/no-contactar`, { cuerpo: d }),
+    quitarNoContactar: (id: number) => pedir<NoContactarOut>("DELETE", `/pacientes/${id}/no-contactar`),
     segmentos: (id: number, s: Segmentos) => pedir<SegmentosOut>("PUT", `/pacientes/${id}/segmentos`, { cuerpo: s }),
   },
   bandejas: {

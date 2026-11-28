@@ -2141,6 +2141,18 @@
               "default": [],
               "title": "Segmento"
             }
+          },
+          {
+            "name": "fallecidos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluye a los marcados como fallecidos (por defecto no salen).",
+              "default": false,
+              "title": "Fallecidos"
+            },
+            "description": "Incluye a los marcados como fallecidos (por defecto no salen)."
           }
         ],
         "responses": {
@@ -2551,6 +2563,199 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SegmentosOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pacientes/{paciente_id}/no-contactar": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Marcar al paciente como «No contactar»",
+        "description": "La clínica deja de escribirle y de llamarle por iniciativa propia (cobro, queja, fallecido u otro motivo): no salen mensajes automáticos, se cierran como anulados sus seguimientos abiertos y desaparece de las listas de trabajo. Las respuestas directas a lo que la persona haga sí salen, salvo con `fallecido`, que lo bloquea todo y lo oculta de las búsquedas para agendar.",
+        "operationId": "marcar_no_contactar_api_v1_pacientes__paciente_id__no_contactar_put",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoContactar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoContactarOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no tiene permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, o es de otro profesional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto con el estado actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inicio de sesión bloqueado por intentos fallidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Quitar la marca «No contactar»",
+        "operationId": "quitar_no_contactar_api_v1_pacientes__paciente_id__no_contactar_delete",
+        "parameters": [
+          {
+            "name": "paciente_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Paciente Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoContactarOut"
                 }
               }
             }
@@ -11092,6 +11297,46 @@
               }
             ],
             "title": "Segmento Origen"
+          },
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "no_contactar_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar En"
+          },
+          "no_contactar_nota": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar Nota"
           }
         },
         "type": "object",
@@ -11106,7 +11351,8 @@
           "etapa",
           "internacional",
           "deportista",
-          "segmento_origen"
+          "segmento_origen",
+          "no_contactar"
         ],
         "title": "FichaPaciente"
       },
@@ -11665,6 +11911,91 @@
         ],
         "title": "NoConfirmadaOut"
       },
+      "NoContactar": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "enum": [
+              "queja",
+              "cobro",
+              "fallecido",
+              "otro"
+            ],
+            "title": "Motivo",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "nota": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nota",
+            "description": "Nota corta, sin datos clínicos."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "NoContactar"
+      },
+      "NoContactarOut": {
+        "properties": {
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
+          },
+          "no_contactar_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar En"
+          },
+          "no_contactar_nota": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar Nota"
+          }
+        },
+        "type": "object",
+        "required": [
+          "no_contactar",
+          "no_contactar_en",
+          "no_contactar_nota"
+        ],
+        "title": "NoContactarOut"
+      },
       "NuevaCita": {
         "properties": {
           "paciente_id": {
@@ -11970,6 +12301,24 @@
             "type": "boolean",
             "title": "Deportista",
             "description": "Deportista de alto nivel (segmento de alto valor)."
+          },
+          "no_contactar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queja",
+                  "cobro",
+                  "fallecido",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Contactar",
+            "description": "Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`."
           }
         },
         "type": "object",
@@ -11981,7 +12330,8 @@
           "celular",
           "etapa",
           "internacional",
-          "deportista"
+          "deportista",
+          "no_contactar"
         ],
         "title": "PacienteResumen"
       },

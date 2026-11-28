@@ -267,6 +267,10 @@ Etapa = Literal["prospecto", "paciente"]
 ETAPA = Field(description="`prospecto`: escribió desde el sitio web y aún no tiene documento; `paciente`: ya lo tiene.")
 
 
+MotivoNoContactar = Literal["queja", "cobro", "fallecido", "otro"]
+MOTIVO_NO_CONTACTAR = Field(description="Por qué no se le contacta: `queja` (queja activa), `cobro` (cobro jurídico), `fallecido` u `otro`.")
+
+
 class PacienteResumen(Salida):
     id: int
     nombres: str
@@ -276,6 +280,18 @@ class PacienteResumen(Salida):
     etapa: Etapa = ETAPA
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+
+
+class NoContactar(Entrada):
+    motivo: MotivoNoContactar = MOTIVO_NO_CONTACTAR
+    nota: str | None = Field(None, max_length=200, description="Nota corta, sin datos clínicos.")
+
+
+class NoContactarOut(Salida):
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    no_contactar_en: Momento | None
+    no_contactar_nota: str | None
 
 
 class NuevoPaciente(Entrada):
@@ -335,6 +351,9 @@ class FichaPaciente(Salida):
     internacional: bool = Field(description="Paciente internacional (segmento de alto valor).")
     deportista: bool = Field(description="Deportista de alto nivel (segmento de alto valor).")
     segmento_origen: SegmentoOrigen | None
+    no_contactar: MotivoNoContactar | None = MOTIVO_NO_CONTACTAR
+    no_contactar_en: Momento | None = None
+    no_contactar_nota: str | None = None
 
 
 class CitaFicha(Salida):

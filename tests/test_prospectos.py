@@ -283,7 +283,7 @@ def test_la_migracion_020_enlaza_las_solicitudes_viejas_por_correo():
         solicitud("Jane Doe", "JANE@example.com")              # misma persona, otra grafía
         solicitud("Solo Tel", None, "+44 20 7946 0000")        # sin correo: queda suelta
         c.commit()
-        assert migrate.run(url) == ["020_prospecto.sql"]
+        assert migrate.run(url, hasta="020") == ["020_prospecto.sql"]
         pros = c.execute("select * from paciente where etapa='prospecto'").fetchall()
         assert [(p["correo"], p["nombres"], p["celular"], p["documento"], p["internacional"]) for p in pros] == [
             ("jane@example.com", "Jane Doe", "+1 305 555 0100", None, True)]

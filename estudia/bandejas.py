@@ -35,7 +35,7 @@ def no_confirmadas(conn):
         "select c.id, c.estado, lower(c.rango) as inicio, pr.nombre as profesional, p.id as paciente_id, "
         "p.nombres || ' ' || p.apellidos as paciente, p.celular, c.datos_origen from cita c "
         "join profesional pr on pr.id=c.profesional_id join paciente p on p.id=c.paciente_id "
-        "where c.rango is not null and lower(c.rango) > %s and p.acepta_mensajes "
+        "where c.rango is not null and lower(c.rango) > %s and p.acepta_mensajes and p.no_contactar is null "
         "and (c.estado='no_confirmada' or (c.estado='programada' and lower(c.rango) < %s))",
         (clock.now(conn), fin_de_manana(conn))).fetchall()
     out = []
@@ -64,7 +64,7 @@ def seguimientos(conn):
         "(select count(*) from intento i where i.caso_id=cs.id) as intentos, "
         "(select resultado from intento i where i.caso_id=cs.id order by numero desc limit 1) as ultimo "
         "from caso_seguimiento cs join paciente p on p.id=cs.paciente_id "
-        "where cs.estado='abierto' or (cs.estado='agotado' and cs.escalado) "
+        "where (cs.estado='abierto' or (cs.estado='agotado' and cs.escalado)) and p.no_contactar is null "
         "order by cs.escalado desc, (p.internacional or p.deportista) desc, cs.abierto_en").fetchall()
 
 
@@ -144,10 +144,11 @@ SEGMENTOS = ("internacional", "deportista")
 TOPE_BUSQUEDA = 50
 
 
-def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
+def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = (), con_fallecidos: bool = False):
     """Pacientes cuyo nombre, apellido, documento o celular contienen CADA palabra de `q`, sin importar tildes ni mayúsculas:
     «laura gomez» encuentra a Laura Gómez Arango (recepción casi nunca escribe tildes). Con `segmentos` se queda con los
-    que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos."""
+    que tienen alguna de esas marcas de alto valor; sin texto, lista a todos los de esos segmentos. Los fallecidos no salen
+    (ni para agendar ni para el asistente) salvo con `con_fallecidos`: la ficha se consulta desde Pacientes."""
     palabras = _sin_tildes(q).split()[:6]
     segmentos = tuple(s for s in SEGMENTOS if s in segmentos)
     if not palabras and not segmentos:
@@ -156,8 +157,10 @@ def find_patients(conn, q: str = "", segmentos: tuple[str, ...] = ()):
     condiciones = [f"({nombre} like %s or documento like %s or celular like %s or lower(correo) like %s)" for _ in palabras]
     if segmentos:
         condiciones.append("(" + " or ".join(segmentos) + ")")
+    if not con_fallecidos:
+        condiciones.append("no_contactar is distinct from 'fallecido'")
     args = [x for w in palabras for x in (f"%{w}%",) * 4]
-    return conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista from paciente "
+    return conn.execute(f"select id, nombres, apellidos, documento, celular, etapa, internacional, deportista, no_contactar from paciente "
                         f"where {' and '.join(condiciones)} order by apellidos, nombres limit {TOPE_BUSQUEDA}", args).fetchall()
 
 
