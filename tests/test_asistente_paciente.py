@@ -181,7 +181,7 @@ def test_no_gracias_no_registra_nada(mundo, cliente, conn):
 def test_un_familiar_usa_el_consentimiento_de_su_responsable_y_no_lo_da_ni_lo_retira(mundo, app, cliente, conn):
     inyectar(app, Falso(responde("Hola.")))
     pagina = cliente.get(f"/p/{mundo.t_mateo}/asistente").text
-    assert "decide si tu familia usa el asistente" in pagina and "Aceptar y continuar" not in pagina
+    assert "decide si su familia usa el asistente" in pagina and "Aceptar y continuar" not in pagina
     consentir(cliente, mundo.t_mateo)  # no hace nada
     assert not paciente(conn, mundo.mateo)["acepta_asistente"] and not paciente(conn, mundo.ana)["acepta_asistente"]
     assert escribir(cliente, mundo.t_mateo).status_code == 403
@@ -420,7 +420,7 @@ def test_propuesta_cancelar_abre_la_pantalla_que_pide_el_motivo_sin_cancelar(mun
     conn.rollback()
     assert conn.execute("select estado from cita where id=%s", (mundo.cita_mateo,)).fetchone()["estado"] not in ("cancelada",)
     pantalla = cliente.get(destino)
-    assert pantalla.status_code == 200 and "Cuéntanos el motivo" in pantalla.text
+    assert pantalla.status_code == 200 and "Cuéntenos el motivo" in pantalla.text
 
 
 def test_propuesta_contacto_crea_una_sola_solicitud_al_enviarla_y_esta_protegida(mundo, app, cliente, conn):

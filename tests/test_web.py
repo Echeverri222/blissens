@@ -24,7 +24,7 @@ def register(client, doc="12345678", phone="3001234567"):
 
 def test_public_entry_loads_and_assets_are_local(client):
     r = client.get("/agendar")
-    assert r.status_code == 200 and "Agenda tu cita" in r.text
+    assert r.status_code == 200 and "Agende su cita" in r.text
     assert not re.search(r'(src|href)="https?://', r.text)  # sin CDN
     assert client.get("/static/htmx.min.js").status_code == 200 and client.get("/static/pico.min.css").status_code == 200
     assert client.get("/simulador").status_code == 200 and client.get("/docs").status_code == 200
@@ -106,7 +106,7 @@ def test_book_cancel_with_reason_and_reschedule_over_http(client, conn):
     # Cancelar con motivo de un toque: se ofrecen espacios de inmediato
     motivo = conn.execute("select id from motivo_cancelacion where etiqueta='Viaje'").fetchone()["id"]
     r = client.post(f"/p/{token}/cancelar/{nueva['id']}", data={"motivo": motivo})
-    assert r.status_code == 200 and "quedó cancelada" in r.text and "Elige tu espacio" in r.text
+    assert r.status_code == 200 and "quedó cancelada" in r.text and "Elija su espacio" in r.text
     conn.rollback()
     assert status(conn, nueva["id"]) == "cancelada"
     assert conn.execute("select motivo_id from cancelacion").fetchone()["motivo_id"] == motivo

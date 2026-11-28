@@ -8,8 +8,8 @@
 {% if fase == 'consentimiento' %}
   <div class="tarjeta">
     {% if consent.por_responsable %}
-      <p>{{ consent.responsable.nombres|nombre }} decide si tu familia usa el asistente. Pídele que lo active desde su enlace.</p>
-      <p>Mientras tanto puedes seguir usando esta página con normalidad.</p>
+      <p>{{ consent.responsable.nombres|nombre }} decide si su familia usa el asistente. Pídale que lo active desde su enlace.</p>
+      <p>Mientras tanto puede seguir usando esta página con normalidad.</p>
     {% else %}
       <p>{{ texto_consentimiento }}</p>
       <form method="post" action="/p/{{ token }}/asistente/consentimiento" class="acciones">
@@ -20,8 +20,8 @@
   </div>
   <p><a href="/p/{{ token }}">Volver a mis citas</a></p>
 {% else %}
-  <p class="nota">Soy un asistente de inteligencia artificial y puedo equivocarme. Solo te ayudo con tus citas en {{ negocio.nombre }}.
-    Si es una urgencia o algo de salud, llama a {{ termino }}.</p>
+  <p class="nota">Soy una asistente automática, con inteligencia artificial, y puedo equivocarme. Solo le ayudo con sus citas en {{ negocio.nombre }}.
+    Si es una urgencia o algo de salud, llame a {{ termino }}.</p>
   <div class="chat">
     <div id="mensajes" class="chat__mensajes" aria-live="polite">
       {% if not mensajes %}<div class="burbuja burbuja--asistente"><p>Hola, soy {{ asistente_nombre }}. Puedo ayudarle con sus citas, horarios y la dirección de la clínica.</p></div>{% endif %}
@@ -38,7 +38,7 @@
         <button type="submit" name="guiado" value="cambiar" class="outline" formnovalidate>Cambiar una cita</button>
         <button type="submit" name="guiado" value="cancelar" class="outline" formnovalidate>Cancelar una cita</button>
       </div>
-      <label for="texto">O escribe tu pregunta</label>
+      <label for="texto">O escriba su pregunta</label>
       <textarea id="texto" name="texto" rows="2" maxlength="300" required></textarea>
       <button type="submit">Enviar</button>
       <p id="escribiendo" class="htmx-indicator nota" role="status">Escribiendo…</p>
@@ -50,9 +50,9 @@
   <p><a href="/p/{{ token }}">Volver a mis citas</a></p>
   {% if not consent.por_responsable %}
     <form method="post" action="/p/{{ token }}/asistente/consentimiento" style="margin-top:2rem"
-          data-confirmar="El asistente dejará de funcionar para ti y tu familia. ¿Continuar?">
+          data-confirmar="El asistente dejará de funcionar para usted y su familia. ¿Continuar?">
       <input type="hidden" name="accion" value="retirar">
-      <button type="submit" class="outline secondary">Retirar mi autorización del asistente</button>
+      <button type="submit" class="outline secondary">Retirar mi autorización de {{ asistente_nombre }}</button>
     </form>
   {% endif %}
 {% endif %}

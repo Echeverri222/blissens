@@ -4,14 +4,14 @@
 {% block content %}
 <div class="tarjeta tarjeta--angosta tarjeta--elevada">
 {% if hecha %}
-  <h1>Listo, no te enviaremos más correos</h1>
-  <p>Dejaste de recibir correos de {{ negocio.nombre }}. Esto no cambia los mensajes de WhatsApp: si también quieres
-  dejar de recibirlos, responde BAJA a nuestro WhatsApp.</p>
-  <p class="nota">Si fue un error, pídele a {{ termino }} que vuelva a activar tu correo.</p>
+  <h1>Listo, no le enviaremos más correos</h1>
+  <p>Dejó de recibir correos de {{ negocio.nombre }}. Esto no cambia los mensajes de WhatsApp: si también desea
+  dejar de recibirlos, responda BAJA a nuestro WhatsApp.</p>
+  <p class="nota">Si fue un error, pídale a {{ termino }} que vuelva a activar su correo.</p>
 {% else %}
   <h1>¿Dejar de recibir correos?</h1>
-  <p class="nota">Dejarás de recibir correos de {{ negocio.nombre }} sobre tus citas. Los mensajes de WhatsApp no cambian.</p>
-  <form method="post" action="/correo/baja/{{ token }}"><button type="submit">Sí, no quiero más correos</button></form>
+  <p class="nota">Dejará de recibir correos de {{ negocio.nombre }} sobre sus citas. Los mensajes de WhatsApp no cambian.</p>
+  <form method="post" action="/correo/baja/{{ token }}"><button type="submit">Sí, no deseo más correos</button></form>
 {% endif %}
 </div>
 {% endblock %}

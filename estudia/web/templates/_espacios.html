@@ -1,6 +1,6 @@
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if not dias_pagina %}
-  <p>No hay espacios disponibles por ahora para esa combinación. Prueba con otro especialista.</p>
+  <p>No hay espacios disponibles por ahora para esa combinación. Pruebe con otro especialista.</p>
 {% else %}
   {% set base = "/p/" ~ token ~ "/espacios?servicio=" ~ sid ~ "&profesional=" ~ pid ~ "&modo=" ~ modo ~ ("&cita=" ~ cita if cita else "") ~ ("&para=" ~ para if para else "") %}
   <div class="dias" role="group" aria-label="Día">

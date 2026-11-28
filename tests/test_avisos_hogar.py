@@ -42,7 +42,7 @@ def test_un_solo_recordatorio_de_48h_para_todo_el_hogar_y_un_toque_confirma_toda
     assert len(recordatorios) == 1
     m = recordatorios[0]
     assert m["paciente_id"] == gente[0] and m["plantilla"] == "recordatorio_48h_hogar"
-    assert "Hola Carlos" in m["texto"] and "• Tú:" in m["texto"] and "• Mateo:" in m["texto"] and "• Sofía:" in m["texto"]
+    assert "Hola, Carlos" in m["texto"] and "• Usted:" in m["texto"] and "• Mateo:" in m["texto"] and "• Sofía:" in m["texto"]
     assert [b["title"] for b in m["botones"]] == ["Sí, asistiremos", "Cambiar o cancelar"]
 
     press(conn, gente[0], m["botones"][0]["id"])
@@ -71,7 +71,7 @@ def test_a_las_24h_un_solo_segundo_intento_que_marca_las_que_faltan(conn):
     assert len(m) == 1 and m[0]["plantilla"] == "segundo_intento_hogar"
     assert not del_hogar(conn, gente, "recordatorio_24h%")
     lineas = m[0]["texto"].splitlines()
-    assert any(x.startswith("• Tú:") and "sin confirmar" not in x for x in lineas)
+    assert any(x.startswith("• Usted:") and "sin confirmar" not in x for x in lineas)
     assert any(x.startswith("• Mateo:") and "(sin confirmar)" in x for x in lineas)
     assert status(conn, mateo_cita) == status(conn, sofia_cita) == "no_confirmada"
     assert m[0]["botones"][0]["id"] == f"confh:si:{mateo_cita}-{sofia_cita}"

@@ -13,20 +13,20 @@ from . import canales, clock, config, messaging, settings, tasks
 from .lifecycle import ALIVE
 
 _DIRECCION = re.compile(r"[^@\s,;<>\"()\[\]\\]+@[^@\s,;<>\"()\[\]\\]+\.[^@\s,;<>\"()\[\]\\]+")
-PIE = "Si no quieres recibir más correos nuestros, usa este enlace: {enlace_baja}"
+PIE = "Si no desea recibir más correos nuestros, use este enlace: {enlace_baja}"
 CORREOS = {
     "agendada": (
-        "Tu cita del {fecha} – {negocio}",
-        "Hola {nombre},\n\nTu cita quedó agendada.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
+        "Su cita del {fecha} – {negocio}",
+        "Hola, {nombre}.\n\nSu cita quedó agendada.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
         "  Lugar: {direccion}\n\nPara cambiarla o cancelarla: {enlace}\n\n" + PIE),
     "recordatorio": (
-        "Mañana es tu cita – {negocio}",
-        "Hola {nombre},\n\nMañana es tu cita.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
-        "  Lugar: {direccion}\n\nSi no puedes venir, cámbiala o cancélala aquí: {enlace}\n\n" + PIE),
+        "Mañana es su cita – {negocio}",
+        "Hola, {nombre}.\n\nMañana es su cita.\n\n  Día: {fecha}\n  Hora: {hora}\n  Con: {profesional}\n"
+        "  Lugar: {direccion}\n\nSi no puede venir, cámbiela o cancélela aquí: {enlace}\n\n" + PIE),
     "cancelada": (
-        "Tu cita del {fecha} quedó cancelada – {negocio}",
-        "Hola {nombre},\n\nTu cita del {fecha} a las {hora} con {profesional} quedó cancelada.\n\n"
-        "Cuando quieras agendar de nuevo: {enlace}\n\n" + PIE),
+        "Su cita del {fecha} quedó cancelada – {negocio}",
+        "Hola, {nombre}.\n\nSu cita del {fecha} a las {hora} con {profesional} quedó cancelada.\n\n"
+        "Cuando quiera agendar de nuevo, puede hacerlo aquí: {enlace}\n\n" + PIE),
 }
 
 

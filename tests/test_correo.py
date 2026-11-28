@@ -50,7 +50,7 @@ def test_agendada_recordatorio_y_cancelada_con_los_datos_minimos(conn):
     tasks.cycle(conn)
     [m] = correos(conn, a)
     assert (m["plantilla"], m["estado_entrega"]) == ("correo_agendada", "entregado")
-    assert m["asunto"] == "Tu cita del jueves 19 de noviembre – Blissens Odontología"
+    assert m["asunto"] == "Su cita del jueves 19 de noviembre – Blissens Odontología"
     for dato in ("jueves 19 de noviembre", "10:00 a. m.", "Dra. Prueba", "Calle 00"):
         assert dato in m["texto"]
     assert "/correo/baja/" in m["texto"] and "/p/" in m["texto"]
@@ -149,7 +149,7 @@ def test_enlace_de_baja_confirma_antes_y_solo_apaga_el_correo(conn):
     assert conn.execute("select acepta_correo from paciente where id=%s", (a,)).fetchone()["acepta_correo"]
     for _ in range(2):  # y repetir la baja no cambia nada
         r = c.post(enlace)
-        assert r.status_code == 200 and "no te enviaremos más correos" in r.text
+        assert r.status_code == 200 and "no le enviaremos más correos" in r.text
     p = conn.execute("select acepta_correo, acepta_mensajes from paciente where id=%s", (a,)).fetchone()
     assert (p["acepta_correo"], p["acepta_mensajes"]) == (False, True)
     assert c.get("/correo/baja/falso").status_code == 404 and c.post("/correo/baja/falso").status_code == 404

@@ -26,15 +26,15 @@ ES = {
     "home": "/", "otro_home": "/en",
     "agendar_url": "/agendar",  # página aparte, sin distracciones; con JavaScript el botón abre el asistente
     "evaluacion_url": "/evaluacion", "contacto_url": "/contacto", "experiencia_url": "/experiencia?idioma=es",
-    "pag_agendar": {"kicker": "Blissens Odontología · Medellín", "titulo": "Agenda tu cita",
-                    "lead": "Toma menos de un minuto. Sin cuentas ni contraseñas: solo tu documento y tu celular.",
-                    "pasos": ["Identifícate", "Elige el día y la hora", "Recibe la confirmación por WhatsApp"],
-                    "paso1": "Paso 1 de 3 · Identifícate", "volver": "Volver al sitio",
+    "pag_agendar": {"kicker": "Blissens Odontología · Medellín", "titulo": "Agende su cita",
+                    "lead": "Toma menos de un minuto. Sin cuentas ni contraseñas: solo su documento y su celular.",
+                    "pasos": ["Identifíquese", "Elija el día y la hora", "Reciba la confirmación por WhatsApp"],
+                    "paso1": "Paso 1 de 3 · Identifíquese", "volver": "Volver al sitio",
                     "info": "Dónde y cuándo atendemos", "donde": "Dónde", "horario": "Horario",
-                    "ayuda": "¿Prefieres que te ayudemos? Llámanos o escríbenos por WhatsApp"},
+                    "ayuda": "¿Prefiere que le ayudemos? Llámenos o escríbanos por WhatsApp"},
     "meta": {"titulo": "Blissens · Estudio odontológico de alta tecnología en Medellín",
-             "descripcion": "Odontología digital y diseño de sonrisa en Medellín. Agenda tu cita o recibe una evaluación "
-                            "virtual si vives en el exterior.",
+             "descripcion": "Odontología digital y diseño de sonrisa en Medellín. Agende su cita o reciba una evaluación "
+                            "virtual si vive en el exterior.",
              "og_locale": "es_CO"},
     "saltar": "Saltar al contenido",
     "nav_aria": "Principal", "nav": [("nosotros", "Nosotros"), ("servicios", "Servicios"),
@@ -43,14 +43,14 @@ ES = {
                                       ("contacto", "Contacto")],
     "menu_abrir": "Abrir menú", "menu_cerrar": "Cerrar menú",
     "cta": "Agendar cita", "ingresar": "Ingresar",
-    "hero": {"kicker": "Tu futura sonrisa", "titulo": ["Sonríe y mira", "al futuro"],
+    "hero": {"kicker": "Tu futura sonrisa", "titulo": ["Sonría y mire", "al futuro"],
              "sub": ["Odontología digital", "Estudio odontológico de alta tecnología"],
-             "afuera": "Vivo en el exterior", "local": "Vivo en Medellín", "aria": "Elige cómo quieres empezar"},
+             "afuera": "Vivo en el exterior", "local": "Vivo en Medellín", "aria": "Elija cómo quiere empezar"},
     "adn": {"kicker": "Nuestro ADN", "titulo": "Conectando con la sonrisa del alma",
             "texto": "Bienvenido a Blissens®. Este es un espacio de encuentro humano que une la experticia digital con "
                      "técnicas estéticas para ofrecer a los pacientes una experiencia emocional de calidad, segura y "
                      "cercana.",
-            "marquee": ["Estudio odontológico de alta tecnología", "Blissens", "Sonríe y mira al futuro"]},
+            "marquee": ["Estudio odontológico de alta tecnología", "Blissens", "Sonría y mire al futuro"]},
     "emocion": {"titulo": "Rehabilitamos a través de la emoción",
                 "texto": "Somos especialistas en rehabilitación oral, egresados de la Universidad CES de Medellín. "
                          "JuanMa, con maestría clínica en odontología digital, le transmitió esa pasión a Sara, y hoy "
@@ -59,11 +59,11 @@ ES = {
                 "alt": "Sara López y Juan Manuel Olarte, especialistas en rehabilitación oral"},
     "confort": {"titulo": "Comodidad de principio a fin", "pasos": ["Preludio de la sonrisa", "Diagnóstico",
                                                                    "Procedimiento especializado"],
-                "texto": "Vivas en Medellín o llegues de viaje, coordinamos todo: tiempos claros, vistas previas "
-                         "digitales y procedimientos suaves y precisos. Nos enfocamos en tu comodidad en cada etapa para "
-                         "que tu tratamiento sea simple, transparente y hermosamente predecible."},
+                "texto": "Viva en Medellín o llegue de viaje, coordinamos todo: tiempos claros, vistas previas "
+                         "digitales y procedimientos suaves y precisos. Nos enfocamos en su comodidad en cada etapa para "
+                         "que su tratamiento sea simple, transparente y hermosamente predecible."},
     "servicios": {"kicker": "Servicios", "titulo": "Diseño de sonrisa",
-                  "texto": "Diseños naturales, pensados para tu rostro y creados con maquetas digitales para que veas tu "
+                  "texto": "Diseños naturales, pensados para su rostro y creados con maquetas digitales para que vea su "
                            "nueva sonrisa antes de empezar el tratamiento. Ideales para cerrar espacios, corregir forma "
                            "y tamaño y renovar bordes desgastados.",
                   "alt": "Diseño de sonrisa y odontología digital en Blissens Medellín", "ver_mas": "Ver todos los servicios",
@@ -72,20 +72,20 @@ ES = {
                             ("Implantes dentales y cirugía plástica periodontal",
                              "Reposición de dientes y mejora del contorno de las encías."),
                             ("Ortodoncia (fija e invisible)", "Alineación dental con aparatología fija o invisible."),
-                            ("Endodoncia", "Tratamiento de conducto para conservar tu diente."),
+                            ("Endodoncia", "Tratamiento de conducto para conservar su diente."),
                             ("Rehabilitación oral",
                              "Restauración de dientes perdidos o dañados parcial o totalmente para recuperar función y "
                              "estética. Diseño digital de sonrisa para predecir el tratamiento.")]},
     "evaluacion": {"kicker": "Evaluación virtual", "titulo": "Evaluación virtual",
                    "texto": "En este espacio, las personas que viven en el exterior pueden recibir asesoría "
-                            "personalizada. Solo sigue los pasos.",
-                   "pasos": ["Consulta virtual gratuita", "Completa y envía el formulario", "Analizamos tu caso",
-                             "Recibes asesoría virtual especializada"],
-                   "form_titulo": "Solicita tu evaluación", "boton": "Solicitar evaluación"},
+                            "personalizada. Solo siga los pasos.",
+                   "pasos": ["Consulta virtual gratuita", "Complete y envíe el formulario", "Analizamos su caso",
+                             "Recibe asesoría virtual especializada"],
+                   "form_titulo": "Solicite su evaluación", "boton": "Solicitar evaluación"},
     "antes": {"titulo": "Antes y después",
               "texto": "La consecuencia de nuestro trabajo será mejores expresiones, autoestima y calidad de vida.",
               "antes": "Antes", "despues": "Después", "ejemplo": "Imagen de ejemplo",
-              "slider": "Comparar antes y después. Usa las flechas del teclado para mover el control.",
+              "slider": "Comparar antes y después. Use las flechas del teclado para mover el control.",
               "casos": [("Caso 1", "Trauma dental",
                          "Miles de personas han sufrido golpes y traumas en sus dientes desde niños. Estas situaciones "
                          "no solo implican molestias físicas, sino también emocionales: un cúmulo de emociones."),
@@ -93,58 +93,58 @@ ES = {
                         ("Caso 3", "Rehabilitación oral", "Función y estética recuperadas.")],
               "nota": "Imágenes de ejemplo. Los casos reales se muestran con autorización de cada paciente."},
     "experiencias": {"kicker": "Experiencias", "titulo": "Experiencias",
-                     "texto": "Haz que tu viaje de sonrisa sea sencillo. Coordinamos estadías, traslados y agenda "
-                              "alrededor de tu tratamiento para que descanses más, te muevas menos y disfrutes Medellín "
+                     "texto": "Haga que su viaje de sonrisa sea sencillo. Coordinamos estadías, traslados y agenda "
+                              "alrededor de su tratamiento para que descanse más, se mueva menos y disfrute Medellín "
                               "mientras nos ocupamos de cada detalle.",
                      "paquetes": [("premium", "Premium", "Hotel", "Primium-460x460.png"),
                                   ("standard", "Standard", "Airbnb", "Standerd-460x460.png"),
                                   ("essential", "Essential", "Transporte", "Basic-460x460.png")],
-                     "elegir": "Elegir este paquete", "form_titulo": "Reserva tu experiencia",
-                     "ok": "Nos emociona ser parte de tu viaje. Pronto recibirás un correo con tu confirmación y pasos "
-                           "sencillos para agendar tu visita."},
+                     "elegir": "Elegir este paquete", "form_titulo": "Reserve su experiencia",
+                     "ok": "Nos emociona ser parte de su viaje. Pronto recibirá un correo con su confirmación y pasos "
+                           "sencillos para agendar su visita."},
     "equipo": {"titulo": "Nuestro equipo",
                "personas": [("Sara López", "Rehabilitación oral y diseño de sonrisa", "image-8.png", 248, 373),
                             ("Juan Manuel Olarte", "Rehabilitación oral y diseño de sonrisa", "image-9.png", 250, 374),
                             ("Laura Vélez", "Rehabilitación oral y diseño de sonrisa", "image-10.png", 246, 373)]},
-    "agendar": {"kicker": "En Medellín", "titulo": "Agenda tu cita",
-                "texto": "Si estás en Medellín, agenda tu cita en nuestro consultorio, en la torre médica del centro "
-                         "comercial El Tesoro. Sin cuentas ni instalaciones: solo necesitamos tu documento y tu celular.",
+    "agendar": {"kicker": "En Medellín", "titulo": "Agende su cita",
+                "texto": "Si está en Medellín, agende su cita en nuestro consultorio, en la torre médica del centro "
+                         "comercial El Tesoro. Sin cuentas ni instalaciones: solo necesitamos su documento y su celular.",
                 "boton": "Agendar"},
-    "contacto": {"kicker": "Contacto", "titulo": "Contáctanos",
-                 "texto": "¿Tienes más preguntas o quieres más asesoría? Escríbenos.",
+    "contacto": {"kicker": "Contacto", "titulo": "Contáctenos",
+                 "texto": "¿Tiene más preguntas o quiere más asesoría? Escríbanos.",
                  "horario": "Horario", "direccion": "Dirección", "correo": "Correo", "telefono": "Teléfono",
                  "whatsapp": "WhatsApp", "mapa": "Ver en el mapa"},
     "form": {"nombre": "Nombre", "correo": "Correo electrónico", "celular": "Celular o WhatsApp", "pais": "País de residencia",
-             "paquete": "Paquete", "paquete_ph": "Elige un paquete", "mensaje": "Mensaje", "enviar": "Enviar",
+             "paquete": "Paquete", "paquete_ph": "Elija un paquete", "mensaje": "Mensaje", "enviar": "Enviar",
              "consent": "Autorizo el tratamiento de mis datos personales.",
-             "ok": "Gracias. Recibimos tu solicitud y te responderemos en las próximas {horas} horas.",
-             "ok_correo": "Te enviamos una confirmación a tu correo.",
-             "fotos": "Fotos de tu sonrisa o radiografías (opcional)",
+             "ok": "Gracias. Recibimos su solicitud y le responderemos en las próximas {horas} horas.",
+             "ok_correo": "Le enviamos una confirmación a su correo.",
+             "fotos": "Fotos de su sonrisa o radiografías (opcional)",
              "fotos_ayuda": "Hasta 4 archivos JPG, PNG, WEBP o PDF, de máximo 5 MB cada uno.",
-             "err_adjunto_cantidad": "Puedes adjuntar hasta 4 archivos.",
+             "err_adjunto_cantidad": "Puede adjuntar hasta 4 archivos.",
              "err_adjunto_tamano": "Cada archivo puede pesar máximo 5 MB (12 MB en total).",
              "err_adjunto_tipo": "Solo aceptamos fotos JPG, PNG o WEBP y documentos PDF.",
-             "err_nombre": "Escribe tu nombre.", "err_contacto": "Déjanos un correo válido o un celular para responderte.",
-             "err_consent": "Para enviar necesitamos tu autorización para tratar tus datos.",
-             "err_paquete": "Elige un paquete.", "enviando": "Enviando…",
-             "err_limite": "Recibimos varias solicitudes desde tu conexión. Espera unos minutos e inténtalo de nuevo, o "
-                           "escríbenos por WhatsApp."},
-    "ident": {"titulo": "Tu documento y tu celular", "documento": "Documento de identidad", "celular": "Celular",
-              "continuar": "Continuar", "primera": "Parece que es tu primera vez.",
-              "primera2": "Cuéntanos tu nombre para registrarte.", "nombres": "Nombres", "apellidos": "Apellidos",
+             "err_nombre": "Escriba su nombre.", "err_contacto": "Déjenos un correo válido o un celular para responderle.",
+             "err_consent": "Para enviar necesitamos su autorización para tratar sus datos.",
+             "err_paquete": "Elija un paquete.", "enviando": "Enviando…",
+             "err_limite": "Recibimos varias solicitudes desde su conexión. Espere unos minutos e inténtelo de nuevo, o "
+                           "escríbanos por WhatsApp."},
+    "ident": {"titulo": "Su documento y su celular", "documento": "Documento de identidad", "celular": "Celular",
+              "continuar": "Continuar", "primera": "Parece que es su primera vez.",
+              "primera2": "Cuéntenos su nombre para registrarlo.", "nombres": "Nombres", "apellidos": "Apellidos",
               "correo": "Correo electrónico (opcional)",
               "acepta_correo": "Quiero recibir por correo la confirmación, el recordatorio y los avisos de cancelación "
                                "de mis citas.",
               "registrar": "Registrarme y continuar", "cargando": "Un momento…",
-              "ph_celular": "3001234567", "ph_correo": "tu@correo.com",
-              "err_datos": "Revisa tu documento y tu celular (10 dígitos, empieza por 3).",
-              "err_consent": "Para registrarte necesitamos tu autorización para tratar tus datos.",
-              "err_correo": "Escribe un correo válido, o desmarca la opción de recibir correos.",
+              "ph_celular": "3001234567", "ph_correo": "usted@correo.com",
+              "err_datos": "Revise su documento y su celular (10 dígitos, empieza por 3).",
+              "err_consent": "Para registrarse necesitamos su autorización para tratar sus datos.",
+              "err_correo": "Escriba un correo válido, o desmarque la opción de recibir correos.",
               "consent": None,  # en español se usa el texto configurado del negocio (`texto_consentimiento`)
-              "sin_auto": "No pudimos continuar de forma automática. {termino} se pondrá en contacto contigo muy pronto "
-                          "para ayudarte a agendar.",
+              "sin_auto": "No pudimos continuar de forma automática. {termino} se pondrá en contacto con usted muy pronto "
+                          "para ayudarle a agendar.",
               "volver": "Volver", "gracias": "Gracias",
-              "familia": "¿Vas a agendar para tus hijos u otros familiares? Regístrate tú primero y agrégalos desde "
+              "familia": "¿Va a agendar para sus hijos u otros familiares? Regístrese usted primero y agréguelos desde "
                          "Mis citas."},
     "pie": {"horario": "Horario", "direccion": "Dirección", "contacto": "Contacto", "derechos": "Todos los derechos reservados.",
             "politica": "Política de tratamiento de datos", "equipo": "Acceso equipo", "inicio": "Ir al inicio", "siguenos": "Síguenos"},
@@ -152,16 +152,16 @@ ES = {
                   "saludo": "Hola, soy {nombre}. Puedo ayudarle con sus citas, horarios y la dirección de la clínica.",
                   "opciones": [("agendar", "Agendar una cita"), ("afuera", "Vivo fuera de Colombia"),
                                ("direccion", "Dirección y horario"), ("otra", "Otra pregunta")],
-                  "ya_paciente": "¿Ya eres paciente? Usa el mismo formulario.",
-                  "afuera": "Si vives fuera de Colombia, empezamos con una evaluación virtual: cuéntanos tu caso y recibes "
+                  "ya_paciente": "¿Ya es paciente? Use el mismo formulario.",
+                  "afuera": "Si vive fuera de Colombia, empezamos con una evaluación virtual: cuéntenos su caso y recibe "
                             "asesoría especializada.",
-                  "experiencia": "Elige tu paquete y déjanos tus datos: te escribimos para coordinar tu viaje.",
+                  "experiencia": "Elija su paquete y déjenos sus datos: le escribimos para coordinar su viaje.",
                   "direccion": "Atendemos en:", "mapa": "Ver en el mapa", "volver": "Volver",
-                  "otra": "Escribe tu pregunta y te ayudo.", "otra_sin": "Déjanos tu mensaje y la clínica te responde.",
-                  "aviso_ia": "Soy un asistente de inteligencia artificial y puedo equivocarme. No escribas datos personales "
-                              "ni de salud: eso va solo en los formularios.",
-                  "texto": "Tu pregunta", "enviar": "Enviar", "escribiendo": "Escribiendo…",
-                  "err_texto": "Escribe un mensaje de hasta {max} caracteres."},
+                  "otra": "Escriba su pregunta y con gusto le ayudo.", "otra_sin": "Déjenos su mensaje y la clínica le responde.",
+                  "aviso_ia": "Soy una asistente automática, con inteligencia artificial, y puedo equivocarme. No escriba datos "
+                              "personales ni de salud: eso va solo en los formularios.",
+                  "texto": "Su pregunta", "enviar": "Enviar", "escribiendo": "Escribiendo…",
+                  "err_texto": "Escriba un mensaje de hasta {max} caracteres."},
     "barra": "Agendar cita", "idioma_aria": "Cambiar idioma a inglés",
 }
 

@@ -107,7 +107,7 @@ def agregar(conn, responsable: dict, documento: str, nombres: str, apellidos: st
     if not documento or not nombres:
         raise DatosInvalidos("Escribe el documento y los nombres de la persona.")
     if parentesco not in PARENTESCOS:
-        raise DatosInvalidos("Elige el parentesco.")
+        raise DatosInvalidos("Elija el parentesco.")
     hoy = clock.now(conn).astimezone(clock.TZ).date()
     try:
         fecha = date.fromisoformat(nacimiento)
@@ -116,9 +116,9 @@ def agregar(conn, responsable: dict, documento: str, nombres: str, apellidos: st
     if fecha > hoy or fecha.year < hoy.year - 120:
         raise DatosInvalidos("Revisa la fecha de nacimiento.")
     if not consentimiento:
-        raise DatosInvalidos("Para agregarla necesitamos tu autorización para tratar sus datos.")
+        raise DatosInvalidos("Para agregarla necesitamos su autorización para tratar sus datos.")
     if documento == responsable["documento"]:
-        raise DatosInvalidos("Ese es tu propio documento.")
+        raise DatosInvalidos("Ese es su propio documento.")
 
     existente = conn.execute("select * from paciente where documento=%s", (documento,)).fetchone()
     if existente:

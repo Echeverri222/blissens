@@ -4,7 +4,7 @@
 {% block content %}
 <div class="tarjeta tarjeta--angosta tarjeta--elevada">
   <h1>{% if para_nombre %}Cancelar la cita de {{ para_nombre }}{% else %}Cancelar mi cita{% endif %}</h1>
-  <p class="nota">Cuéntanos el motivo con un toque. Nos ayuda a mejorar.</p>
+  <p class="nota">Cuéntenos el motivo con un toque. Nos ayuda a mejorar.</p>
   <div class="motivos-lista">
     {% for m in motivos %}
       <form method="post" action="/p/{{ token }}/cancelar/{{ cita_id }}">

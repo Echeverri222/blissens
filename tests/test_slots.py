@@ -26,7 +26,7 @@ def test_offer_goes_to_farthest_appointment_first(conn):
     assert len(outbox(conn, c, "oferta_adelanto")) == 1
     assert not outbox(conn, a, "oferta_adelanto") and not outbox(conn, b, "oferta_adelanto")
     text = outbox(conn, c, "oferta_adelanto")[0]["texto"]
-    assert "podría adelantarse" in text and "¿Quieres hacerlo?" in text
+    assert "podría adelantarse" in text and "¿Desea hacerlo?" in text
 
 
 def test_only_one_pending_offer_per_slot(conn):
